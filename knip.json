@@ -14,7 +14,5 @@
       "project": ["src/**/*.{ts,tsx}", "*.ts"]
     },
     "packages/*": { "entry": ["src/index.ts", "src/**/*.spec.ts"], "project": ["src/**/*.ts"] }
-  },
-  // Tasks 6 and 8 fill the empty package entry points.
-  "ignore": ["packages/resilience/src/index.ts"]
+  }
 }
