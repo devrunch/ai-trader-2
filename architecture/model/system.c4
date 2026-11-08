@@ -1,0 +1,47 @@
+model {
+  trader = actor 'Trader'
+  admin = actor 'Admin'
+  aitrader = system 'AI Trader' {
+    web = container 'Web' { technology 'React SPA — SRD §10.3' }
+    api = container 'API' { technology 'NestJS — SRD §10.1' }
+    marketData = container 'Market data' {
+      technology 'Node — SRD §7.2'
+      description 'Vendor sockets and the bar builder'
+    }
+    compute = container 'Compute' {
+      technology 'Python FastAPI — SRD §10.2'
+      description 'Stateless computation'
+    }
+  }
+  postgres = store 'Postgres' { description 'SRD §10.4' }
+  redis = store 'Redis' { description 'SRD §10.4' }
+  kite = external 'Kite'
+  deriv = external 'Deriv'
+  bedrock = external 'Bedrock'
+  agentcore = external 'AgentCore'
+  telegram = external 'Telegram'
+
+  trader .calls aitrader.web
+  aitrader.web .calls aitrader.api 'REST'
+  aitrader.web .streams aitrader.api 'Socket'
+  aitrader.api .reads postgres
+  aitrader.api .reads redis
+  aitrader.marketData .streams kite
+  aitrader.marketData .streams deriv
+  aitrader.marketData .writes redis 'Ticks'
+  aitrader.api .calls aitrader.compute
+  aitrader.api .calls bedrock
+  aitrader.api .calls agentcore
+  aitrader.api .calls telegram
+}
+
+views {
+  view index {
+    title 'System context'
+    include *
+  }
+  view containers of aitrader {
+    title 'AI Trader containers'
+    include aitrader.*, ->aitrader.*->
+  }
+}

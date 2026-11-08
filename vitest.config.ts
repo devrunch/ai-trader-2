@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    projects: ['apps/api/vitest.config.mts', 'apps/web/vite.config.ts', 'tools/gates/vitest.config.mts'],
+    projects: ['apps/api/vitest.config.mts', 'apps/web/vite.config.ts', 'tools/gates/vitest.config.mts', 'scripts/diagrams/vitest.config.mts'],
     // NFR-QL-2: thresholds apply independently; empty globs pass.
     coverage: {
       provider: 'v8',

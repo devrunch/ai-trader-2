@@ -1,0 +1,24 @@
+specification {
+  element actor {
+    style { shape person; color primary }
+  }
+  element system {
+    style { shape rectangle; color indigo }
+  }
+  element container {
+    style { shape browser; color green }
+  }
+  element component {
+    style { shape component; color amber }
+  }
+  element store {
+    style { shape cylinder; color red }
+  }
+  element external {
+    style { shape queue; color gray }
+  }
+  relationship calls
+  relationship streams { multiple true }
+  relationship reads
+  relationship writes
+}

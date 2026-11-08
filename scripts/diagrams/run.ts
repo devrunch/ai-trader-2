@@ -1,0 +1,42 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { generateClassDiagram } from './gen-class-diagrams.ts';
+
+function command(binary: string, args: string[]): string {
+  const executable = resolve(`node_modules/${binary}`);
+  return execFileSync(process.execPath, [executable, ...args], {
+    encoding: 'utf8', timeout: 120_000, maxBuffer: 16 * 1024 * 1024,
+  }).replaceAll('\r\n', '\n');
+}
+
+mkdirSync('architecture/generated', { recursive: true });
+const expected = new Set<string>();
+for (const [directory, tsconfig] of [
+  ['apps/api/src/modules', 'apps/api/tsconfig.json'],
+  ['apps/web/src/features', 'apps/web/tsconfig.json'],
+]) {
+  if (!directory || !tsconfig || !existsSync(directory)) continue;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const output = `architecture/features/${entry.name}/classes.mmd`;
+    if (expected.has(output)) throw new Error(`Duplicate API/web feature name: ${entry.name}`);
+    expected.add(output);
+    mkdirSync(`architecture/features/${entry.name}`, { recursive: true });
+    writeFileSync(output, generateClassDiagram(tsconfig, `${directory}/${entry.name}`));
+  }
+}
+if (existsSync('architecture/features')) {
+  for (const file of readdirSync('architecture/features', { recursive: true, encoding: 'utf8' })) {
+    const path = `architecture/features/${file.replaceAll('\\', '/')}`;
+    if (path.endsWith('/classes.mmd') && !expected.has(path)) rmSync(path);
+  }
+}
+writeFileSync('architecture/generated/deps.mmd', command('dependency-cruiser/bin/dependency-cruiser.mjs', [
+  'apps', 'packages', '--config', '.dependency-cruiser.cjs', '--output-type', 'mermaid',
+  '--collapse', '^(apps/[^/]+/src/(modules|features|shared)/[^/]+|packages/[^/]+)',
+]));
+writeFileSync('architecture/generated/knip.md', command('knip/bin/knip.js', ['--reporter', 'markdown']));
+process.stdout.write(command('jscpd/run-jscpd.js', []));
+if (existsSync('architecture/generated/jscpd-report.md')) rmSync('architecture/generated/jscpd-report.md');
+console.log('Regenerated architecture diagrams and reports.');
