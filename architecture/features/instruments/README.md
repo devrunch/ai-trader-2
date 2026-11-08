@@ -31,16 +31,16 @@ stateDiagram-v2
     expired --> [*]
 ```
 
-The diagram describes instrument status and rename history; this task models and detects changes without persisting or applying status transitions.
+Status transitions and rename successors are persisted per source, with append-only change history.
 
 ## Continuous futures (FR-SY-5, E23)
 
-Continuous tickers end in a rank from 1 through 9 followed by `!`. Resolution selects futures with an underlying ticker equal to the root, falling back to a ticker prefix only when no underlying is present. Contracts must have expiry on or after the caller's date. Sort by ascending expiry and select rank minus one; return null when unavailable. The expiry date itself remains tradable; the following day rolls to the next contract.
+Continuous tickers end in a rank from 1 through 9 followed by `!`. Resolution selects dated futures or commodities with an underlying ticker equal to the root, falling back to a ticker prefix only when no underlying is present. Options and undated instruments are excluded. Contracts must have expiry on or after the caller's date. Sort by ascending expiry and select rank minus one; return null when unavailable. The expiry date itself remains tradable; the following day rolls to the next contract.
 
 
 ## Instrument sources (FR-SY-1, FR-SY-2, FR-SY-3, FR-SY-5, FR-MD-1, R-11)
 
-`InstrumentSource.fetch(signal)` returns a fresh canonical snapshot and one mapping per instrument/provider. Repeating a fetch over the same listings and clock date produces the same data; sources perform no writes. `INSTRUMENT_SOURCES` identifies the source array for later DI wiring. Storage, refresh orchestration and search belong to later tasks.
+`InstrumentSource.fetch(signal)` returns a fresh canonical snapshot and one mapping per instrument/provider. Repeating a fetch over the same listings and clock date produces the same data; sources perform no writes. `INSTRUMENT_SOURCES` registers Kite, Deriv and Nasdaq in `InstrumentsModule`. Search implementation belongs to P1-6.
 
 | Vendor row | Canonical mapping | Fields and identity |
 | --- | --- | --- |
@@ -81,4 +81,124 @@ flowchart TD
     C --> M[Return instruments and provider mappings]
     L --> M
     F -->|Failure or cancellation| N[Propagate failure to caller]
+```
+
+## Persistence and daily refresh (FR-SY-2/3/4, NFR-RB-4/5)
+
+`instruments-refresh` runs at 07:00 Asia/Kolkata with six hours of catch-up grace and a ten-minute runtime limit. Bootstrap registers the job in the background and requests an immediate run when the instrument table is empty. Source status is exposed through independent readiness checks; liveness stays available. Application use cases depend on repository and search ports. The Drizzle adapter owns SQL and transaction boundaries; the Kite adapter supplies an identity factory using exchange-scoped exchange tokens, while the other sources supply no identity.
+
+Only active and suspended source rows enter the previous master, so removal changes are recorded once. Incoming listed rows become active. Instrument upserts skip identical values (including preserving updated_at), mappings are replaced within the same source transaction, and change history remains append-only. Each insertion batch contains at most 1,000 rows. Expired dated derivatives older than 30 days are purged with cascading mappings; history remains. The search port receives active, suspended and recently expired rows after the purge. P1-6 replaces the empty index provider.
+
+```mermaid
+sequenceDiagram
+    participant Job as Durable scheduler
+    participant Refresh as RefreshInstruments
+    participant Source as InstrumentSource
+    participant Repo as Postgres repository
+    participant Index as SearchIndex
+    Job->>Refresh: execute(signal)
+    loop Each independent source
+        Refresh->>Source: fetch(signal)
+        Source-->>Refresh: Canonical snapshot
+        Refresh->>Repo: loadSource(source)
+        Refresh->>Refresh: diffMasters with source identity
+        Refresh->>Repo: applySource(snapshot, changes)
+        activate Repo
+        Note over Repo: BEGIN; source lock; batches at most 1000
+        Note over Repo: Upsert active rows; retain removals; replace mappings; append changes
+        alt All statements succeed
+            Note over Repo: COMMIT
+            Repo-->>Refresh: Applied
+            Refresh->>Repo: setSourceStatus(ok, count)
+        else Fetch or transaction fails
+            Note over Repo: ROLLBACK if transaction started
+            Repo-->>Refresh: Failure; previous source rows retained
+            Refresh->>Repo: setSourceStatus(stale, reason)
+            Refresh->>Refresh: Warn and continue with next source
+        end
+        deactivate Repo
+    end
+    Refresh->>Repo: purgeExpired(Kolkata today minus 30 days)
+    Refresh->>Repo: listForIndex()
+    Refresh->>Index: rebuild(instruments), once
+    Refresh-->>Job: Per-source report
+```
+
+## Resolution (FR-SY-5/7, E23)
+
+```mermaid
+flowchart TD
+    A[Raw canonical ID] --> B{InstrumentId.parse succeeds?}
+    B -->|No| V[422 VALIDATION_FAILED]
+    B -->|Yes| C{Continuous ID?}
+    C -->|Yes| D[List dated candidates for exchange and root]
+    D --> E{Unexpired contract at requested rank?}
+    E -->|Yes| F[Return dated contract via continuous]
+    E -->|No| N[404 SYMBOL_NOT_FOUND with suggestions]
+    C -->|No| G[findById]
+    G --> H{Row exists?}
+    H -->|No| N
+    H -->|Yes| I{Delisted and rename successor exists?}
+    I -->|No| J[Return row with stored status]
+    I -->|Yes| K[Follow successor up to 5 hops]
+    K --> L{Unseen successor row exists?}
+    L -->|Yes| M[Return last successor via renamed]
+    M -->|Still delisted and hops remain| K
+    L -->|No| O[Stop at last found row, retaining status]
+```
+
+## Storage (FR-SY-2/3/4, E23)
+
+History has no foreign key to instruments, so purging an expired derivative retains its changes. Source columns identify ownership; the source status table preserves its last successful count and timestamp across failed attempts.
+
+```mermaid
+erDiagram
+    instruments ||--o{ instrument_mappings : maps
+    instruments {
+        text id PK
+        text exchange
+        text ticker
+        text description
+        text type
+        text currency
+        text timezone
+        text session
+        integer pricescale
+        numeric minmov
+        integer lot_size
+        date expiry
+        numeric strike
+        text option_type
+        text underlying
+        text isin
+        text sector
+        boolean has_intraday
+        text volume_type
+        text status
+        text_array aliases
+        text source
+        timestamptz updated_at
+    }
+    instrument_mappings {
+        text id PK,FK
+        text provider PK,UK
+        text provider_symbol UK
+        text provider_token
+    }
+    instrument_changes {
+        bigserial seq PK
+        text kind
+        text id
+        text successor
+        timestamptz at
+        text source
+    }
+    instrument_source_status {
+        text source PK
+        text status
+        text reason
+        timestamptz last_success_at
+        timestamptz last_attempt_at
+        integer instrument_count
+    }
 ```

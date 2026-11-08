@@ -16,7 +16,8 @@ export interface JobSpec {
   graceMs: number;
   run(signal: AbortSignal): Promise<void>;
 }
-const recordSchema = z.object({ at: z.iso.datetime(), outcome: z.enum(['ok', 'failed', 'skipped']) });
+const recordSchema = z.object({ at: z.iso.datetime(), scheduledAt: z.iso.datetime().nullable().default(null),
+  outcome: z.enum(['ok', 'failed', 'skipped']) });
 type RunRecord = z.infer<typeof recordSchema>;
 interface RegisteredJob { spec: JobSpec; queue: Queue; worker: Worker }
 
@@ -62,13 +63,13 @@ export class JobScheduler implements OnModuleDestroy {
     this.jobs.set(spec.name, { spec, queue, worker });
     await queue.upsertJobScheduler(spec.name, { pattern: spec.cron, tz: spec.tz });
     const last = await this.lastRun(spec.name);
-    const decision = missedRunDecision(last ? new Date(last.at) : null, previous, now, spec.graceMs);
+    const decision = missedRunDecision(last ? new Date(last.scheduledAt ?? last.at) : null, previous, now, spec.graceMs);
     if (decision === 'run') {
       await queue.add(spec.name, { scheduledAt: previous.getTime() }, {
         jobId: 'immediate', removeOnComplete: true, removeOnFail: true,
       });
     }
-    if (decision === 'skip') await this.record(spec.name, 'skipped');
+    if (decision === 'skip') await this.record(spec.name, 'skipped', previous.getTime());
     void worker.run().catch((error: unknown) => { this.logger.error(error); });
   }
 
@@ -85,8 +86,9 @@ export class JobScheduler implements OnModuleDestroy {
     return raw === null ? null : recordSchema.parse(JSON.parse(raw));
   }
 
-  private async record(name: string, outcome: RunRecord['outcome'], detail?: string): Promise<void> {
-    await this.redis.set(`jobs:${name}:last`, JSON.stringify({ at: new Date().toISOString(), outcome }));
+  private async record(name: string, outcome: RunRecord['outcome'], scheduledAt: number | null, detail?: string): Promise<void> {
+    await this.redis.set(`jobs:${name}:last`, JSON.stringify({ at: new Date().toISOString(),
+      scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString(), outcome }));
     if (outcome === 'skipped') this.logger.debug({ job: name, outcome });
     await withTimeout(() => this.sink.beat(name, outcome, detail), 3000);
   }
@@ -103,7 +105,8 @@ export class JobScheduler implements OnModuleDestroy {
     try {
       // Persisted deliveries and startup catch-up share the same scheduled occurrence.
       const last = scheduledAt === undefined ? null : await this.lastRun(name);
-      if (last && scheduledAt !== undefined && new Date(last.at).getTime() >= scheduledAt) return;
+      if (last && last.scheduledAt !== null && scheduledAt !== undefined
+        && new Date(last.scheduledAt).getTime() >= scheduledAt) return;
       let outcome: RunRecord['outcome'] = 'ok';
       let detail: string | undefined;
       try { await withTimeout((signal) => spec.run(signal), spec.maxRuntimeMs, controller.signal); }
@@ -111,7 +114,7 @@ export class JobScheduler implements OnModuleDestroy {
         outcome = 'failed';
         detail = error instanceof TimeoutError ? 'timeout' : (error instanceof Error ? error.message : String(error)).slice(0, 200);
       }
-      await this.record(name, outcome, detail);
+      await this.record(name, outcome, scheduledAt ?? null, detail);
     } finally {
       this.active.delete(controller);
       // Compare ownership before deleting so an expired owner cannot release a successor's lock.

@@ -1,13 +1,18 @@
 import { DomainError } from './domain-error';
+import type { ErrorCode } from '@aitrader/contracts';
 
 export class NotFoundError extends DomainError {
-  readonly code = 'NOT_FOUND';
+  readonly code: ErrorCode = 'NOT_FOUND';
   readonly httpStatus = 404;
 }
 
 export class ValidationError extends DomainError {
   readonly code = 'VALIDATION_FAILED';
   readonly httpStatus = 422;
+}
+
+export class SymbolNotFoundError extends NotFoundError {
+  override readonly code = 'SYMBOL_NOT_FOUND';
 }
 
 export class ConflictError extends DomainError {

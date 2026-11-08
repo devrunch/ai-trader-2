@@ -15,6 +15,7 @@ import { REDIS } from '../src/shared/redis';
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
 import { startPostgres, startRedis, withToxiproxy } from './support/containers';
+import { isolateInstruments } from './support/isolate-instruments';
 
 // NFR-RB-1/3/6/7, E17 and E18: real dependency failures with stable proxy addresses.
 describe('Postgres and Redis infrastructure', () => {
@@ -26,9 +27,9 @@ describe('Postgres and Redis infrastructure', () => {
   let app: INestApplication<Server> | undefined;
 
   async function boot() {
-    const module = await Test.createTestingModule({ imports: [AppModule.forRoot(loadConfig({
+    const module = await isolateInstruments(Test.createTestingModule({ imports: [AppModule.forRoot(loadConfig({
       NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: databaseProxy.url, REDIS_URL: redisProxy.url,
-    }))] }).compile();
+    }))] })).compile();
     // Kite is isolated here: these tests exercise database and Redis readiness only.
     module.get(KiteSessionService).status = () => Promise.resolve({ valid: true });
     app = module.createNestApplication<INestApplication<Server>>();

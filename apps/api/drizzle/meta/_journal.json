@@ -8,6 +8,13 @@
       "when": 1794140088116,
       "tag": "0000_spooky_ben_urich",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794143057488,
+      "tag": "0001_aspiring_jack_power",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,11 @@ function contract(ticker: string, expiry: string, fields: Partial<Instrument> = 
 }
 
 describe('FR-SY-5, E23 continuous futures', () => {
+  it('continuous resolves MCX commodity futures', () => {
+    const near = contract('GOLDNOV', '2026-11-25', { type: 'commodity' });
+    const far = contract('GOLDDEC', '2026-12-25', { type: 'commodity' });
+    expect(resolveContinuous('GOLD', 1, [far, near], '2026-11-09')).toBe(near);
+  });
   it('parses continuous ids', () => {
     expect(parseContinuous(InstrumentId.parse('MCX:GOLD1!'))).toEqual({ root: 'GOLD', rank: 1 });
     expect(parseContinuous(InstrumentId.parse('NSE:NIFTY2!'))).toEqual({ root: 'NIFTY', rank: 2 });

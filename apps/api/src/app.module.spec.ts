@@ -8,6 +8,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from './shared/database';
 import { KiteModule } from './shared/vendors/kite';
 import { RedisModule } from './shared/redis';
+import { isolateInstruments } from '../test/support/isolate-instruments';
 
 @Module({})
 class NoInfrastructureModule {}
@@ -15,7 +16,7 @@ class NoInfrastructureModule {}
 // SRD §10.1; NFR-QL-1.
 it('boots the Nest application', async () => {
   const testConfig = loadConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
-  const module = await Test.createTestingModule({ imports: [AppModule.forRoot(testConfig)] })
+  const module = await isolateInstruments(Test.createTestingModule({ imports: [AppModule.forRoot(testConfig)] }))
     .overrideModule(KiteModule).useModule(NoInfrastructureModule)
     .overrideModule(DatabaseModule).useModule(NoInfrastructureModule)
     .overrideModule(RedisModule).useModule(NoInfrastructureModule).compile();

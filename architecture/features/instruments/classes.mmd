@@ -5,6 +5,16 @@ classDiagram
     +fetchText: FetchText
     +name: "deriv"
   }
+  class DrizzleInstrumentRepository {
+    +applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string, signal?: AbortSignal) Promise<void>
+    +findById(id: string, signal?: AbortSignal) Promise<Instrument | null>
+    +findRenameSuccessor(id: string, signal?: AbortSignal) Promise<string | null>
+    +listContinuousCandidates(root: string, exchange: string, signal?: AbortSignal) Promise<Instrument[]>
+    +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
+    +loadSource(source: string, signal?: AbortSignal) Promise<SourceSnapshot>
+    +purgeExpired(before: string, signal?: AbortSignal) Promise<number>
+    +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }, signal?: AbortSignal) Promise<void>
+  }
   class Instrument {
     +aliases: readonly string[]
     +currency: string
@@ -42,8 +52,21 @@ classDiagram
     +toString() string
     +tryParse(raw: string) InstrumentId | null
   }
+  class InstrumentRepository {
+    +applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string) Promise<void>
+    +findById(id: string) Promise<Instrument | null>
+    +findRenameSuccessor(id: string) Promise<string | null>
+    +listContinuousCandidates(underlyingOrRoot: string, exchange: string) Promise<Instrument[]>
+    +listForIndex() Promise<Instrument[]>
+    +loadSource(source: string) Promise<{ instruments: Instrument[]; mappings: ProviderMapping[] }>
+    +purgeExpired(before: string) Promise<number>
+    +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }) Promise<void>
+  }
+  class InstrumentsModule {
+  }
   class InstrumentSource {
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +identity(mappings: readonly ProviderMapping[]) (instrument: Instrument) => string | undefined
     +name: 'kite' | 'deriv' | 'nasdaq'
   }
   class InvalidInstrumentIdError {
@@ -53,6 +76,7 @@ classDiagram
   }
   class KiteSource {
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +identity(mappings: readonly ProviderMapping[]) (instrument: Instrument) => string | undefined
     +name: "kite"
   }
   class NasdaqSource {
@@ -65,6 +89,23 @@ classDiagram
     +providerSymbol: string
     +providerToken?: string
   }
+  class RefreshInstruments {
+    +execute(signal: AbortSignal) Promise<RefreshReport>
+  }
+  class RefreshJob {
+    +onApplicationBootstrap() void
+  }
+  class RefreshReport {
+    +sources: Record<string, { status: 'ok' | 'stale'; count: number;
+    changes: Record<InstrumentChangeKind, number>; reason?: string }>
+  }
+  class ResolveInstrument {
+    +execute(raw: string, today?: string) Promise<ResolvedInstrument>
+  }
+  class SearchIndex {
+    +rebuild(instruments: readonly Instrument[]) void
+    +suggest(q: string, limit: number) InstrumentId[]
+  }
   class SourceRuntime {
     +run(operation: () => Promise<T>) Promise<T>
   }
@@ -72,6 +113,12 @@ classDiagram
     +instruments: Instrument[]
     +mappings: ProviderMapping[]
   }
+  InstrumentRepository <|.. DrizzleInstrumentRepository
   InstrumentSource <|.. DerivSource
   InstrumentSource <|.. KiteSource
   InstrumentSource <|.. NasdaqSource
+  RefreshInstruments --> InstrumentRepository
+  RefreshInstruments --> SearchIndex
+  RefreshJob --> RefreshInstruments
+  ResolveInstrument --> InstrumentRepository
+  ResolveInstrument --> SearchIndex

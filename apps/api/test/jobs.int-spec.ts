@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { Redis } from 'ioredis';
-import { Queue } from 'bullmq';
+import { Queue, QueueEvents } from 'bullmq';
 import { Test } from '@nestjs/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HEARTBEAT_SINK, JobScheduler, JobSchedulerModule, type JobSpec, type HeartbeatSink } from '../src/shared/jobs';
@@ -70,10 +70,28 @@ describe('durable jobs', () => {
     const run = vi.fn<JobSpec['run']>().mockRejectedValueOnce(new Error('broken')).mockResolvedValue(undefined);
     const job = spec(run); const instance = scheduler(); await instance.register(job);
     await instance.runNow(job.name);
-    await expect.poll(() => instance.lastRun(job.name)).toMatchObject({ outcome: 'failed' });
+    await vi.waitFor(async () => {
+      expect(await instance.lastRun(job.name)).toMatchObject({ outcome: 'failed', scheduledAt: null });
+    }, { timeout: 10000 });
     expect(beat).toHaveBeenCalledWith(job.name, 'failed', 'broken');
     await instance.runNow(job.name);
-    await expect.poll(() => instance.lastRun(job.name)).toMatchObject({ outcome: 'ok' });
+    await vi.waitFor(async () => {
+      expect(await instance.lastRun(job.name)).toMatchObject({ outcome: 'ok', scheduledAt: null });
+    }, { timeout: 10000 });
+  });
+  it('a late-finishing run does not suppress the next scheduled occurrence', async () => {
+    let runs = 0; let completed = 0;
+    const job = spec(async () => { if (++runs === 1) await delay(1500); }, { cron: '*/1 * * * * *' });
+    const events = new QueueEvents(job.name, { prefix: 'jobs', connection: { url: container.url } });
+    events.on('completed', () => { completed++; });
+    try {
+      await events.waitUntilReady();
+      await scheduler().register(job);
+      await vi.waitFor(() => { expect(completed).toBeGreaterThanOrEqual(2); }, { timeout: 10000 });
+      // A completed delivery must invoke the job, even when the preceding run finished late.
+      expect(runs).toBeGreaterThanOrEqual(2);
+      expect(runs).toBeGreaterThanOrEqual(completed);
+    } finally { await events.close(); }
   });
   it('catches up a run missed within grace after restart', async () => {
     const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);
@@ -88,6 +106,25 @@ describe('durable jobs', () => {
     await first.onModuleDestroy(); instances.splice(instances.indexOf(first), 1);
     await scheduler().register(job); await delay(100);
     expect(run).toHaveBeenCalledTimes(1);
+  });
+  it('reads legacy run records with a null scheduled occurrence', async () => {
+    const job = spec(async () => {}); const instance = scheduler();
+    await redis.set(`jobs:${job.name}:last`, JSON.stringify({ at: '2020-01-01T00:00:00Z', outcome: 'ok' }));
+    expect(await instance.lastRun(job.name)).toEqual({ at: '2020-01-01T00:00:00Z', scheduledAt: null, outcome: 'ok' });
+  });
+  it('catches up the next occurrence even when the previous run finished after it', async () => {
+    const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);
+    const job = spec(run, { cron: '* * * * *', graceMs: 120000 });
+    const previous = Math.floor(Date.now() / 60000) * 60000;
+    await redis.set(`jobs:${job.name}:last`, JSON.stringify({ at: new Date(previous + 30000).toISOString(),
+      scheduledAt: new Date(previous - 60000).toISOString(), outcome: 'ok' }));
+    const instance = scheduler(); await instance.register(job);
+    await vi.waitFor(() => { expect(run).toHaveBeenCalled(); }, { timeout: 10000 });
+    await vi.waitFor(async () => {
+      const last = await instance.lastRun(job.name);
+      expect(last?.scheduledAt).not.toBeNull();
+      expect(new Date(last?.scheduledAt ?? '').getTime()).toBeGreaterThanOrEqual(previous);
+    }, { timeout: 10000 });
   });
   it('skips a run missed beyond grace and heartbeats skipped', async () => {
     const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);
