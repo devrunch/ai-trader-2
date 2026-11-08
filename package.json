@@ -1,0 +1,20 @@
+{
+  "name": "ai-trader",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.34.9",
+  "engines": { "node": ">=26.13.0" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "lint": "echo \"lint: Task 3\""
+  },
+  "devDependencies": {
+    "@swc/core": "1.16.22",
+    "@types/node": "26.6.6",
+    "typescript": "6.0.3",
+    "unplugin-swc": "2.0.0",
+    "vitest": "5.1.0"
+  }
+}
