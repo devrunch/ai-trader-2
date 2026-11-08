@@ -92,6 +92,12 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     snapshot = { instruments: [instrument('MCX:GOLD', { type: 'commodity', expiry: '2026-09-01' }), instrument('NSE:STOCK'), instrument('MCX:RECENT', { type: 'futures', expiry: '2026-11-01' })], mappings: [] };
     await run(); snapshot = { instruments: [], mappings: [] }; await run();
     expect(await repo.findById('MCX:GOLD')).toBeNull();
+    // FR-SY-7, E23: retained history resolves the reason after physical deletion.
+    expect(await repo.findLastChange('MCX:GOLD')).toMatchObject({ kind: 'expired', at: '2026-11-09 01:00:00+00' });
+    await expect(new ResolveInstrument(repo, index()).execute('MCX:GOLD')).rejects.toMatchObject({
+      code: 'SYMBOL_NOT_FOUND', details: { id: 'MCX:GOLD', reason: 'expired', at: '2026-11-09 01:00:00+00', suggestions: [] },
+    });
+    expect(await repo.findLastChange('NSE:UNKNOWN')).toBeNull();
     expect((await repo.findById('NSE:STOCK'))?.status).toBe('delisted');
     expect((await repo.listForIndex()).map(row => row.id.toString())).toEqual(['MCX:RECENT']);
     expect((await db.select().from(schema.instrumentChanges)).length).toBe(6);

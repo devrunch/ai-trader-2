@@ -98,6 +98,14 @@ export class DrizzleInstrumentRepository implements InstrumentRepository {
     const [row] = await this.read(() => this.db.select().from(instruments).where(eq(instruments.id, id)).limit(1), signal);
     return row ? fromRow(row) : null;
   }
+  async findLastChange(id: string, signal?: AbortSignal): Promise<InstrumentChange | null> {
+    const [row] = await this.read(() => this.db.select().from(instrumentChanges).where(eq(instrumentChanges.id, id))
+      .orderBy(desc(instrumentChanges.at), desc(instrumentChanges.seq)).limit(1), signal);
+    if (!row) return null;
+    return { id: InstrumentId.parse(row.id), at: row.at,
+      kind: z.enum(['listed', 'renamed', 'delisted', 'expired', 'updated']).parse(row.kind),
+      ...(row.successor ? { successor: InstrumentId.parse(row.successor) } : {}) };
+  }
   async findRenameSuccessor(id: string, signal?: AbortSignal): Promise<string | null> {
     const [row] = await this.read(() => this.db.select({ successor: instrumentChanges.successor }).from(instrumentChanges)
       .where(and(eq(instrumentChanges.id, id), eq(instrumentChanges.kind, 'renamed')))

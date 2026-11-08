@@ -6,9 +6,9 @@ import { parseNasdaq } from './nasdaq-parse.js';
 
 export class NasdaqSource implements InstrumentSource {
   readonly name = 'nasdaq';
-  private readonly logger = new Logger('NasdaqSource');
   private readonly runtime: SourceRuntime;
-  constructor(private readonly fetchText: FetchText = textFetcher(), clock: Clock = () => new Date()) {
+  constructor(private readonly fetchText: FetchText = textFetcher(), clock: Clock = () => new Date(),
+    private readonly logger: Pick<Logger, 'log'> = new Logger('NasdaqSource')) {
     this.runtime = new SourceRuntime(this.name, clock);
   }
   fetch(signal: AbortSignal): Promise<SourceSnapshot> {

@@ -10,6 +10,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "minisearch": "7.2.0",
     "bullmq": "6.7.2",
     "cron-parser": "5.10.4",
     "@nestjs/common": "12.4.0",

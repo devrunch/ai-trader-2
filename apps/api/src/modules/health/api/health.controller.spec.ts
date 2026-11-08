@@ -60,9 +60,9 @@ it('response carries x-request-id', async () => {
   expect((await request(server).get('/health')).headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
 });
 it('error responses carry the same request id in header and body', async () => {
-  const response = await request(server).get('/missing').set('x-request-id', 'abc-123');
+  const response = await request(server).get('/api/missing').set('x-request-id', 'abc-123');
   expect(response.status).toBe(404);
-  expect(response.body).toEqual({ code: 'NOT_FOUND', message: 'Cannot GET /missing', requestId: response.headers['x-request-id'] });
+  expect(response.body).toEqual({ code: 'NOT_FOUND', message: 'Cannot GET /api/missing', requestId: response.headers['x-request-id'] });
 });
 it('ready is 200 with no registered checks', async () => {
   const response = await request(server).get('/ready');

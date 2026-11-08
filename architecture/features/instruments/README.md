@@ -87,7 +87,7 @@ flowchart TD
 
 `instruments-refresh` runs at 07:00 Asia/Kolkata with six hours of catch-up grace and a ten-minute runtime limit. Bootstrap registers the job in the background and requests an immediate run when the instrument table is empty. Source status is exposed through independent readiness checks; liveness stays available. Application use cases depend on repository and search ports. The Drizzle adapter owns SQL and transaction boundaries; the Kite adapter supplies an identity factory using exchange-scoped exchange tokens, while the other sources supply no identity.
 
-Only active and suspended source rows enter the previous master, so removal changes are recorded once. Incoming listed rows become active. Instrument upserts skip identical values (including preserving updated_at), mappings are replaced within the same source transaction, and change history remains append-only. Each insertion batch contains at most 1,000 rows. Expired dated derivatives older than 30 days are purged with cascading mappings; history remains. The search port receives active, suspended and recently expired rows after the purge. P1-6 replaces the empty index provider.
+Only active and suspended source rows enter the previous master, so removal changes are recorded once. Incoming listed rows become active. Instrument upserts skip identical values (including preserving updated_at), mappings are replaced within the same source transaction, and change history remains append-only. Each insertion batch contains at most 1,000 rows. Expired dated derivatives older than 30 days are purged with cascading mappings; history remains. The search port receives active, suspended and recently expired rows after the purge. MiniSearch receives a complete snapshot after each refresh and loads persisted rows on application bootstrap.
 
 ```mermaid
 sequenceDiagram
@@ -137,7 +137,10 @@ flowchart TD
     E -->|No| N[404 SYMBOL_NOT_FOUND with suggestions]
     C -->|No| G[findById]
     G --> H{Row exists?}
-    H -->|No| N
+    H -->|No| P[findLastChange]
+    P --> Q{Last change expired or delisted?}
+    Q -->|Yes| R[404 with reason, change date and suggestions]
+    Q -->|No| N
     H -->|Yes| I{Delisted and rename successor exists?}
     I -->|No| J[Return row with stored status]
     I -->|Yes| K[Follow successor up to 5 hops]
@@ -201,4 +204,82 @@ erDiagram
         timestamptz last_attempt_at
         integer instrument_count
     }
+```
+
+
+## Search and REST (FR-SY-6/7, SRD section 11)
+
+The in-memory MiniSearch index searches ticker (boost 4), joined aliases (boost 3), and description (boost 1). ISIN is an exact lookup in a separate map. Tokenization lowercases and splits spaces and `-:/`, retaining `&`. All terms must match, prefixes are enabled, and fuzzy distance is 0.2 only for terms of at least four characters. Single-character prefix rankings and default order are precomputed during rebuild to keep broad queries fast. Other ranked query IDs use a snapshot-local LRU bounded to 64 queries and 100,000 ID references; filtering and limits are still applied on every request. Rebuilds invalidate the cache. Rebuilds publish a complete snapshot in one reference swap; readers retain the previous snapshot until publication. Startup loads the persisted master independently of the daily refresh.
+
+| Ranking priority | Rule |
+| --- | --- |
+| First | Existing exact canonical ID; ISIN uses its separate exact lookup |
+| 1 | Matching curated popular tier before all other candidates |
+| 2 | Exact ticker or alias |
+| 3 | Ticker prefix before alias/description matches |
+| 4 | Curated list position as tie-break within equally matched popular candidates |
+| 5 | Shorter ticker among prefix matches |
+| 6 | Active or suspended before delisted or expired |
+| 7 | Within the same ticker and higher tiers: NSE before BSE; NASDAQ, NYSE, NYSEARCA, AMEX, CBOE, IEX; MCX first for commodities |
+| 8 | Index, stock, ETF, continuous (`!`), futures, commodity, forex, metal, option, bond |
+| 9 | MiniSearch score descending, shorter ticker, canonical ID ascending |
+
+`infrastructure/popular-instruments.ts` explicitly contains the manager's 19 symbols followed by 50 NSE stocks selected from the official Nifty 50 constituent file reviewed on 2026-11-08. Exact/prefix match quality is evaluated within the popular tier before its list-order tie-break: this keeps NIFTY1! near NIFTY, while NIFTY precedes short popular stock tickers for `n`. Exchange preference only reorders each identical ticker's occupied result slots within equal higher tiers; it cannot promote a less relevant unrelated NSE ticker over a BSE result.
+
+Exchange and type filters apply before the limit. Empty queries return existing curated popular symbols in list order, then other existing instruments by ID. Application limits default to 20 and cap at 50.
+
+Cold-query optimization retains MiniSearch's exact term scores. Rebuild precomputes postings for at most 64 prefixes present in at least 10% of documents (minimum 10 documents; prefixes up to 12 characters). AND searches intersect individual MiniSearch term-score maps, summing their scores and multiplying by the count of distinct matching query terms. A parity test compares optimized scores with native MiniSearch, including repeated query terms. Query-result LRU entries are independent; the uncached benchmark builds a fresh index and runs 200 distinct queries once each before any result-cache reuse. The repeated 200-query benchmark reports cached percentiles separately.
+
+Deriv metals publish GOLD / GOLD SPOT, SILVER / SILVER SPOT, PLATINUM and PALLADIUM aliases. Kite MCX continuous instruments publish their root as an alias, including GOLD and CRUDEOIL. Both remain vendor-adapter responsibilities.
+
+| Endpoint | Input | Response |
+| --- | --- | --- |
+| `GET /api/v1/instruments/search` | Trimmed q (0-64), optional exchange (`[A-Z0-9_]{1,20}`) and type, integer limit 1-50 (default 20) | Strict `{ query, results: InstrumentSummary[] }`; invalid query 422 VALIDATION_FAILED |
+| `GET /api/v1/instruments/:id` | URL-encoded canonical ID, including inner spaces and colons | Strict `{ instrument, via?, resolvedFrom? }`; unknown 404 SYMBOL_NOT_FOUND with suggestions |
+
+Both endpoints share a per-IP TokenBucket with capacity 30 and refill 10/s. Exhaustion returns 429 RATE_LIMITED with Retry-After. Idle buckets are discarded only after they would have completely refilled. The global `/api` prefix excludes `/health` and `/ready`. Purged expired or delisted IDs consult retained history and include the reason and change date (E23).
+
+```mermaid
+sequenceDiagram
+    participant Request as HTTP request
+    participant Guard as Per-IP token bucket
+    participant API as InstrumentsController
+    participant UseCase as SearchInstruments
+    participant Index as MiniSearchIndex
+    Request->>Guard: GET /api/v1/instruments/search
+    alt Quota exhausted
+        Guard-->>Request: 429 RATE_LIMITED + Retry-After
+    else Token available
+        Guard->>API: Allow request
+        API->>API: Zod validation and query mapping
+        API->>UseCase: execute(query, filters, limit)
+        UseCase->>Index: search(query, options)
+        Index->>Index: Intersect term scores; popular and match tiers; same-ticker venues; filters and limit
+        Index-->>UseCase: InstrumentSummary[]
+        UseCase-->>API: query + results
+        API-->>Request: 200 strict search contract
+    end
+```
+
+
+### Deterministic endpoint limits and source logging (FR-SY-6, T-012)
+
+The guard injects the `CLOCK` provider (`() => number`, production value `Date.now`) into both idle-bucket cleanup and TokenBucket refill. Endpoint tests provide a frozen clock: 40 concurrent requests consume exactly 30 tokens and return exactly 10 rate-limit responses with Retry-After 1; advancing the clock by one second permits another request. Lookup and search share the same per-IP bucket.
+
+KiteSource and NasdaqSource accept a constructor logger with a production Nest Logger default. Test constructions pass a silent logger, while aggregate-log assertions pass a recording mock. Source logging tests verify that a supplied logger receives the aggregate diagnostic and Nest Logger is never called.
+
+```mermaid
+sequenceDiagram
+    participant Test as Controller test
+    participant Clock as Injected CLOCK
+    participant Guard as Per-IP guard
+    participant Bucket as TokenBucket
+    Test->>Clock: Freeze at 0
+    Test->>Guard: 40 concurrent search requests
+    Guard->>Bucket: tryTake using CLOCK
+    Bucket-->>Test: 30 allowed, 10 limited with Retry-After 1
+    Test->>Clock: Advance 1000 ms
+    Test->>Guard: Lookup request
+    Guard->>Bucket: Refill using same CLOCK
+    Bucket-->>Test: Allowed
 ```

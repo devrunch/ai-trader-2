@@ -10,3 +10,5 @@ export function fixtureText(url: string): Promise<string> {
   const file = url.split('/').at(-1) ?? '';
   return Promise.resolve(file.endsWith('.txt') ? fixture('nasdaq', file) : fixture('kite', `${file.toLowerCase()}.csv`));
 }
+
+export const silentSourceLogger = { log: (): void => {} };

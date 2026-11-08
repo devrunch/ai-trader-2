@@ -57,7 +57,7 @@ function addContinuous(snapshot: SourceSnapshot, roots: Map<string, Instrument>)
       const id = InstrumentId.parse(`${dated.exchange}:${ticker}`);
       const fields = { ...dated };
       delete fields.expiry;
-      snapshot.instruments.push({ ...fields, id, ticker, status: 'active', aliases: [], description: `${root.ticker} continuous (${rank === 1 ? 'front' : 'next'} month)` });
+      snapshot.instruments.push({ ...fields, id, ticker, status: 'active', aliases: dated.exchange === 'MCX' ? [root.ticker] : [], description: `${root.ticker} continuous (${rank === 1 ? 'front' : 'next'} month)` });
       snapshot.mappings.push({ id: id.toString(), provider: 'kite', providerSymbol: `continuous:${rootId}:${String(rank)}` });
     }
   }

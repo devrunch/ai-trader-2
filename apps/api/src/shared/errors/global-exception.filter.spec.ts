@@ -56,7 +56,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await app.close(); vi.restoreAllMocks(); });
 async function get(path: string, requestId?: string) {
-  const call = request(server).get(path);
+  const call = request(server).get('/api' + path);
   if (requestId) call.set('x-request-id', requestId);
   const response = await call;
   bodies.push(response.body);

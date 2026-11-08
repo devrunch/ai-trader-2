@@ -5,6 +5,7 @@ export interface InstrumentRepository {
   loadSource(source: string): Promise<{ instruments: Instrument[]; mappings: ProviderMapping[] }>;
   applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string): Promise<void>;
   findById(id: string): Promise<Instrument | null>;
+  findLastChange(id: string): Promise<InstrumentChange | null>;
   findRenameSuccessor(id: string): Promise<string | null>;
   listForIndex(): Promise<Instrument[]>;
   listContinuousCandidates(underlyingOrRoot: string, exchange: string): Promise<Instrument[]>;

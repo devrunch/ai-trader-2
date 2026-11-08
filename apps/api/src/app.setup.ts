@@ -1,4 +1,4 @@
-import type { INestApplication } from '@nestjs/common';
+import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { GlobalExceptionFilter } from './shared/errors';
 
 function isExpress(instance: unknown): instance is { disable(name: string): void } {
@@ -10,5 +10,6 @@ export function configureApp(app: INestApplication): void {
   const instance: unknown = app.getHttpAdapter().getInstance();
   if (!isExpress(instance)) throw new Error('Application setup requires an Express adapter');
   instance.disable('x-powered-by');
+  app.setGlobalPrefix('api', { exclude: [{ path: 'health', method: RequestMethod.ALL }, { path: 'ready', method: RequestMethod.ALL }] });
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
 }

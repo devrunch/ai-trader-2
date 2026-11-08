@@ -8,6 +8,7 @@ classDiagram
   class DrizzleInstrumentRepository {
     +applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string, signal?: AbortSignal) Promise<void>
     +findById(id: string, signal?: AbortSignal) Promise<Instrument | null>
+    +findLastChange(id: string, signal?: AbortSignal) Promise<InstrumentChange | null>
     +findRenameSuccessor(id: string, signal?: AbortSignal) Promise<string | null>
     +listContinuousCandidates(root: string, exchange: string, signal?: AbortSignal) Promise<Instrument[]>
     +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
@@ -55,6 +56,7 @@ classDiagram
   class InstrumentRepository {
     +applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string) Promise<void>
     +findById(id: string) Promise<Instrument | null>
+    +findLastChange(id: string) Promise<InstrumentChange | null>
     +findRenameSuccessor(id: string) Promise<string | null>
     +listContinuousCandidates(underlyingOrRoot: string, exchange: string) Promise<Instrument[]>
     +listForIndex() Promise<Instrument[]>
@@ -62,12 +64,20 @@ classDiagram
     +purgeExpired(before: string) Promise<number>
     +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }) Promise<void>
   }
+  class InstrumentsController {
+    +resolveInstrument(id: string) Promise<{ instrument: { id: string; description: string; exchange: string; type: "stock" | "index" | "futures" | "option" | "forex" | "metal" | "commodity" | "etf" | "bond"; currency: string; status: "active" | "suspended" | "delisted" | "expired"; ticker: string; timezone: string; session: string; pricescale: number; minmov: number; lotSize: number; hasIntraday: boolean; volumeType: "real" | "tick" | "none"; aliases: string[]; expiry?: string | undefined; strike?: number | undefined; optionType?: "CE" | "PE" | undefined; underlying?: string | undefined; isin?: string | undefined; sector?: string | undefined; }; via?: "renamed" | "continuous"; resolvedFrom?: string; }>
+    +searchInstruments(raw: unknown) { query: string; results: { id: string; description: string; exchange: string; type: "stock" | "index" | "futures" | "option" | "forex" | "metal" | "commodity" | "etf" | "bond"; currency: string; status: "active" | "suspended" | "delisted" | "expired"; }[]; }
+  }
   class InstrumentsModule {
+    +onApplicationBootstrap() Promise<void>
   }
   class InstrumentSource {
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
     +identity(mappings: readonly ProviderMapping[]) (instrument: Instrument) => string | undefined
     +name: 'kite' | 'deriv' | 'nasdaq'
+  }
+  class InstrumentsRateLimitGuard {
+    +canActivate(context: ExecutionContext) boolean
   }
   class InvalidInstrumentIdError {
     +code: "VALIDATION_FAILED"
@@ -78,6 +88,11 @@ classDiagram
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
     +identity(mappings: readonly ProviderMapping[]) (instrument: Instrument) => string | undefined
     +name: "kite"
+  }
+  class MiniSearchIndex {
+    +rebuild(instruments: readonly Instrument[]) void
+    +search(raw: string, opts: SearchOptions) InstrumentSummary[]
+    +suggest(q: string, limit: number) InstrumentId[]
   }
   class NasdaqSource {
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
@@ -104,7 +119,16 @@ classDiagram
   }
   class SearchIndex {
     +rebuild(instruments: readonly Instrument[]) void
+    +search(q: string, opts: SearchOptions) InstrumentSummary[]
     +suggest(q: string, limit: number) InstrumentId[]
+  }
+  class SearchInstruments {
+    +execute(q: string, opts?: Partial<SearchOptions>) z.infer<typeof InstrumentSearchResponseSchema>
+  }
+  class SearchOptions {
+    +exchange?: string
+    +limit: number
+    +type?: InstrumentType
   }
   class SourceRuntime {
     +run(operation: () => Promise<T>) Promise<T>
@@ -117,8 +141,14 @@ classDiagram
   InstrumentSource <|.. DerivSource
   InstrumentSource <|.. KiteSource
   InstrumentSource <|.. NasdaqSource
+  InstrumentsController --> ResolveInstrument
+  InstrumentsController --> SearchInstruments
+  InstrumentsModule --> InstrumentRepository
+  InstrumentsModule --> SearchIndex
   RefreshInstruments --> InstrumentRepository
   RefreshInstruments --> SearchIndex
   RefreshJob --> RefreshInstruments
   ResolveInstrument --> InstrumentRepository
   ResolveInstrument --> SearchIndex
+  SearchIndex <|.. MiniSearchIndex
+  SearchInstruments --> SearchIndex
