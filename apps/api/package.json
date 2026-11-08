@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "build": "nest build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:int": "vitest run --config vitest.int.config.mts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@nestjs/common": "12.4.0",
@@ -15,7 +18,11 @@
     "zod": "4.6.7",
     "@aitrader/contracts": "workspace:*",
     "nestjs-pino": "5.3.1",
-    "pino": "10.4.0"
+    "pino": "10.4.0",
+    "@aitrader/resilience": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1",
+    "ioredis": "6.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "12.0.12",
@@ -23,6 +30,11 @@
     "vitest": "5.1.0",
     "@nestjs/schematics": "12.0.13",
     "supertest": "7.3.2",
-    "@types/supertest": "7.2.1"
+    "@types/supertest": "7.2.1",
+    "drizzle-kit": "0.31.11",
+    "@types/pg": "8.23.1",
+    "@testcontainers/postgresql": "12.2.1",
+    "@testcontainers/redis": "12.2.1",
+    "@testcontainers/toxiproxy": "12.2.1"
   }
 }

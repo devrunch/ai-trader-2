@@ -8,6 +8,12 @@ import { AppModule } from '../../../app.module';
 import { AppConfigSchema } from '../../../shared/config';
 import { ReadinessRegistry } from '../application';
 import type { ReadinessResult } from '../../../shared/health';
+import { Module } from '@nestjs/common';
+import { DatabaseModule } from '../../../shared/database';
+import { RedisModule } from '../../../shared/redis';
+
+@Module({})
+class NoInfrastructureModule {}
 
 // NFR-OB-1, NFR-RB-6, SRD §11
 let app: INestApplication<Server>;
@@ -15,7 +21,9 @@ let server: Server;
 let registry: ReadinessRegistry;
 beforeEach(async () => {
   const config = AppConfigSchema.parse({ NODE_ENV: 'test', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
-  const module = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] }).compile();
+  const module = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] })
+    .overrideModule(DatabaseModule).useModule(NoInfrastructureModule)
+    .overrideModule(RedisModule).useModule(NoInfrastructureModule).compile();
   app = module.createNestApplication();
   await app.init();
   server = app.getHttpServer();

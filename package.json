@@ -15,11 +15,12 @@
     "knip": "knip",
     "jscpd": "jscpd",
     "diagrams:check": "node scripts/diagrams/check.ts",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm depcruise && pnpm knip && pnpm jscpd && pnpm diagrams:validate && pnpm diagrams:check && pnpm build",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:int && pnpm depcruise && pnpm knip && pnpm jscpd && pnpm diagrams:validate && pnpm diagrams:check && pnpm build",
     "diagrams": "node scripts/diagrams/run.ts",
     "diagrams:serve": "likec4 serve architecture/model",
     "diagrams:build": "likec4 build architecture/model -o architecture/site",
-    "diagrams:validate": "likec4 validate architecture/model"
+    "diagrams:validate": "likec4 validate architecture/model",
+    "test:int": "pnpm --filter @aitrader/api test:int"
   },
   "devDependencies": {
     "@swc/core": "1.16.22",
