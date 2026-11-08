@@ -2,7 +2,10 @@
   "name": "@aitrader/api",
   "version": "0.0.0",
   "private": true,
-  "scripts": { "build": "nest build", "typecheck": "tsc --noEmit" },
+  "scripts": {
+    "build": "nest build",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@nestjs/common": "12.4.0",
     "@nestjs/core": "12.4.0",
@@ -13,6 +16,7 @@
   "devDependencies": {
     "@nestjs/cli": "12.0.12",
     "@nestjs/testing": "12.4.0",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "@nestjs/schematics": "12.0.13"
   }
 }

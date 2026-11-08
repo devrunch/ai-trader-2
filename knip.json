@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["*.config.*", ".dependency-cruiser.cjs", "tools/gates/*.spec.ts", "tools/gates/*.config.mts"],
+      "project": ["*.{js,ts,cjs}", "tools/gates/*.{ts,mts}"]
+    },
+    "apps/api": {
+      "entry": ["src/main.ts", "**/*.config.*", "src/**/*.spec.ts"],
+      "project": ["src/**/*.ts", "*.mts"]
+    },
+    "apps/web": {
+      "entry": ["src/main.tsx", "**/*.config.*", "src/**/*.spec.tsx"],
+      "project": ["src/**/*.{ts,tsx}", "*.ts"]
+    },
+    "packages/*": { "entry": ["src/index.ts", "src/**/*.spec.ts"], "project": ["src/**/*.ts"] }
+  },
+  // Tasks 6 and 8 fill the empty package entry points.
+  "ignore": ["packages/*/src/index.ts"]
+}
