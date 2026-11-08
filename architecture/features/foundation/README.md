@@ -222,7 +222,33 @@ stateDiagram-v2
 ```
 
 ## Live store
-lands in T-0xx
+
+NFR-PF-3, SRD §10.3: `LiveStore` stores ticks immediately and coalesces
+notifications into one animation frame, supporting the 300 ms tick-to-paint
+budget. Charts subscribe imperatively; text uses `useSyncExternalStore` through
+`useLiveValue`. Reentrant writes schedule the next frame. Listener snapshots
+defer new subscriptions, honor removals, and report errors through a microtask
+without blocking other listeners. Missing requestAnimationFrame uses a 16 ms timer.
+
+```mermaid
+sequenceDiagram
+  participant Socket
+  participant Store as LiveStore
+  participant Frame as Frame scheduler
+  participant Chart as Chart (imperative)
+  participant Hook as useLiveValue
+  participant Text as React text
+  Socket->>Store: set(key, tick)
+  Store->>Frame: Schedule one flush
+  Socket->>Store: set(key, newer tick)
+  Note over Store: Latest value available immediately
+  Frame->>Store: Frame flush
+  Store->>Chart: Notify changed key
+  Chart->>Store: get(key)
+  Store->>Hook: Notify changed key
+  Hook->>Store: get(key)
+  Hook->>Text: One render with latest value
+```
 
 ## Diagram regeneration (SRD §14)
 
