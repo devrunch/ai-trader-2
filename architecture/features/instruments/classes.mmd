@@ -1,4 +1,10 @@
 classDiagram
+  class DerivSource {
+    +clock: Clock
+    +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +fetchText: FetchText
+    +name: "deriv"
+  }
   class Instrument {
     +aliases: readonly string[]
     +currency: string
@@ -36,8 +42,36 @@ classDiagram
     +toString() string
     +tryParse(raw: string) InstrumentId | null
   }
+  class InstrumentSource {
+    +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +name: 'kite' | 'deriv' | 'nasdaq'
+  }
   class InvalidInstrumentIdError {
     +code: "VALIDATION_FAILED"
     +raw: string
     +reason: string
   }
+  class KiteSource {
+    +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +name: "kite"
+  }
+  class NasdaqSource {
+    +fetch(signal: AbortSignal) Promise<SourceSnapshot>
+    +name: "nasdaq"
+  }
+  class ProviderMapping {
+    +id: string
+    +provider: 'kite' | 'deriv' | 'us-delayed'
+    +providerSymbol: string
+    +providerToken?: string
+  }
+  class SourceRuntime {
+    +run(operation: () => Promise<T>) Promise<T>
+  }
+  class SourceSnapshot {
+    +instruments: Instrument[]
+    +mappings: ProviderMapping[]
+  }
+  InstrumentSource <|.. DerivSource
+  InstrumentSource <|.. KiteSource
+  InstrumentSource <|.. NasdaqSource

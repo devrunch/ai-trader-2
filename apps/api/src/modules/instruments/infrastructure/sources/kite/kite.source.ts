@@ -1,0 +1,26 @@
+import { Logger } from '@nestjs/common';
+import type { InstrumentSource, SourceSnapshot } from '../../../application/ports/instrument-source.js';
+import { kolkataDate, SourceRuntime, textFetcher } from '../source-runtime.js';
+import type { Clock, FetchText } from '../source-runtime.js';
+import { parseKiteCsv } from './kite-csv.js';
+import { mapKiteRows } from './kite-mapping.js';
+
+export class KiteSource implements InstrumentSource {
+  readonly name = 'kite';
+  private readonly logger = new Logger('KiteSource');
+  private readonly runtime: SourceRuntime;
+  constructor(
+    private readonly fetchText: FetchText = textFetcher({ 'X-Kite-Version': '3' }),
+    private readonly clock: Clock = () => new Date(),
+  ) { this.runtime = new SourceRuntime(this.name, clock); }
+
+  fetch(signal: AbortSignal): Promise<SourceSnapshot> {
+    return this.runtime.run(async () => {
+      const listings = await Promise.all(['NSE', 'BSE', 'MCX', 'NFO'].map(async (exchange) =>
+        parseKiteCsv(await this.fetchText(`https://api.kite.trade/instruments/${exchange}`, signal))));
+      const { instruments, mappings, skipped } = mapKiteRows(listings.flat(), kolkataDate(this.clock));
+      this.logger.log({ skipped });
+      return { instruments, mappings };
+    });
+  }
+}

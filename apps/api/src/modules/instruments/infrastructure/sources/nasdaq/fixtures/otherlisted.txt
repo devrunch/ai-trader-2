@@ -1,0 +1,11 @@
+ACT Symbol|Security Name|Exchange|CQS Symbol|ETF|Round Lot Size|Test Issue|NASDAQ Symbol
+BRK.B|Berkshire Hathaway Inc. New Common Stock|N|BRK.B|N|40|N|BRK.B
+F|Ford Motor Company Common Stock|N|F|N|100|N|F
+GLD|SPDR Gold Shares|P|GLD|Y|40|N|GLD
+IBM|International Business Machines Corporation Common Stock|N|IBM|N|100|N|IBM
+SPY|State Street SPDR S&P 500 ETF Trust|P|SPY|Y|40|N|SPY
+AAA|Alternative Access First Priority CLO Bond ETF|P|AAA|Y|100|N|AAA
+AAAA|Amplius Aggressive Asset Allocation ETF|Z|AAAA|Y|100|N|AAAA
+AAAB|Corgi FTSE Aaa-A Intermediate Corporate Bond ETF|Z|AAAB|Y|100|N|AAAB
+ATEST|Tick Pilot Test Control Common Stock|A|ATEST|N|100|Y|ATEST
+File Creation Time: 1106202621:31||||||
