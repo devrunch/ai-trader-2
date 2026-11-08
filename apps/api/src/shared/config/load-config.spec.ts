@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { kiteCredentials } from '../vendors/kite/kite-credentials';
 import { ConfigError, loadConfig } from './load-config';
 
 const required = {
@@ -74,5 +75,35 @@ describe('loadConfig', () => {
 
   it('returns a frozen object', () => {
     expect(Object.isFrozen(loadConfig(required))).toBe(true);
+  });
+});
+
+// FR-MD-3, NFR-SC-1.
+describe('Kite configuration', () => {
+  it('requires every Kite credential in production', () => {
+    expect(kiteCredentials(loadConfig(required))).toBeNull();
+    expect(kiteCredentials(loadConfig({ ...required, ZERODHA_API_KEY: 'key' }))).toBeNull();
+    const configured = loadConfig({ ...required, NODE_ENV: 'production', ZERODHA_API_KEY: 'key',
+      ZERODHA_API_SECRET: 'secret', ZERODHA_USER_ID: 'user', ZERODHA_PASSWORD: 'password', ZERODHA_TOTP_SECRET: 'totp' });
+    expect(kiteCredentials(configured)).toEqual({ apiKey: 'key', apiSecret: 'secret', userId: 'user', password: 'password', totpSecret: 'totp' });
+    try {
+      loadConfig({ ...required, NODE_ENV: 'production' });
+      expect.fail('must reject missing credentials');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ConfigError);
+      if (error instanceof ConfigError) expect(error.issues).toEqual(
+        ['ZERODHA_API_KEY', 'ZERODHA_API_SECRET', 'ZERODHA_USER_ID', 'ZERODHA_PASSWORD', 'ZERODHA_TOTP_SECRET']
+          .map((key) => ({ key, problem: 'required in production' })),
+      );
+    }
+  });
+  it('never echoes Kite credential values in configuration problems', () => {
+    const secret = 'private-credential';
+    expect(() => loadConfig({ ...required, NODE_ENV: 'production', ZERODHA_PASSWORD: secret })).toThrow(ConfigError);
+    try { loadConfig({ ...required, NODE_ENV: 'production', ZERODHA_PASSWORD: secret }); }
+    catch (error) {
+      expect(String(error)).not.toContain(secret);
+      if (error instanceof ConfigError) expect(JSON.stringify(error.issues)).not.toContain(secret);
+    }
   });
 });

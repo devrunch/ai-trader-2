@@ -1,2 +1,1 @@
-// Feature migrations will add tables here (SRD §10.4).
-export {};
+export { vendorSessions } from './vendor-sessions';

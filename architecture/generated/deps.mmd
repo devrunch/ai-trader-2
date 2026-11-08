@@ -16,24 +16,25 @@ B["apps/api/src/shared/health"]
 C["apps/api/src/shared/jobs"]
 D["apps/api/src/shared/observability"]
 E["apps/api/src/shared/redis"]
+F["apps/api/src/shared/vendors"]
 end
 end
 end
-subgraph F["web"]
-subgraph G["src"]
-H["apps/web/src/app"]
-subgraph I["shared"]
-J["apps/web/src/shared/api"]
-K["apps/web/src/shared/live"]
-L["apps/web/src/shared/state"]
-M["apps/web/src/shared/ui"]
+subgraph G["web"]
+subgraph H["src"]
+I["apps/web/src/app"]
+subgraph J["shared"]
+K["apps/web/src/shared/api"]
+L["apps/web/src/shared/live"]
+M["apps/web/src/shared/state"]
+N["apps/web/src/shared/ui"]
 end
 end
 end
 end
-subgraph N["packages"]
-O["packages/contracts"]
-P["packages/resilience"]
+subgraph O["packages"]
+P["packages/contracts"]
+Q["packages/resilience"]
 end
 3-->5
 3-->8
@@ -42,6 +43,7 @@ end
 3-->C
 3-->D
 3-->E
+3-->F
 5-->B
 9-->8
 9-->B
@@ -51,6 +53,11 @@ D-->8
 E-->8
 E-->B
 E-->A
-H-->M
-H-->J
-H-->L
+F-->A
+F-->8
+F-->9
+F-->B
+F-->C
+I-->N
+I-->K
+I-->M

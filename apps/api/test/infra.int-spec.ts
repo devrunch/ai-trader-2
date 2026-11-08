@@ -7,6 +7,7 @@ import request from 'supertest';
 import type { Server } from 'node:http';
 import { sql } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { KiteSessionService } from '../src/shared/vendors/kite';
 import { AppModule } from '../src/app.module';
 import { loadConfig } from '../src/shared/config';
 import { DB, type Database } from '../src/shared/database';
@@ -28,6 +29,8 @@ describe('Postgres and Redis infrastructure', () => {
     const module = await Test.createTestingModule({ imports: [AppModule.forRoot(loadConfig({
       NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: databaseProxy.url, REDIS_URL: redisProxy.url,
     }))] }).compile();
+    // Kite is isolated here: these tests exercise database and Redis readiness only.
+    module.get(KiteSessionService).status = () => Promise.resolve({ valid: true });
     app = module.createNestApplication<INestApplication<Server>>();
     configureApp(app);
     await app.init();
@@ -62,7 +65,7 @@ describe('Postgres and Redis infrastructure', () => {
   it('ready is ok when postgres and redis are up', async () => {
     await boot(); await ready();
     const response = await http().get('/ready').expect(200);
-    expect(response.body).toEqual({ status: 'ok', checks: { database: { status: 'up' }, redis: { status: 'up' } } });
+    expect(response.body).toEqual({ status: 'ok', checks: { database: { status: 'up' }, redis: { status: 'up' }, kite: { status: 'up' } } });
   });
 
   async function outage(name: 'redis' | 'database') {

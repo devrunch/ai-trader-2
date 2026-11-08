@@ -6,6 +6,11 @@ const httpOrigin = z.url({ protocol: /^https?$/ }).refine((value) => {
 }, 'Expected an HTTP(S) origin');
 
 export const AppConfigSchema = z.object({
+  ZERODHA_API_KEY: z.string().optional(),
+  ZERODHA_API_SECRET: z.string().optional(),
+  ZERODHA_USER_ID: z.string().optional(),
+  ZERODHA_PASSWORD: z.string().optional(),
+  ZERODHA_TOTP_SECRET: z.string().optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
@@ -15,6 +20,11 @@ export const AppConfigSchema = z.object({
   CORS_ORIGINS: z.string()
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
     .pipe(z.array(httpOrigin)).default([]),
+}).superRefine((config, context) => {
+  if (config.NODE_ENV !== 'production') return;
+  for (const key of ['ZERODHA_API_KEY', 'ZERODHA_API_SECRET', 'ZERODHA_USER_ID', 'ZERODHA_PASSWORD', 'ZERODHA_TOTP_SECRET'] as const) {
+    if (!config[key]) context.addIssue({ code: 'custom', path: [key], message: 'required in production' });
+  }
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;

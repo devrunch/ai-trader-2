@@ -26,7 +26,12 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>): A
   if (!result.success) {
     // NFR-SC-1: expose fixed descriptions, never validator input or payloads.
     const keys = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
-    throw new ConfigError(keys.map((key) => ({ key, problem: problems[key] ?? 'invalid value' })));
+    const missing = new Set(result.error.issues
+      .filter((issue) => issue.code === 'custom' && issue.message === 'required in production')
+      .map((issue) => String(issue.path[0])));
+    throw new ConfigError(keys.map((key) => ({
+      key, problem: missing.has(key) ? 'required in production' : (problems[key] ?? 'invalid value'),
+    })));
   }
   Object.freeze(result.data.CORS_ORIGINS);
   return Object.freeze(result.data);
