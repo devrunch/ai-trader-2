@@ -1,8 +1,9 @@
-import { Inject, Logger, Module, type OnApplicationBootstrap } from '@nestjs/common';
+import { Global, Inject, Logger, Module, type OnApplicationBootstrap } from '@nestjs/common';
 import { DB, type Database } from '../../shared/database/index.js';
 import { JobScheduler } from '../../shared/jobs/index.js';
 import { ReadinessRegistry } from '../../shared/health/index.js';
-import { RefreshInstruments, ResolveInstrument, SearchInstruments } from './application/index.js';
+import { RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory } from './application/index.js';
+import { POPULAR_INSTRUMENTS } from './infrastructure/popular-instruments';
 import { INSTRUMENT_REPOSITORY, type InstrumentRepository } from './application/ports/instrument-repository.js';
 import { INSTRUMENT_SOURCES, type InstrumentSource } from './application/ports/instrument-source.js';
 import { SEARCH_INDEX, type SearchIndex } from './application/ports/search-index.js';
@@ -14,9 +15,12 @@ import { MiniSearchIndex } from './infrastructure/minisearch-index.js';
 import { InstrumentsController } from './api/instruments.controller.js';
 import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.guard.js';
 
+@Global()
 @Module({
   controllers: [InstrumentsController],
   providers: [
+    { provide: InstrumentHistory, inject: [INSTRUMENT_REPOSITORY],
+      useFactory: (repo: InstrumentRepository) => new InstrumentHistory(repo, POPULAR_INSTRUMENTS) },
     { provide: CLOCK, useValue: Date.now },
     InstrumentsRateLimitGuard,
     { provide: SearchInstruments, inject: [SEARCH_INDEX], useFactory: (index: SearchIndex) => new SearchInstruments(index) },
@@ -32,7 +36,7 @@ import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.g
       useFactory: (scheduler: JobScheduler, refresh: RefreshInstruments, db: Database, readiness: ReadinessRegistry) =>
         new RefreshJob(scheduler, refresh, db, readiness) },
   ],
-  exports: [RefreshInstruments, ResolveInstrument],
+  exports: [RefreshInstruments, ResolveInstrument, InstrumentHistory],
 })
 export class InstrumentsModule implements OnApplicationBootstrap {
   constructor(@Inject(INSTRUMENT_REPOSITORY) private readonly repository: InstrumentRepository,

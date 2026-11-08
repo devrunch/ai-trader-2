@@ -14,6 +14,7 @@ export function repository() {
   return { loadSource: vi.fn<InstrumentRepository['loadSource']>().mockResolvedValue({ instruments: [], mappings: [] }),
     applySource: vi.fn<InstrumentRepository['applySource']>().mockResolvedValue(undefined),
     findById: vi.fn<InstrumentRepository['findById']>().mockResolvedValue(null),
+    getMapping: vi.fn<InstrumentRepository['getMapping']>().mockResolvedValue(undefined),
     findLastChange: vi.fn<InstrumentRepository['findLastChange']>().mockResolvedValue(null),
     findRenameSuccessor: vi.fn<InstrumentRepository['findRenameSuccessor']>().mockResolvedValue(null),
     listForIndex: vi.fn<InstrumentRepository['listForIndex']>().mockResolvedValue([]),

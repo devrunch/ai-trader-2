@@ -1,5 +1,25 @@
 # Instruments domain
 
+P2-4 adds the public `InstrumentHistory` application API (FR-MD-1, FR-MD-2).
+`getMapping(id, provider, signal)` returns provider mapping plus canonical volume
+metadata; `held(signal)` selects active popular-list IDs with Kite mappings.
+The instruments module exports this service globally so other modules inject
+the application API without importing infrastructure or module internals (R-5).
+
+```mermaid
+sequenceDiagram
+    participant History as Market-data application
+    participant Instruments as InstrumentHistory
+    participant Repository as InstrumentRepository
+    History->>Instruments: getMapping(id, kite, signal)
+    Instruments->>Repository: getMapping and findById
+    Repository-->>Instruments: persisted mapping and volume metadata
+    Instruments-->>History: mapping or undefined
+    History->>Instruments: held(signal)
+    Instruments->>Repository: active master and popular ID mappings
+    Instruments-->>History: active popular IDs mapped to Kite
+```
+
 Pure, deterministic instrument IDs, master fields, change detection and continuous-futures resolution. No framework or I/O. Implements FR-SY-1, FR-SY-2, FR-SY-4, FR-SY-5 and the domain portion of E23.
 
 ## Canonical ID parsing (FR-SY-1)

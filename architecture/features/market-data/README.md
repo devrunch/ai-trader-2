@@ -138,3 +138,99 @@ sequenceDiagram
 aggregation only when newer than persisted minutes. Short pages lacking older
 stored history report `complete=false` for P2-4 read-through. The NFR-PF-2
 integration test measures a full 5,000-bucket page against real containers.
+
+## Kite history and read-through (P2-4)
+
+FR-MD-1 defines `MarketDataProvider.history`: a `ProviderResult<Bar[]>`, never
+null. The injected `MARKET_DATA_PROVIDERS` map currently contains only Kite.
+InstrumentHistory exposes mappings through the instruments application API.
+Canonical volume metadata travels with the mapping: indices have null volume;
+zero equity/futures volume stays zero. The adapter also recognizes index tokens
+when callers supply only the required mapping fields. Vendor tokens, intervals, timestamps and
+error shapes are interpreted only inside the Kite adapter. Continuous IDs ending
+in `1!` return UNSUPPORTED with `continuous history arrives in P2-8`.
+
+| Reason | Meaning and handling |
+| --- | --- |
+| NO_DATA | Empty history window; does not trip the breaker |
+| MARKET_CLOSED | Reserved typed outcome; closed markets do not prevent historical reads |
+| UNSUPPORTED | Missing mapping/token, unknown instrument, deferred continuous history; does not trip the breaker |
+| RATE_LIMITED | Redis wait exhausted, HTTP 429, Too many NetworkException; includes retry delay (E4) |
+| PROVIDER_DOWN | Network/server/timeout/invalid payload failure or open breaker (E6) |
+| AUTH_EXPIRED | TokenException; no substitution from another vendor (E3) |
+
+FR-MD-4 uses Redis key `rl:kite:history`, capacity 3, refill 3/second. Lua uses
+Redis TIME to refill and consume atomically across processes. Waiters use
+abortable resilience sleep and a default 30-second deadline. Each sequential
+chunk takes a token: at most 60 days for minute or 2,000 days for daily. SDK
+request dates are IST; returned starts become UTC epoch milliseconds. SDK and
+caller-facing timeouts are 15 seconds. Cancellation stops waiting and subsequent
+chunks; the SDK has no per-request AbortSignal parameter, so its underlying
+request remains bounded by its own timeout. Three provider failures open the
+breaker for 60 seconds; open calls fail before token or session access.
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant ReadBars
+    participant Store as CandleStore
+    participant Fill as FillHistory
+    participant Instruments as Instruments application API
+    participant Kite as KiteHistoryProvider
+    participant Redis as Shared token bucket
+    Caller->>ReadBars: execute(id, interval, cursor, limit, signal)
+    ReadBars->>Store: read stored history
+    alt complete
+        ReadBars-->>Caller: page, status ok
+    else missing older history
+        ReadBars->>Fill: fill missing window once (1m or 1d)
+        Note over Fill: Concurrent identical fills share one promise
+        Fill->>Instruments: getMapping(id, kite)
+        Fill->>Kite: history(mapping, resolution, from, to, signal)
+        loop sequential chunks
+            Kite->>Redis: take token, wait within deadline
+            Kite->>Kite: breaker + session + timed SDK request
+        end
+        Kite-->>Fill: bars or typed reason
+        opt bars available
+            Fill->>Store: mergeRepair and upsert vendor timestamps
+        end
+        Fill-->>ReadBars: counts or typed reason
+        ReadBars->>Store: re-read once
+        ReadBars-->>Caller: page with status, or typed failure if empty
+    end
+```
+
+Failed fills with existing bars return `status: {ok:false,reason,detail?}`
+(stale); without bars they return the ProviderResult failure itself. Successful
+fills followed by empty reads return NO_DATA. Timestamp keys and conditional
+upserts make identical fills idempotent. Repairs preserve live-only bars and
+write vendor timestamps with source `kite`.
+
+## Nightly reconciliation (FR-MD-2)
+
+`bars-backfill`: cron `30 0 * * *`, Asia/Kolkata, six-hour catch-up grace,
+45-minute runtime. Held means active popular-list instruments mapped to Kite;
+watchlists are deferred. Minute history starts at the open of the fifth most
+recent completed trading date, honoring holidays and special sessions. Daily
+history covers 400 calendar days. Info logs contain counts or a typed reason
+per instrument. RATE_LIMITED runs use resilience retries with jitter and at least
+a one-second wait before each retry. Composite candle keys make replays safe.
+
+```mermaid
+flowchart TD
+    Scheduler[JobScheduler: 00:30 IST] --> Universe[Active popular instruments mapped to Kite]
+    Universe --> Next[Next instrument]
+    Next --> Minute[Fill last 5 trading dates: minute]
+    Minute --> Daily[Fill last 400 days: daily]
+    Daily --> Log[Info: written and repaired counts]
+    Minute --> Merge[Each fill: mergeRepair, vendor wins, mark repaired, upsert]
+    Daily --> Merge
+    Next -->|failure| Failure[Record typed reason and continue]
+    Log --> Next
+    Failure --> Next
+```
+
+The manager-only `scripts/smoke/kite-history.ts` loads configuration, mints a
+session, uses the shared Redis bucket and prints RELIANCE minute and NIFTY daily
+counts and first/last starts in IST. Automated tests use fake Kite clients.

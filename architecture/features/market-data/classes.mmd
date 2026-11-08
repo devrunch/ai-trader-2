@@ -1,4 +1,10 @@
 classDiagram
+  class BackfillHeld {
+    +execute(signal: AbortSignal) Promise<Record<string, ProviderResult<Counts>>>
+  }
+  class BackfillJob {
+    +onApplicationBootstrap() Promise<void>
+  }
   class Bar {
     +close: number
     +high: number
@@ -18,13 +24,14 @@ classDiagram
     +bars: Bar[]
     +complete: boolean
     +nextBefore: number | null
+    +status: { ok: true } | { ok: false; reason: ProviderReason; detail?: string }
   }
   class CandleStore {
-    +earliest(instrumentId: string, daily: boolean) Promise<number | null>
-    +range1d(instrumentId: string, from: string, to: string) Promise<Bar[]>
-    +range1m(instrumentId: string, from: number, to: number) Promise<Bar[]>
-    +upsert1d(instrumentId: string, bars: readonly Bar[], source: string) Promise<{ written: number; repaired: number }>
-    +upsert1m(instrumentId: string, bars: readonly Bar[], source: string) Promise<{ written: number; repaired: number }>
+    +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
+    +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
+    +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
+    +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
   class DrizzleCandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
@@ -33,13 +40,24 @@ classDiagram
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
+  class FillHistory {
+    +execute(instrumentId: string, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Counts>>
+  }
   class FormingBarStore {
     +clear(instrumentId: string) Promise<void>
-    +get(instrumentId: string) Promise<{ bar: Bar; lastCumVolume: number | null; seq: number | null } | null>
+    +get(instrumentId: string, signal?: AbortSignal) Promise<{ bar: Bar; lastCumVolume: number | null; seq: number | null } | null>
     +set(instrumentId: string, v: { bar: Bar; lastCumVolume: number | null; seq: number | null }) Promise<void>
+  }
+  class HistoryInstruments {
+    +getMapping(id: string, provider: 'kite', signal: AbortSignal) Promise<HistoryMapping | undefined>
+    +held(signal: AbortSignal) Promise<string[]>
   }
   class InvalidIntervalError {
     +code: "VALIDATION_FAILED"
+  }
+  class KiteHistoryProvider {
+    +history(m: { providerSymbol: string; providerToken?: string; volumeType?: 'real' | 'tick' | 'none' }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
+    +name: "kite"
   }
   class MarketCalendar {
     +id: string
@@ -51,12 +69,16 @@ classDiagram
   }
   class MarketDataModule {
   }
+  class MarketDataProvider {
+    +history(m: { providerSymbol: string; providerToken?: string }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
+    +name: 'kite' | 'deriv' | 'us-delayed'
+  }
   class PartitionJob {
     +onApplicationBootstrap() void
     +run(signal?: AbortSignal) Promise<void>
   }
   class ReadBars {
-    +execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number) Promise<BarsPage>
+    +execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number, signal?: AbortSignal) Promise<BarsPage | Extract<ProviderResult<never>, { ok: false }>>
   }
   class RedisFormingBarStore {
     +clear(instrumentId: string, signal?: AbortSignal) Promise<void>
@@ -79,9 +101,13 @@ classDiagram
     +close: number
     +open: number
   }
+  BackfillHeld --> HistoryInstruments
   BarBuilder --> MarketCalendar
   CandleStore <|.. DrizzleCandleStore
+  FillHistory --> CandleStore
+  FillHistory --> HistoryInstruments
   FormingBarStore <|.. RedisFormingBarStore
   MarketCalendar <|.. SessionCalendar
+  MarketDataProvider <|.. KiteHistoryProvider
   ReadBars --> CandleStore
   ReadBars --> FormingBarStore
