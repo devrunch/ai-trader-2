@@ -7,69 +7,70 @@ subgraph 2["src"]
 subgraph 4["modules"]
 5["apps/api/src/modules/health"]
 6["apps/api/src/modules/instruments"]
+7["apps/api/src/modules/market-data"]
 end
-subgraph 7["shared"]
-8["apps/api/src/shared/config"]
-9["apps/api/src/shared/database"]
-A["apps/api/src/shared/errors"]
-B["apps/api/src/shared/health"]
-C["apps/api/src/shared/jobs"]
-D["apps/api/src/shared/observability"]
-E["apps/api/src/shared/redis"]
-F["apps/api/src/shared/vendors"]
-end
-end
-end
-subgraph G["web"]
-subgraph H["src"]
-I["apps/web/src/app"]
-subgraph J["features"]
-K["apps/web/src/features/symbol-search"]
-end
-subgraph L["shared"]
-M["apps/web/src/shared/api"]
-N["apps/web/src/shared/live"]
-O["apps/web/src/shared/state"]
-P["apps/web/src/shared/ui"]
+subgraph 8["shared"]
+9["apps/api/src/shared/config"]
+A["apps/api/src/shared/database"]
+B["apps/api/src/shared/errors"]
+C["apps/api/src/shared/health"]
+D["apps/api/src/shared/jobs"]
+E["apps/api/src/shared/observability"]
+F["apps/api/src/shared/redis"]
+G["apps/api/src/shared/vendors"]
 end
 end
 end
+subgraph H["web"]
+subgraph I["src"]
+J["apps/web/src/app"]
+subgraph K["features"]
+L["apps/web/src/features/symbol-search"]
 end
-subgraph Q["packages"]
-R["packages/contracts"]
-S["packages/resilience"]
+subgraph M["shared"]
+N["apps/web/src/shared/api"]
+O["apps/web/src/shared/live"]
+P["apps/web/src/shared/state"]
+Q["apps/web/src/shared/ui"]
+end
+end
+end
+end
+subgraph R["packages"]
+S["packages/contracts"]
+T["packages/resilience"]
 end
 3-->5
 3-->6
-3-->8
 3-->9
 3-->A
-3-->C
+3-->B
 3-->D
 3-->E
 3-->F
-5-->B
-6-->9
-6-->B
-6-->C
+3-->G
+5-->C
 6-->A
-9-->8
-9-->B
-9-->A
-C-->8
-D-->8
-E-->8
-E-->B
-E-->A
-F-->A
-F-->8
+6-->C
+6-->D
+6-->B
+A-->9
+A-->C
+A-->B
+D-->9
+E-->9
 F-->9
-F-->B
 F-->C
-I-->P
-I-->M
-I-->O
-I-->K
-K-->P
-K-->M
-K-->O
+F-->B
+G-->B
+G-->9
+G-->A
+G-->C
+G-->D
+J-->Q
+J-->N
+J-->P
+J-->L
+L-->Q
+L-->N
+L-->P

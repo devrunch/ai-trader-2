@@ -1,0 +1,41 @@
+classDiagram
+  class Bar {
+    +close: number
+    +high: number
+    +low: number
+    +open: number
+    +repaired?: boolean
+    +time: number
+    +volume: number | null
+  }
+  class BarBuilder {
+    +closeDue(now: number) Bar[]
+    +forming() Bar | null
+    +onTick(t: Tick) { updated?: Bar; closed?: Bar[] }
+    +restore(forming: Bar | null, lastCumVolume: number | null) void
+  }
+  class InvalidIntervalError {
+    +code: "VALIDATION_FAILED"
+  }
+  class MarketCalendar {
+    +id: string
+    +isOpen(at: number) boolean
+    +nextOpen(at: number) number | null
+    +sessionContaining(at: number) SessionWindow | null
+    +sessionsOn(date: string) SessionWindow[]
+    +timezone: string
+  }
+  class SessionCalendar {
+    +id: string
+    +isOpen(at: number) boolean
+    +nextOpen(at: number) number | null
+    +sessionContaining(at: number) SessionWindow | null
+    +sessionsOn(date: string) SessionWindow[]
+    +timezone: string
+  }
+  class SessionWindow {
+    +close: number
+    +open: number
+  }
+  BarBuilder --> MarketCalendar
+  MarketCalendar <|.. SessionCalendar

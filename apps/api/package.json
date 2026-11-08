@@ -10,6 +10,8 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@date-fns/tz": "1.5.0",
+    "date-fns": "4.4.0",
     "minisearch": "7.2.0",
     "bullmq": "6.7.2",
     "cron-parser": "5.10.4",
