@@ -9,6 +9,7 @@
     "dev": "vite"
   },
   "dependencies": {
+    "cmdk": "1.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "@aitrader/contracts": "workspace:*",
@@ -24,6 +25,7 @@
     "class-variance-authority": "0.7.1"
   },
   "devDependencies": {
+    "msw": "3.0.4",
     "@babel/core": "8.1.0",
     "@rolldown/plugin-babel": "0.3.0",
     "@testing-library/react": "16.3.3",
