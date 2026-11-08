@@ -13,7 +13,9 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.6.7",
-    "@aitrader/contracts": "workspace:*"
+    "@aitrader/contracts": "workspace:*",
+    "nestjs-pino": "5.3.1",
+    "pino": "10.4.0"
   },
   "devDependencies": {
     "@nestjs/cli": "12.0.12",
