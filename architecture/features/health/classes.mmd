@@ -1,0 +1,7 @@
+classDiagram
+  class HealthController {
+    +health() { status: 'ok' }
+    +ready(response: StatusResponse) Promise<{ status: string; checks: Record<string, import("../../../shared/health").ReadinessResult>; }>
+  }
+  class HealthModule {
+  }

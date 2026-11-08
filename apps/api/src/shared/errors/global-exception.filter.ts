@@ -1,4 +1,5 @@
-import { Catch, HttpException, Logger } from '@nestjs/common';
+import { Catch, HttpException } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { ErrorBody, ErrorCode } from '@aitrader/contracts';
 import { ZodError } from 'zod';
@@ -37,18 +38,17 @@ function publicError(error: unknown): { status: number; body: Omit<ErrorBody, 'r
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(GlobalExceptionFilter.name);
+  constructor(private readonly logger: PinoLogger) {}
 
   catch(error: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
     const request = http.getRequest<ErrorRequest>();
     const response = http.getResponse<ErrorResponse>();
-    const header = request.headers['x-request-id'];
     const requestId = typeof request.id === 'string' && request.id.length > 0
-      ? request.id : typeof header === 'string' && header.length > 0 ? header : 'unknown';
+      ? request.id : 'unknown';
     const { status, body } = publicError(error);
     if (error instanceof DomainError) this.logger.warn({ ...body, requestId });
-    else if (status >= 500) this.logger.error({ code: body.code, requestId }, error instanceof Error ? error.stack : undefined);
+    else if (status >= 500) this.logger.error({ code: body.code, requestId });
     else this.logger.warn({ ...body, requestId });
     if (error instanceof RateLimitedError) response.setHeader('Retry-After', String(Math.ceil(error.retryAfterMs / 1000)));
     response.status(status).json({ ...body, requestId });

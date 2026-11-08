@@ -21,8 +21,7 @@ flowchart LR
 ## Errors
 Shared contracts define eleven stable codes and a strict error body (SRD ?11,
 NFR-SC-1, AGENTS.md ?3). The API global filter emits only the public body;
-unknown errors never expose messages, SQL or stacks. Nest Logger receives
-warnings for domain errors and server-side stacks for unexpected errors.
+unknown errors never expose messages, SQL or stacks. Pino receives structured warnings for domain errors and error codes for unexpected errors.
 
 | Thrown value / HTTP status | Response status | Code | Message / details |
 |---|---|---|---|
@@ -38,9 +37,7 @@ warnings for domain errors and server-side stacks for unexpected errors.
 | Other HttpException | Same | INTERNAL | Internal error for 5xx; otherwise exception message |
 | Any other value | 500 | INTERNAL | Internal error; no details |
 
-Request ID precedence is non-empty request.id, non-empty x-request-id, then
-unknown. RateLimitedError sets Retry-After to ceil(retryAfterMs / 1000).
-Request ID generation and pino remain T-007.
+The filter reads request.id (unknown outside HTTP middleware). RateLimitedError sets Retry-After to ceil(retryAfterMs / 1000).
 
 ```mermaid
 flowchart TD
@@ -58,7 +55,31 @@ flowchart TD
 ```
 
 ## Observability
-lands in T-0xx
+
+NFR-OB-1, SRD ?11: global nestjs-pino emits JSON at APP_CONFIG.LOG_LEVEL.
+The edge accepts a single request ID matching `[A-Za-z0-9_-]{1,64}` or generates
+a UUID. Every response carries x-request-id. Authorization, cookie and set-cookie
+headers are redacted. Bootstrap routes Nest logs through pino.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Edge as Pino middleware
+  participant Handler
+  participant Filter
+  participant Log as JSON log
+  Client->>Edge: Request with optional x-request-id
+  Edge->>Edge: Resolve request.id and set response header
+  Edge->>Handler: Request
+  alt Handler throws
+    Handler->>Filter: Exception
+    Filter->>Log: Public code and requestId, bound req.id
+    Filter-->>Client: Error body with same requestId
+  else Handler succeeds
+    Handler-->>Client: Response
+  end
+  Edge->>Log: Request completion with req.id
+```
 
 ## Database
 lands in T-0xx
@@ -67,7 +88,22 @@ lands in T-0xx
 lands in T-0xx
 
 ## Health
-lands in T-0xx
+
+NFR-RB-6: /health returns 200 without running dependencies. The global
+ReadinessRegistry lets later modules register named checks without changing
+health. Duplicate names throw. /ready runs checks in parallel with a per-check
+2,000 ms default timeout; throws and timeouts return down with a reason capped
+at 200 characters. Timers are cleared after completion. No checks means ready.
+Timeout bounds waiting; the check interface does not support cancellation.
+
+```mermaid
+stateDiagram-v2
+  [*] --> ok
+  ok --> error: Any check down, throws or times out (503)
+  error --> ok: All checks up on next request (200)
+  ok --> ok: All checks up or none registered (200)
+  error --> error: Any check remains down (503)
+```
 
 ## Web shell
 lands in T-0xx

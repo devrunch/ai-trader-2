@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { Controller, Get, HttpException, Logger, Param } from '@nestjs/common';
+import { Controller, Get, HttpException, Param } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { ErrorBodySchema } from '@aitrader/contracts';
@@ -39,11 +40,16 @@ let app: INestApplication<Server>;
 let server: Server;
 const bodies: unknown[] = [];
 beforeAll(async () => {
-  vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-  vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  vi.spyOn(PinoLogger.prototype, 'warn').mockImplementation(() => undefined);
+  vi.spyOn(PinoLogger.prototype, 'error').mockImplementation(() => undefined);
   const module = await Test.createTestingModule({ controllers: [ThrowController] }).compile();
   app = module.createNestApplication();
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.use((req: { id?: string; headers: Record<string, unknown> }, _res: unknown, next: () => void) => {
+    const header = req.headers['x-request-id'];
+    if (typeof header === 'string') req.id = header;
+    next();
+  });
+  app.useGlobalFilters(new GlobalExceptionFilter(new PinoLogger({ pinoHttp: { level: 'silent' } })));
   await app.init();
   server = app.getHttpServer();
 });
