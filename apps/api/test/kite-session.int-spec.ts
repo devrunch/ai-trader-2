@@ -25,9 +25,10 @@ describe('Kite durable session', () => {
     const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
     const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'persisted' })) };
     const now = () => Date.parse('2026-11-08T01:00:00Z');
-    const first = new KiteSessionService(credentials, repository, login, exchange, now);
+    const logger = { log: vi.fn() };
+    const first = new KiteSessionService(credentials, repository, login, exchange, now, logger);
     await expect(first.getAccessToken()).resolves.toBe('persisted');
-    const second = new KiteSessionService(credentials, repository, login, exchange, now);
+    const second = new KiteSessionService(credentials, repository, login, exchange, now, logger);
     await expect(second.getAccessToken()).resolves.toBe('persisted');
     expect(login).toHaveBeenCalledTimes(1);
     expect((await second.status()).expiresAt).toBe('2026-11-09T00:30:00.000Z');

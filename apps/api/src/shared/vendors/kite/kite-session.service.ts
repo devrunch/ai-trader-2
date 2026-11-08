@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import type { LoggerService } from '@nestjs/common';
 import { CircuitBreaker, CircuitOpenError, withTimeout } from '@aitrader/resilience';
 import { UnavailableError } from '../../errors';
 import type { KiteCredentials } from './kite-credentials';
@@ -14,7 +15,6 @@ export function nextKiteExpiry(mintedAt: Date): Date {
   return new Date(Math.floor((mintedAt.getTime() - cutover) / day) * day + cutover + day);
 }
 export class KiteSessionService {
-  private readonly logger = new Logger('KiteSession');
   private readonly breaker: CircuitBreaker;
   private inFlight: Promise<string> | undefined;
   constructor(
@@ -23,6 +23,7 @@ export class KiteSessionService {
     private readonly login: Login,
     private readonly exchange: Exchange,
     private readonly now: () => number = Date.now,
+    private readonly logger: Pick<LoggerService, 'log'> = new Logger('KiteSession'),
   ) { this.breaker = new CircuitBreaker({ failureThreshold: 3, openMs: 15 * 60000, now }); }
 
   async getAccessToken(signal?: AbortSignal): Promise<string> {

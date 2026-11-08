@@ -10,8 +10,9 @@ function setup(record: KiteSessionRecord | null = null, configured = true) {
   const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
   const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'minted' })) };
   let time = Date.parse('2026-11-08T01:00:00Z');
-  const service = new KiteSessionService(configured ? credentials : null, repository, login, exchange, () => time);
-  return { service, save, login, exchange, advance: (ms: number) => { time += ms; } };
+  const logger = { log: vi.fn() };
+  const service = new KiteSessionService(configured ? credentials : null, repository, login, exchange, () => time, logger);
+  return { service, save, login, exchange, logger, advance: (ms: number) => { time += ms; } };
 }
 const stored = (expiresAt: string): KiteSessionRecord => ({ accessToken: 'stored', mintedAt: new Date('2026-11-07T01:00:00Z'), expiresAt: new Date(expiresAt) });
 // FR-MD-3, E3, NFR-RB-2, NFR-SC-1.
@@ -22,9 +23,10 @@ describe('Kite session', () => {
     expect(login).not.toHaveBeenCalled();
   });
   it('mints when the stored token is within 60 s of expiry', async () => {
-    const { service, save } = setup(stored('2026-11-08T01:00:59Z'));
+    const { service, save, logger } = setup(stored('2026-11-08T01:00:59Z'));
     await expect(service.getAccessToken()).resolves.toBe('minted');
     expect(save).toHaveBeenCalledWith({ accessToken: 'minted', mintedAt: new Date('2026-11-08T01:00:00Z'), expiresAt: new Date('2026-11-09T00:30:00Z') }, expect.any(AbortSignal));
+    expect(logger.log).toHaveBeenCalledWith('Kite session minted, expires 2026-11-09T00:30:00.000Z');
   });
   it('mints once for concurrent callers', async () => {
     const { service, login, exchange } = setup();

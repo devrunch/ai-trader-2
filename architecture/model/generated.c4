@@ -26,6 +26,13 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_market_data = component 'market-data' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+    }
     shared_config = component 'config' {
       description 'generated from code — do not edit'
     }
@@ -114,5 +121,9 @@ views {
   view module_instruments of aitrader.api.mod_instruments {
     description 'generated from code — do not edit'
     include aitrader.api.mod_instruments.*
+  }
+  view module_market_data of aitrader.api.mod_market_data {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_market_data.*
   }
 }
