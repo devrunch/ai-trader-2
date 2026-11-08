@@ -1,5 +1,55 @@
 # Foundation
 
+## Jobs
+
+NFR-RB-5, NFR-RB-4, E22 and E25: BullMQ persists one scheduler per job
+under `jobs:<name>`. Dedicated connections use APP_CONFIG.REDIS_URL;
+worker connections have maxRetriesPerRequest=null. No concrete jobs register yet.
+Registration updates the cron and zone, compares the previous zoned fire time
+with the last record, and deduplicates immediate catch-up with manual triggers.
+Each completed run writes its outcome and sends a heartbeat. Timeout aborts the
+run signal and records failed with detail `timeout`. Job implementations must
+honor cancellation; JavaScript promises cannot forcibly stop external effects.
+Shutdown waits ten seconds before aborting active signals.
+
+```mermaid
+stateDiagram-v2
+  [*] --> startup
+  startup --> scheduled: Last run covers previous fire
+  startup --> catchup: Missed within grace
+  startup --> skipped: Missed beyond grace
+  catchup --> running: Acquire lock
+  skipped --> scheduled: Record and heartbeat skipped
+  scheduled --> running: Cron or manual trigger acquires lock
+  running --> ok: Resolved
+  running --> failed: Thrown error
+  running --> timeout: Runtime deadline aborts signal
+  timeout --> failed: detail timeout
+  ok --> scheduled: Record and heartbeat, release lock
+  failed --> scheduled: Record and heartbeat, release lock
+```
+
+```mermaid
+sequenceDiagram
+  participant API as API instances
+  participant Queue as BullMQ jobs queue
+  participant Redis
+  participant Run as Job callback
+  participant Sink as HeartbeatSink
+  API->>Queue: Upsert scheduler or add stable immediate ID
+  Queue->>API: Worker delivery (concurrency 1)
+  API->>Redis: SET jobs:name:lock owner NX PX maxRuntime+30000
+  alt Lock acquired
+    API->>Run: run(AbortSignal)
+    Run-->>API: Completion, error or deadline
+    API->>Redis: SET jobs:name:last JSON outcome
+    API->>Sink: beat(name, outcome, detail)
+    API->>Redis: Compare owner and delete lock atomically
+  else Another instance owns lock
+    API-->>Queue: Complete duplicate without running callback
+  end
+```
+
 Shared application foundations support the API and web shell (SRD §10, §14;
 AGENTS.md §7).
 
