@@ -23,18 +23,21 @@ end
 subgraph G["web"]
 subgraph H["src"]
 I["apps/web/src/app"]
-subgraph J["shared"]
-K["apps/web/src/shared/api"]
-L["apps/web/src/shared/live"]
-M["apps/web/src/shared/state"]
-N["apps/web/src/shared/ui"]
+subgraph J["features"]
+K["apps/web/src/features/symbol-search"]
+end
+subgraph L["shared"]
+M["apps/web/src/shared/api"]
+N["apps/web/src/shared/live"]
+O["apps/web/src/shared/state"]
+P["apps/web/src/shared/ui"]
 end
 end
 end
 end
-subgraph O["packages"]
-P["packages/contracts"]
-Q["packages/resilience"]
+subgraph Q["packages"]
+R["packages/contracts"]
+S["packages/resilience"]
 end
 3-->5
 3-->6
@@ -63,6 +66,10 @@ F-->8
 F-->9
 F-->B
 F-->C
-I-->N
-I-->K
+I-->P
 I-->M
+I-->O
+I-->K
+K-->P
+K-->M
+K-->O
