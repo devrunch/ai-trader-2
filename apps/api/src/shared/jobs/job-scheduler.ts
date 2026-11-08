@@ -4,7 +4,7 @@ import { Queue, Worker } from 'bullmq';
 import { CronExpressionParser } from 'cron-parser';
 import { Redis } from 'ioredis';
 import { z } from 'zod';
-import { backoffDelay, TimeoutError, withTimeout } from '@aitrader/resilience';
+import { backoffDelay, retry, sleep, TimeoutError, withTimeout } from '@aitrader/resilience';
 import type { AppConfig } from '../config';
 import type { HeartbeatSink } from './heartbeat';
 
@@ -55,7 +55,7 @@ export class JobScheduler implements OnModuleDestroy {
       defaultJobOptions: { removeOnComplete: true, removeOnFail: true } });
     const worker = new Worker<unknown>(spec.name, (delivery) => {
       const payload = z.object({ scheduledAt: z.number().optional() }).parse(delivery.data);
-      return this.execute(spec.name, payload.scheduledAt ?? delivery.opts.prevMillis);
+      return this.execute(spec.name, payload.scheduledAt ?? delivery.opts.prevMillis, delivery.id?.startsWith('manual-') ?? false);
     }, {
       prefix: 'jobs', connection: this.connection, concurrency: 1, autorun: false,
     });
@@ -66,7 +66,7 @@ export class JobScheduler implements OnModuleDestroy {
     const decision = missedRunDecision(last ? new Date(last.scheduledAt ?? last.at) : null, previous, now, spec.graceMs);
     if (decision === 'run') {
       await queue.add(spec.name, { scheduledAt: previous.getTime() }, {
-        jobId: 'immediate', removeOnComplete: true, removeOnFail: true,
+        jobId: `catchup-${String(previous.getTime())}`, removeOnComplete: true, removeOnFail: true,
       });
     }
     if (decision === 'skip') await this.record(spec.name, 'skipped', previous.getTime());
@@ -76,9 +76,9 @@ export class JobScheduler implements OnModuleDestroy {
   async runNow(name: string): Promise<void> {
     const job = this.jobs.get(name);
     if (!job) return;
-    if (await this.redis.exists(`jobs:${name}:lock`)) return;
-    // A stable job ID deduplicates queued and active manual/catch-up triggers across instances.
-    await job.queue.add(name, {}, { jobId: 'immediate', removeOnComplete: true, removeOnFail: true });
+    // The pending marker deduplicates queued manual triggers across instances.
+    if (await this.redis.set(`jobs:${name}:pending`, '1', 'PX', job.spec.maxRuntimeMs + 60000, 'NX') !== 'OK') return;
+    await job.queue.add(name, {}, { jobId: `manual-${randomUUID()}`, removeOnComplete: true, removeOnFail: true });
   }
 
   async lastRun(name: string): Promise<RunRecord | null> {
@@ -93,16 +93,28 @@ export class JobScheduler implements OnModuleDestroy {
     await withTimeout(() => this.sink.beat(name, outcome, detail), 3000);
   }
 
-  private async execute(name: string, scheduledAt?: number): Promise<void> {
+  private async acquireLock(key: string, owner: string, maxRuntimeMs: number, signal: AbortSignal): Promise<void> {
+    const busy = new Error('Job lock is held');
+    await withTimeout((waitSignal) => retry(async (attempt, retrySignal) => {
+      // Fixed lock polling is distinct from dependency-failure backoff.
+      if (attempt > 0) await sleep(250, retrySignal);
+      if (await this.redis.set(key, owner, 'PX', maxRuntimeMs + 30000, 'NX') !== 'OK') throw busy;
+    }, { retries: Math.ceil((maxRuntimeMs + 30000) / 250), baseMs: 0, maxMs: 0,
+      retryOn: (error) => error === busy, signal: waitSignal }), maxRuntimeMs + 30000, signal);
+  }
+
+  // Lock, occurrence check, callback and record stay in one ownership scope.
+  private async execute(name: string, scheduledAt?: number, manual = false): Promise<void> {
     const job = this.jobs.get(name);
     if (!job) return;
     const { spec } = job;
     const key = `jobs:${name}:lock`;
     const owner = randomUUID();
-    if (await this.redis.set(key, owner, 'PX', spec.maxRuntimeMs + 30000, 'NX') !== 'OK') return;
     const controller = new AbortController();
     this.active.add(controller);
     try {
+      await this.acquireLock(key, owner, spec.maxRuntimeMs, controller.signal);
+      if (manual) await this.redis.del(`jobs:${name}:pending`);
       // Persisted deliveries and startup catch-up share the same scheduled occurrence.
       const last = scheduledAt === undefined ? null : await this.lastRun(name);
       if (last && last.scheduledAt !== null && scheduledAt !== undefined
