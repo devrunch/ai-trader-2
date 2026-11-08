@@ -1,0 +1,118 @@
+model {
+  extend aitrader.api {
+    mod_health = component 'health' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+    }
+    mod_instruments = component 'instruments' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
+    shared_config = component 'config' {
+      description 'generated from code — do not edit'
+    }
+    shared_database = component 'database' {
+      description 'generated from code — do not edit'
+    }
+    shared_errors = component 'errors' {
+      description 'generated from code — do not edit'
+    }
+    shared_health = component 'health' {
+      description 'generated from code — do not edit'
+    }
+    shared_jobs = component 'jobs' {
+      description 'generated from code — do not edit'
+    }
+    shared_observability = component 'observability' {
+      description 'generated from code — do not edit'
+    }
+    shared_redis = component 'redis' {
+      description 'generated from code — do not edit'
+    }
+    shared_vendors = component 'vendors' {
+      description 'generated from code — do not edit'
+      shared_vendors_kite = component 'kite' {
+        description 'generated from code — do not edit'
+      }
+    }
+  }
+  extend aitrader.web {
+    shared_api = component 'api' {
+      description 'generated from code — do not edit'
+    }
+    shared_live = component 'live' {
+      description 'generated from code — do not edit'
+    }
+    shared_state = component 'state' {
+      description 'generated from code — do not edit'
+    }
+    shared_ui = component 'ui' {
+      description 'generated from code — do not edit'
+    }
+    feat_symbol_search = component 'symbol-search' {
+      description 'generated from code — do not edit'
+    }
+    app = component 'app' {
+      description 'generated from code — do not edit'
+    }
+  }
+  pkg_contracts = component 'contracts' {
+    description 'generated from code — do not edit'
+  }
+  pkg_resilience = component 'resilience' {
+    description 'generated from code — do not edit'
+  }
+  aitrader.api.mod_health.api -[calls]-> aitrader.api.mod_health.app 'imports'
+  aitrader.api.mod_instruments -[calls]-> pkg_contracts 'imports'
+  aitrader.api.mod_instruments -[calls]-> pkg_resilience 'imports'
+  aitrader.api.mod_instruments.api -[calls]-> aitrader.api.mod_instruments.app 'imports'
+  aitrader.api.mod_instruments.app -[calls]-> aitrader.api.mod_instruments.domain 'imports'
+  aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.app 'imports'
+  aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.domain 'imports'
+  aitrader.api.shared_database -[calls]-> pkg_resilience 'imports'
+  aitrader.api.shared_errors -[calls]-> pkg_contracts 'imports'
+  aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'
+  aitrader.api.shared_redis -[calls]-> pkg_resilience 'imports'
+  aitrader.api.shared_vendors.shared_vendors_kite -[calls]-> pkg_resilience 'imports'
+  aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
+  aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_state 'imports'
+  aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_ui 'imports'
+  aitrader.web.shared_api -[calls]-> pkg_contracts 'imports'
+}
+
+views {
+  view api_code of aitrader.api {
+    description 'generated from code — do not edit'
+    include aitrader.api.*, pkg_contracts, pkg_resilience
+  }
+  view web_code of aitrader.web {
+    description 'generated from code — do not edit'
+    include aitrader.web.*
+  }
+  view module_health of aitrader.api.mod_health {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_health.*
+  }
+  view module_instruments of aitrader.api.mod_instruments {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_instruments.*
+  }
+}

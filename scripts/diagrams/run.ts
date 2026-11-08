@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { generateC4 } from './gen-c4.ts';
 import { generateClassDiagram } from './gen-class-diagrams.ts';
 
 function command(binary: string, args: string[]): string {
@@ -32,6 +33,7 @@ export function generateDependencyGraph(): string {
 }
 
 if (import.meta.main) {
+  writeFileSync('architecture/model/generated.c4', generateC4(resolve('.')));
   mkdirSync('architecture/generated', { recursive: true });
   const expected = new Set<string>();
   for (const [directory, tsconfig] of [
