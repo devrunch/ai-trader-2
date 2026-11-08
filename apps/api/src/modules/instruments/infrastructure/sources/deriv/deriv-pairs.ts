@@ -1,0 +1,2 @@
+export const forexPairs = 'AUDCAD AUDCHF AUDJPY AUDNZD AUDUSD EURAUD EURCAD EURCHF EURGBP EURJPY EURNZD EURUSD GBPAUD GBPCAD GBPCHF GBPJPY GBPNZD GBPUSD NZDJPY NZDUSD USDCAD USDCHF USDJPY USDMXN USDPLN'.split(' ');
+export const metalNames: Readonly<Record<string, string>> = { XAUUSD: 'Gold', XAGUSD: 'Silver', XPTUSD: 'Platinum', XPDUSD: 'Palladium' };
