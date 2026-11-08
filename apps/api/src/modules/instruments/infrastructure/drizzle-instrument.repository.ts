@@ -6,7 +6,7 @@ import { ConflictError, DomainError, UnavailableError } from '../../../shared/er
 import { instruments, instrumentMappings, instrumentChanges, instrumentSourceStatus } from '../../../shared/database/schema/index.js';
 import { InstrumentId, type Instrument, type InstrumentChange } from '../domain/index.js';
 import type { InstrumentRepository } from '../application/ports/instrument-repository.js';
-import type { SourceSnapshot } from '../application/ports/instrument-source.js';
+import type { ProviderMapping, SourceSnapshot } from '../application/ports/instrument-source.js';
 
 const rowSchema = z.object({
   id: z.string().transform(raw => InstrumentId.parse(raw)), exchange: z.string(), ticker: z.string(), description: z.string(),
@@ -97,6 +97,13 @@ export class DrizzleInstrumentRepository implements InstrumentRepository {
   async findById(id: string, signal?: AbortSignal): Promise<Instrument | null> {
     const [row] = await this.read(() => this.db.select().from(instruments).where(eq(instruments.id, id)).limit(1), signal);
     return row ? fromRow(row) : null;
+  }
+  async getMapping(id: string, provider: ProviderMapping['provider'], signal?: AbortSignal): Promise<ProviderMapping | undefined> {
+    const [row] = await this.read(() => this.db.select().from(instrumentMappings)
+      .where(and(eq(instrumentMappings.id, id), eq(instrumentMappings.provider, provider))).limit(1), signal);
+    if (!row) return undefined;
+    const { providerToken, ...required } = mappingSchema.parse(row);
+    return { ...required, ...(providerToken === undefined ? {} : { providerToken }) };
   }
   async findLastChange(id: string, signal?: AbortSignal): Promise<InstrumentChange | null> {
     const [row] = await this.read(() => this.db.select().from(instrumentChanges).where(eq(instrumentChanges.id, id))

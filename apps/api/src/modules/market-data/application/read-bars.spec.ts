@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Bar } from '../domain/bar';
 import { ReadBars, type CandleStore, type FormingBarStore, type BarsCursor, type BarsPage } from './index';
 
@@ -15,9 +15,41 @@ function fixture(minutes = 20) {
     earliest: (_, isDaily) => Promise.resolve((isDaily ? daily : rows)[0]?.time ?? null),
   };
   const redis: FormingBarStore = { get: () => Promise.resolve(forming), set: (_, v) => { forming = v; return Promise.resolve(); }, clear: () => { forming = null; return Promise.resolve(); } };
-  return { rows, daily, redis, store, read: new ReadBars(store, redis, () => start + 3 * 86400000) };
+  const reader = new ReadBars(store, redis, () => start + 3 * 86400000);
+  const read = { execute: async (...args: Parameters<ReadBars['execute']>): Promise<BarsPage> => {
+    const result = await reader.execute(...args);
+    if (!('bars' in result)) throw new Error(`Expected page: ${result.reason}`);
+    return result;
+  } };
+  return { rows, daily, redis, store, read, reader };
 }
 describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
+  it('read-through fills missing history once and re-reads', async () => {
+    const f = fixture(0);
+    const execute = vi.fn().mockImplementation(() => {
+      f.rows.push(bar(start));
+      return Promise.resolve({ ok: true, data: { written: 1, repaired: 0 } });
+    });
+    const read = new ReadBars(f.store, f.redis, () => start + 60000, { execute });
+    const page = await read.execute('NSE:TEST', '1', { since: start }, 1);
+    expect(page).toMatchObject({ bars: [bar(start)], status: { ok: true } });
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute.mock.calls[0]?.slice(0, 4)).toEqual(['NSE:TEST', '1m', start, start + 60001]);
+  });
+  it('failed fill with existing bars returns stale with reason', async () => {
+    const f = fixture(1); const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'AUTH_EXPIRED' });
+    const read = new ReadBars(f.store, f.redis, () => start + 60000, { execute });
+    expect(await read.execute('NSE:TEST', '1', { latest: true }, 10)).toMatchObject({
+      bars: [bar(start)], status: { ok: false, reason: 'AUTH_EXPIRED' },
+    });
+    expect(execute).toHaveBeenCalledOnce();
+  });
+  it('fills daily history from the aligned window for weekly reads', async () => {
+    const f = fixture(0); const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'NO_DATA' });
+    const read = new ReadBars(f.store, f.redis, () => start + 60000, { execute });
+    await read.execute('NSE:TEST', '1W', { since: start }, 1);
+    expect(execute.mock.calls[0]?.slice(0, 3)).toEqual(['NSE:TEST', '1d', Date.parse('2026-11-07T18:30:00Z')]);
+  });
   it('latest returns the last N 5m bars aggregated on the session grid', async () => {
     const page = await fixture().read.execute('NSE:TEST', '5', { latest: true }, 2);
     expect(page.bars).toEqual([{ ...bar(start + 600000, 20), high: 25, close: 24, volume: 5 },
@@ -48,7 +80,7 @@ describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
     }
   });
   it('complete is false when the store has no older data', async () => {
-    expect((await fixture(0).read.execute('NSE:TEST', '5', { latest: true }, 5)).complete).toBe(false);
+    expect(await fixture(0).reader.execute('NSE:TEST', '5', { latest: true }, 5)).toEqual({ ok: false, reason: 'UNSUPPORTED' });
     expect((await fixture().read.execute('NSE:TEST', '5', { latest: true }, 5)).complete).toBe(false);
   });
   it('rejects limit outside 1..5000', async () => {
@@ -88,10 +120,9 @@ describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
     daily.push(bar(Date.parse('2026-11-09T05:00:00Z'), 10), bar(Date.parse('2026-11-11T05:00:00Z'), 20));
     expect((await read.execute('NYSE:TEST', '1W', { latest: true }, 1)).bars[0]).toMatchObject({ time: Date.parse('2026-11-09T05:00:00Z'), open: 10, close: 20 });
   });
-  it('returns an empty page with a null nextBefore', async () => {
+  it('returns a typed failure when no bars exist and history is unsupported', async () => {
     const cursor: BarsCursor = { latest: true };
-    const page: BarsPage = await fixture(0).read.execute('NSE:TEST', '1', cursor, 1);
-    expect(page).toEqual({ bars: [], nextBefore: null, complete: false });
+    expect(await fixture(0).reader.execute('NSE:TEST', '1', cursor, 1)).toEqual({ ok: false, reason: 'UNSUPPORTED' });
   });
   it('rejects invalid instrument IDs and unsupported calendars', async () => {
     for (const id of ['invalid', 'UNKNOWN:TEST']) await expect(fixture().read.execute(id, '1', { latest: true }, 1)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });

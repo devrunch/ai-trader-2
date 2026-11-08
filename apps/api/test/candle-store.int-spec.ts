@@ -117,6 +117,7 @@ describe('FR-MD-2 NFR-RB-4 NFR-PF-2 Q5 candle storage', () => {
     const sixtyDayStart = performance.now();
     const sixtyDayPage = await sixtyDayRead.execute('NSE:TEST', '5', { latest: true }, 5000);
     const sixtyDayDuration = performance.now() - sixtyDayStart;
+    if (!('bars' in sixtyDayPage)) throw new Error(sixtyDayPage.reason);
     console.info(`NFR-PF-2 60 sessions / 22500 minutes / 4500 bars: ${sixtyDayDuration.toFixed(2)} ms`);
     expect(sixtyDayPage.bars).toHaveLength(4500); expect(sixtyDayPage.complete).toBe(false);
     expect(sixtyDayDuration).toBeLessThanOrEqual(800);
@@ -124,6 +125,7 @@ describe('FR-MD-2 NFR-RB-4 NFR-PF-2 Q5 candle storage', () => {
     const read = new ReadBars(store, forming, () => (bars.at(-1)?.time ?? 0) + 60000);
     const begin = performance.now(); const page = await read.execute('NSE:TEST', '5', { latest: true }, 5000);
     const duration = performance.now() - begin;
+    if (!('bars' in page)) throw new Error(page.reason);
     console.info(`NFR-PF-2 5000 bars: ${duration.toFixed(2)} ms; seeded ${String(bars.length)} minutes`);
     expect(page.bars).toHaveLength(5000); expect(duration).toBeLessThanOrEqual(800);
   });

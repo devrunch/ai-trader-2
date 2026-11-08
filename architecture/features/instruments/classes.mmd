@@ -10,6 +10,7 @@ classDiagram
     +findById(id: string, signal?: AbortSignal) Promise<Instrument | null>
     +findLastChange(id: string, signal?: AbortSignal) Promise<InstrumentChange | null>
     +findRenameSuccessor(id: string, signal?: AbortSignal) Promise<string | null>
+    +getMapping(id: string, provider: ProviderMapping['provider'], signal?: AbortSignal) Promise<ProviderMapping | undefined>
     +listContinuousCandidates(root: string, exchange: string, signal?: AbortSignal) Promise<Instrument[]>
     +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
     +loadSource(source: string, signal?: AbortSignal) Promise<SourceSnapshot>
@@ -45,6 +46,10 @@ classDiagram
     +kind: InstrumentChangeKind
     +successor?: InstrumentId
   }
+  class InstrumentHistory {
+    +getMapping(id: string, provider: ProviderMapping['provider'], signal: AbortSignal) Promise<{ volumeType: "real" | "tick" | "none"; id: string; provider: "kite" | "deriv" | "us-delayed"; providerSymbol: string; providerToken?: string; } | undefined>
+    +held(signal: AbortSignal) Promise<string[]>
+  }
   class InstrumentId {
     +equals(other: InstrumentId) boolean
     +exchange: string
@@ -55,11 +60,12 @@ classDiagram
   }
   class InstrumentRepository {
     +applySource(source: string, snapshot: SourceSnapshot, changes: InstrumentChange[], at: string) Promise<void>
-    +findById(id: string) Promise<Instrument | null>
+    +findById(id: string, signal?: AbortSignal) Promise<Instrument | null>
     +findLastChange(id: string) Promise<InstrumentChange | null>
     +findRenameSuccessor(id: string) Promise<string | null>
+    +getMapping(id: string, provider: ProviderMapping['provider'], signal?: AbortSignal) Promise<ProviderMapping | undefined>
     +listContinuousCandidates(underlyingOrRoot: string, exchange: string) Promise<Instrument[]>
-    +listForIndex() Promise<Instrument[]>
+    +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
     +loadSource(source: string) Promise<{ instruments: Instrument[]; mappings: ProviderMapping[] }>
     +purgeExpired(before: string) Promise<number>
     +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }) Promise<void>
@@ -137,6 +143,7 @@ classDiagram
     +instruments: Instrument[]
     +mappings: ProviderMapping[]
   }
+  InstrumentHistory --> InstrumentRepository
   InstrumentRepository <|.. DrizzleInstrumentRepository
   InstrumentSource <|.. DerivSource
   InstrumentSource <|.. KiteSource
