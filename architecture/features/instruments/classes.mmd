@@ -1,0 +1,43 @@
+classDiagram
+  class Instrument {
+    +aliases: readonly string[]
+    +currency: string
+    +description: string
+    +exchange: string
+    +expiry?: string
+    +hasIntraday: boolean
+    +id: InstrumentId
+    +isin?: string
+    +lotSize: number
+    +minmov: number
+    +optionType?: 'CE' | 'PE'
+    +pricescale: number
+    +sector?: string
+    +session: string
+    +status: InstrumentStatus
+    +strike?: number
+    +ticker: string
+    +timezone: string
+    +type: InstrumentType
+    +underlying?: InstrumentId
+    +volumeType: 'real' | 'tick' | 'none'
+  }
+  class InstrumentChange {
+    +at: string
+    +id: InstrumentId
+    +kind: InstrumentChangeKind
+    +successor?: InstrumentId
+  }
+  class InstrumentId {
+    +equals(other: InstrumentId) boolean
+    +exchange: string
+    +parse(raw: string) InstrumentId
+    +ticker: string
+    +toString() string
+    +tryParse(raw: string) InstrumentId | null
+  }
+  class InvalidInstrumentIdError {
+    +code: "VALIDATION_FAILED"
+    +raw: string
+    +reason: string
+  }
