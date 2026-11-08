@@ -4,6 +4,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react(), babel({ presets: [reactCompilerPreset()] })],
+  resolve: { conditions: ['source', 'development', 'node', 'import'] },
   test: {
     name: 'web',
     environment: 'jsdom',

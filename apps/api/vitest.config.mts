@@ -8,6 +8,7 @@ export default defineConfig({
       transform: { legacyDecorator: true, decoratorMetadata: true },
     },
   })],
+  resolve: { conditions: ['source', 'development', 'node', 'import'] },
   test: {
     name: 'api',
     environment: 'node',

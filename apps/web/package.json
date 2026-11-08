@@ -3,8 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "build": "vite build", "typecheck": "tsc --noEmit" },
-  "dependencies": { "react": "19.3.1", "react-dom": "19.3.1" },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "@aitrader/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@babel/core": "8.1.0",
     "@rolldown/plugin-babel": "0.3.0",
