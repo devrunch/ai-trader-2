@@ -1,157 +1,281 @@
 flowchart LR
 
-subgraph 0["@rolldown"]
-1["plugin-babel"]
+subgraph 0["."]
+1["vitest.config.mjs"]
 end
-subgraph 2["@vitejs"]
-3["plugin-react"]
+subgraph 2["@rolldown"]
+3["plugin-babel"]
 end
-subgraph 4["apps"]
-subgraph 5["api"]
-subgraph 6["src"]
-7["app.module.spec.ts"]
-8["app.module.ts"]
-9["main.ts"]
-subgraph A["modules"]
-B["health"]
+subgraph 4["@vitejs"]
+5["plugin-react"]
 end
-subgraph C["shared"]
-D["config"]
-E["errors"]
-F["health"]
-G["observability"]
+subgraph 6["apps"]
+subgraph 7["api"]
+8["drizzle.config.ts"]
+subgraph 9["src"]
+A["app.module.spec.ts"]
+B["app.module.ts"]
+C["main.ts"]
+subgraph D["modules"]
+E["health"]
 end
-end
-H["vitest.config.mts"]
-end
-subgraph I["web"]
-subgraph J["src"]
-subgraph K["app"]
-L["app.spec.tsx"]
-M["app.tsx"]
-N["contracts.spec.tsx"]
-end
-O["main.tsx"]
-end
-P["vite.config.ts"]
+subgraph F["shared"]
+G["config"]
+H["database"]
+I["errors"]
+J["health"]
+K["observability"]
+L["redis"]
 end
 end
-Q["crypto"]
-R["http"]
-S["node"]
-subgraph T["node_modules"]
-subgraph U[".pnpm"]
-subgraph V["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
-subgraph W["node_modules"]
-subgraph X["@nestjs"]
-subgraph Y["common"]
-Z["index.js"]
+subgraph M["test"]
+N["infra.int-spec.ts"]
+subgraph O["support"]
+P["containers.ts"]
 end
 end
+Q["vitest.config.mts"]
+R["vitest.int.config.mts"]
+end
+subgraph S["web"]
+subgraph T["src"]
+subgraph U["app"]
+V["app.spec.tsx"]
+W["app.tsx"]
+X["contracts.spec.tsx"]
+end
+Y["main.tsx"]
+end
+Z["vite.config.ts"]
 end
 end
-subgraph 10["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
-subgraph 11["node_modules"]
-subgraph 12["@nestjs"]
-subgraph 13["core"]
-14["index.js"]
-end
-end
-end
-end
-subgraph 15["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
-subgraph 16["node_modules"]
-subgraph 17["@nestjs"]
-subgraph 18["testing"]
-19["index.js"]
+10["crypto"]
+11["events"]
+12["http"]
+13["node"]
+subgraph 14["node_modules"]
+subgraph 15[".pnpm"]
+subgraph 16["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
+subgraph 17["node_modules"]
+subgraph 18["@nestjs"]
+subgraph 19["common"]
+1A["index.js"]
 end
 end
 end
 end
-subgraph 1A["react-dom@19.3.1_react@19.3.1"]
-subgraph 1B["node_modules"]
-subgraph 1C["react-dom"]
-1D["client.js"]
+subgraph 1B["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
+subgraph 1C["node_modules"]
+subgraph 1D["@nestjs"]
+subgraph 1E["core"]
+1F["index.js"]
 end
 end
 end
-subgraph 1E["reflect-metadata@0.2.2"]
-subgraph 1F["node_modules"]
-subgraph 1G["reflect-metadata"]
-1H["Reflect.js"]
+end
+subgraph 1G["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
+subgraph 1H["node_modules"]
+subgraph 1I["@nestjs"]
+subgraph 1J["testing"]
+1K["index.js"]
 end
 end
 end
-subgraph 1I["supertest@7.3.2"]
-subgraph 1J["node_modules"]
-subgraph 1K["supertest"]
-1L["index.js"]
 end
-end
-end
-subgraph 1M["zod@4.6.7"]
-subgraph 1N["node_modules"]
-subgraph 1O["zod"]
-1P["index.cjs"]
+subgraph 1L["@testcontainers+postgresql@12.2.1_bare-buffer@3.7.1"]
+subgraph 1M["node_modules"]
+subgraph 1N["@testcontainers"]
+subgraph 1O["postgresql"]
+subgraph 1P["build"]
+1Q["index.js"]
 end
 end
 end
 end
 end
-subgraph 1Q["packages"]
-1R["contracts"]
-1S["resilience"]
+subgraph 1R["@testcontainers+redis@12.2.1_bare-buffer@3.7.1"]
+subgraph 1S["node_modules"]
+subgraph 1T["@testcontainers"]
+subgraph 1U["redis"]
+subgraph 1V["build"]
+1W["index.js"]
 end
-1T["process"]
-1U["unplugin-swc"]
-subgraph 1V["vitest"]
-1W["config"]
 end
-7-->8
-7-->D
-7-->19
-7-->1H
-8-->B
-8-->D
-8-->E
-8-->G
-8-->Z
-8-->14
-9-->8
-9-->D
-9-->14
-9-->S
-9-->1T
-9-->1H
-B-->F
-B-->Z
-B-->8
-B-->D
-B-->19
-B-->R
-B-->1H
-B-->1L
-D-->1P
-D-->Z
-D-->19
-D-->1H
-E-->Z
-E-->1P
-E-->19
-E-->R
-E-->1H
-E-->1L
-F-->Z
-F-->1H
-G-->D
-G-->Z
-G-->Q
-H-->1U
-H-->1W
-L-->M
-O-->M
-O-->1D
-P-->1
-P-->3
+end
+end
+end
+subgraph 1X["@testcontainers+toxiproxy@12.2.1_bare-buffer@3.7.1"]
+subgraph 1Y["node_modules"]
+subgraph 1Z["@testcontainers"]
+subgraph 20["toxiproxy"]
+subgraph 21["build"]
+22["index.js"]
+end
+end
+end
+end
+end
+subgraph 23["drizzle-kit@0.31.11"]
+subgraph 24["node_modules"]
+subgraph 25["drizzle-kit"]
+26["index.js"]
+end
+end
+end
+subgraph 27["drizzle-orm@0.45.4_@types+pg@8.23.1_pg@8.23.1"]
+subgraph 28["node_modules"]
+subgraph 29["drizzle-orm"]
+2A["index.cjs"]
+subgraph 2B["node-postgres"]
+2C["index.js"]
+end
+end
+end
+end
+subgraph 2D["ioredis@6.0.0"]
+subgraph 2E["node_modules"]
+subgraph 2F["ioredis"]
+subgraph 2G["built"]
+2H["index.js"]
+end
+end
+end
+end
+subgraph 2I["pg@8.23.1"]
+subgraph 2J["node_modules"]
+subgraph 2K["pg"]
+subgraph 2L["lib"]
+2M["index.js"]
+end
+end
+end
+end
+subgraph 2N["react-dom@19.3.1_react@19.3.1"]
+subgraph 2O["node_modules"]
+subgraph 2P["react-dom"]
+2Q["client.js"]
+end
+end
+end
+subgraph 2R["reflect-metadata@0.2.2"]
+subgraph 2S["node_modules"]
+subgraph 2T["reflect-metadata"]
+2U["Reflect.js"]
+end
+end
+end
+subgraph 2V["supertest@7.3.2"]
+subgraph 2W["node_modules"]
+subgraph 2X["supertest"]
+2Y["index.js"]
+end
+end
+end
+subgraph 2Z["zod@4.6.7"]
+subgraph 30["node_modules"]
+subgraph 31["zod"]
+32["index.cjs"]
+end
+end
+end
+end
+end
+subgraph 33["packages"]
+34["contracts"]
+35["resilience"]
+end
+36["process"]
+subgraph 37["timers"]
+38["promises"]
+end
+39["unplugin-swc"]
+subgraph 3A["vitest"]
+3B["config"]
+end
+8-->26
+A-->B
+A-->G
+A-->H
+A-->L
+A-->1A
+A-->1K
+A-->2U
+B-->E
+B-->G
+B-->H
+B-->I
+B-->K
+B-->L
+B-->1A
+B-->1F
+C-->B
+C-->G
+C-->1F
+C-->13
+C-->36
+C-->2U
+E-->J
+E-->1A
+E-->B
+E-->G
+E-->H
+E-->L
+E-->1K
+E-->12
+E-->2U
+E-->2Y
+G-->32
+G-->1A
+G-->1K
+G-->2U
+H-->G
+H-->J
+H-->1A
+H-->2C
+H-->2M
+H-->I
+I-->1A
+I-->32
+I-->1K
+I-->12
+I-->2U
+I-->2Y
+J-->1A
+J-->2U
+K-->G
+K-->1A
+K-->10
+L-->G
+L-->J
+L-->1A
+L-->11
+L-->2H
+L-->I
+N-->B
+N-->G
+N-->H
+N-->L
+N-->P
+N-->1A
+N-->1K
+N-->2A
+N-->12
+N-->2H
+N-->2U
+N-->2Y
+N-->38
+N-->32
+P-->1Q
 P-->1W
-1R-->1P
+P-->22
+Q-->39
+Q-->3B
+R-->1
+R-->3B
+V-->W
+Y-->W
+Y-->2Q
+Z-->3
+Z-->5
+Z-->3B
+34-->32

@@ -7,5 +7,11 @@
     "emitDecoratorMetadata": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts", "vitest.config.mts"]
+  "include": [
+    "src/**/*.ts",
+    "vitest.config.mts",
+    "vitest.int.config.mts",
+    "drizzle.config.ts",
+    "test/**/*.ts"
+  ]
 }

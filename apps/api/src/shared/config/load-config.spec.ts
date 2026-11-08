@@ -20,6 +20,19 @@ describe('loadConfig', () => {
     expect(config.PORT).toBe(8000);
     expect(config.LOG_LEVEL).toBe('info');
     expect(config.CORS_ORIGINS).toEqual([]);
+    expect(config.DATABASE_POOL_MAX).toBe(10);
+  });
+
+  it('accepts pool sizes from 1 to 100 (NFR-RB-3)', () => {
+    for (const size of ['1', '10', '100']) {
+      expect(loadConfig({ ...required, DATABASE_POOL_MAX: size }).DATABASE_POOL_MAX).toBe(Number(size));
+    }
+  });
+
+  it('rejects invalid pool sizes (NFR-RB-3)', () => {
+    for (const size of ['0', '101', '-1', '1.5', 'abc', '']) {
+      expect(() => loadConfig({ ...required, DATABASE_POOL_MAX: size })).toThrow(ConfigError);
+    }
   });
 
   it('reports all invalid keys at once', () => {

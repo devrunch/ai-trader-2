@@ -82,7 +82,45 @@ sequenceDiagram
 ```
 
 ## Database
-lands in T-0xx
+
+SRD ?10.4, NFR-RB-1/3/6/7 and E17: global DB exposes Drizzle over a lazy
+Postgres pool. DATABASE_POOL_MAX defaults to 10 (1?100); connection timeout is
+3 s, idle timeout 30 s, and every session has statement_timeout=5000.
+Readiness runs select 1 with a 1500 ms deadline. An aborted check destroys its
+connection; acquisition completing after the deadline releases its connection.
+Failed probes use full-jitter backoff (200 ms base, 10 s cap) before the next
+readiness request can reconnect. Idle connection errors are logged without
+terminating the process. Shutdown ends the pool. Schema and migrations are empty.
+
+```mermaid
+stateDiagram-v2
+  [*] --> idle
+  idle --> connecting: Query or readiness probe
+  connecting --> up: Connected
+  connecting --> backoff: Connection fails
+  up --> backoff: Dependency lost
+  backoff --> connecting: Next probe after jitter delay
+  up --> stopped: Application shutdown
+  backoff --> stopped: Application shutdown
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Ready as ReadinessRegistry
+  participant PG as Database check
+  participant Redis as Redis check
+  Client->>Ready: GET /ready
+  par Independent checks
+    Ready->>PG: select 1 (1500 ms deadline)
+    PG-->>Ready: up or sanitized down reason
+  and
+    Ready->>Redis: PING (1000 ms deadline)
+    Redis-->>Ready: up or sanitized down reason
+  end
+  Ready-->>Client: 200 if both up, otherwise 503 naming failures
+  Note over Client,Ready: GET /health remains 200 without checking dependencies
+```
 
 ## Resilience
 
@@ -106,7 +144,26 @@ stateDiagram-v2
 ```
 
 ## Redis
-lands in T-0xx
+
+SRD ?10.4, NFR-RB-1/3/6/7 and E18: global REDIS exposes ioredis with lazyConnect,
+maxRetriesPerRequest=1, enableOfflineQueue=false, connectTimeout=3000 and a
+1000 ms command timeout. Module initialization starts connecting without waiting.
+The retry strategy never stops: full jitter, 200 ms base and 10 s cap. Error
+warnings are limited to one per 10 s. PING readiness has a 1000 ms deadline.
+Shutdown attempts QUIT with a 1500 ms deadline, then disconnects, including when
+the dependency is unavailable.
+
+```mermaid
+stateDiagram-v2
+  [*] --> lazy
+  lazy --> connecting: Module initialization
+  connecting --> ready: Connected
+  connecting --> reconnecting: Failure
+  ready --> reconnecting: Socket lost
+  reconnecting --> connecting: Full-jitter retry, indefinitely
+  ready --> end: QUIT on shutdown
+  reconnecting --> end: Bounded quit then disconnect
+```
 
 ## Health
 
