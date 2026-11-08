@@ -1,5 +1,96 @@
 # Market data domain
 
+## Live Kite feed (P2-5)
+
+Requirements: FR-MD-2, FR-MD-4, FR-MD-5, E1, E2, E3, E11, E12, E16,
+NFR-RB-1. `MarketDataModule.startFeeds()` attaches the bar pipeline and explicitly
+starts feeds. The API process does not call it. P2-9 owns the market-data process.
+`ResilientFeed` contains no vendor parsing, credentials or subscription layout.
+It owns cancellable jittered recovery, subscription reference counts, grace,
+market-aware silence detection and asynchronous gap repair. Failed repairs are
+retained for the next nightly reconciliation, including non-popular instruments.
+
+```mermaid
+stateDiagram-v2
+    [*] --> connecting: start
+    connecting --> live: socket open and subscriptions resent
+    connecting --> reconnecting: open fails
+    connecting --> stale: AUTH_EXPIRED
+    live --> reconnecting: socket closes or watchdog sees 30 seconds without ticks while open
+    reconnecting --> reconnecting: jittered backoff, open fails
+    reconnecting --> stale: AUTH_EXPIRED
+    stale --> stale: backoff cycle, auth refresh fails
+    stale --> reconnecting: refresh succeeds, open fails
+    stale --> live: refresh, open, resubscribe
+    reconnecting --> live: open, resubscribe, launch gap backfill
+    live --> live: 60 seconds live resets backoff
+    connecting --> stopped: stop
+    live --> stopped: stop
+    reconnecting --> stopped: stop
+    stale --> stopped: stop
+    stopped --> connecting: start
+```
+
+Kite uses full mode for real volume and LTP for indices. Missing timestamps in
+LTP packets use receive time; full packets prefer exchange timestamp, then last
+trade time. SubscriptionManager fills up to three groups of 3,000 instruments.
+Each connection uses `KiteWsClient`, a direct `ws` transport with a 15-second
+handshake deadline and abortable, bounded sends. `KiteTickerClient` coordinates
+the pool; `ResilientFeed` alone owns retries. `decodeKitePackets` parses the five
+documented packet sizes, signed segment-scaled prices, timestamps and depth.
+One-byte heartbeats update socket liveness without emitting ticks; the feed's
+market-aware watchdog still detects tick silence. Text error frames produce
+sanitized warnings; auth errors and HTTP 401/403 close with `AUTH_EXPIRED`.
+The adapter maps tokens back to canonical IDs. Authentication rejection explicitly
+refreshes the session before obtaining its new access token; no fallback vendor.
+Kite's SDK is used only for history and session, never for streaming.
+
+```mermaid
+sequenceDiagram
+    participant Kite as KiteTickerClient and KiteWsClient
+    participant Decoder as decodeKitePackets
+    participant Feed as ResilientFeed
+    participant Live as LiveBars
+    participant Builder as BarBuilder per instrument
+    participant Redis as FormingBarStore
+    participant DB as CandleStore
+    participant History as FillHistory
+    Kite->>Decoder: binary WebSocket frame
+    Decoder-->>Kite: raw ticks, or none for heartbeat
+    Kite->>Feed: canonical Tick
+    Feed->>Live: onTick
+    opt first tick after restart
+        Live->>Redis: get(id)
+        Redis-->>Live: forming bar, cumulative volume, sequence
+        Live->>Builder: restore
+    end
+    Live->>Builder: onTick
+    Builder-->>Live: closed bars and updated forming bar
+    opt closed bars
+        Live->>DB: upsert1m(id, bars, kite-live)
+        Live->>Redis: clear old forming bucket
+    end
+    Live->>Redis: set latest snapshot, at most once per 250 ms
+    loop every five seconds
+        Live->>Builder: closeDue(now)
+        Builder-->>Live: closed bars, including illiquid session close
+        Live->>DB: upsert closed bars
+        Live->>Redis: clear closed snapshot
+    end
+    opt recovery after outage
+        Feed->>Kite: reopen and resubscribe
+        Feed->>History: last tick or outage start through now
+        History->>DB: mergeRepair and upsert
+        Feed->>DB: mark completed outage minutes repaired
+    end
+```
+
+The manager-only `scripts/smoke/kite-ticker.ts` accepts configuration JSON on
+stdin. During NSE hours it resolves GOLD1!'s current contract, subscribes with
+RELIANCE and NIFTY for three minutes, terminates the socket at 90 seconds and
+prints tick counts, closed bars, repair flags and state transitions. It is never
+run by automated tests.
+
 Pure bars, market calendars, the session grid, tick aggregation and vendor repair.
 Time is supplied by callers. Requirements: FR-CH-6, FR-MD-2, E11, E12, E13, E16.
 

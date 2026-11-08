@@ -5,7 +5,8 @@ import type { BackfillHeld } from '../application/backfill-held';
 
 export class BackfillJob implements OnApplicationBootstrap {
   private readonly logger = new Logger('BarsBackfill');
-  constructor(private readonly scheduler: Pick<JobScheduler, 'register'>, private readonly backfill: Pick<BackfillHeld, 'execute'>) {}
+  constructor(private readonly scheduler: Pick<JobScheduler, 'register'>, private readonly backfill: Pick<BackfillHeld, 'execute'>,
+    private readonly retryFeedRepairs: (signal: AbortSignal) => Promise<void> = () => Promise.resolve()) {}
 
   async onApplicationBootstrap(): Promise<void> {
     try {
@@ -14,6 +15,7 @@ export class BackfillJob implements OnApplicationBootstrap {
         // Composite candle keys make repeated job deliveries and delayed retries idempotent.
         run: signal => retry(async attempt => {
           if (attempt > 0) await sleep(1000, signal);
+          await this.retryFeedRepairs(signal);
           const results = await this.backfill.execute(signal);
           if (Object.values(results).some(result => !result.ok && result.reason === 'RATE_LIMITED')) {
             throw new Error('History rate limited; queued for retry');

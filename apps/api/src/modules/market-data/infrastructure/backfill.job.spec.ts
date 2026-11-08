@@ -33,4 +33,12 @@ describe('FR-MD-2 E4 bars backfill scheduling', () => {
     await new BackfillJob({ register: () => Promise.reject(new Error('Redis down')) }, { execute: () => Promise.resolve({}) }).onApplicationBootstrap();
     expect(warning).toHaveBeenCalledWith('Unable to register bars-backfill');
   });
+  it('retries failed live-feed repairs on the nightly run (E1)', async () => {
+    const register = vi.fn<JobScheduler['register']>().mockResolvedValue(undefined);
+    const repairs = vi.fn<(signal: AbortSignal) => Promise<void>>().mockResolvedValue(undefined);
+    await new BackfillJob({ register }, { execute: () => Promise.resolve({}) }, repairs).onApplicationBootstrap();
+    const spec = register.mock.calls[0]?.[0]; if (!spec) throw new Error('Missing job');
+    const signal = new AbortController().signal; await spec.run(signal);
+    expect(repairs).toHaveBeenCalledExactlyOnceWith(signal);
+  });
 });

@@ -40,6 +40,14 @@ classDiagram
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
+  class FeedTransport {
+    +close() void
+    +connect(signal: AbortSignal) Promise<void>
+    +onClose(cb: (reason: string) => void) void
+    +onMessage(cb: (ticks: Tick[]) => void) void
+    +sendSubscribe(vendorKeys: readonly string[]) void
+    +sendUnsubscribe(vendorKeys: readonly string[]) void
+  }
   class FillHistory {
     +execute(instrumentId: string, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Counts>>
   }
@@ -59,6 +67,57 @@ classDiagram
     +history(m: { providerSymbol: string; providerToken?: string; volumeType?: 'real' | 'tick' | 'none' }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
     +name: "kite"
   }
+  class KiteRawTick {
+    +average_traded_price?: number
+    +change?: number
+    +depth?: { buy: DepthLevel[]; sell: DepthLevel[] }
+    +exchange_timestamp?: number | null
+    +instrument_token: number
+    +last_price: number
+    +last_trade_time?: number | null
+    +last_traded_quantity?: number
+    +mode: 'ltp' | 'quote' | 'full'
+    +ohlc?: { open: number; high: number; low: number; close: number }
+    +oi?: number
+    +oi_day_high?: number
+    +oi_day_low?: number
+    +total_buy_quantity?: number
+    +total_sell_quantity?: number
+    +tradable: boolean
+    +volume_traded?: number
+  }
+  class KiteTickerClient {
+    +close() void
+    +connect(signal: AbortSignal) Promise<void>
+    +disconnectSocket() void
+    +onClose(cb: (reason: string) => void) void
+    +onMessage(cb: (ticks: Tick[]) => void) void
+    +sendSubscribe(keys: readonly string[]) void
+    +sendUnsubscribe(keys: readonly string[]) void
+  }
+  class KiteTickerFeed {
+    +disconnectSocket() void
+  }
+  class KiteWsClient {
+    +close() void
+    +connect(signal: AbortSignal) Promise<void>
+    +onClose(cb: (reason: string) => void) void
+    +onMessage(cb: (ticks: Tick[]) => void) void
+    +sendSubscribe(keys: readonly string[]) void
+    +sendUnsubscribe(keys: readonly string[]) void
+  }
+  class LiveBars {
+    +attach(feed: LiveFeed) () => void
+  }
+  class LiveFeed {
+    +name: 'kite' | 'deriv'
+    +onState(listener: (s: FeedState, reason?: string) => void) () => void
+    +onTick(listener: (t: Tick) => void) () => void
+    +start() Promise<void>
+    +stop() Promise<void>
+    +subscribe(instrumentIds: readonly string[]) Promise<void>
+    +unsubscribe(instrumentIds: readonly string[]) Promise<void>
+  }
   class MarketCalendar {
     +id: string
     +isOpen(at: number) boolean
@@ -68,6 +127,8 @@ classDiagram
     +timezone: string
   }
   class MarketDataModule {
+    +onModuleDestroy() Promise<void>
+    +startFeeds() Promise<void>
   }
   class MarketDataProvider {
     +history(m: { providerSymbol: string; providerToken?: string }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
@@ -85,6 +146,16 @@ classDiagram
     +get(instrumentId: string, signal?: AbortSignal) ReturnType<FormingBarStore['get']>
     +set(instrumentId: string, v: Parameters<FormingBarStore['set']>[1], signal?: AbortSignal) Promise<void>
   }
+  class ResilientFeed {
+    +name: 'kite' | 'deriv'
+    +onState(listener: (s: FeedState, reason?: string) => void) () => void
+    +onTick(listener: (t: Tick) => void) () => void
+    +retryBackfills(signal: AbortSignal) Promise<void>
+    +start() Promise<void>
+    +stop() Promise<void>
+    +subscribe(ids: readonly string[]) Promise<void>
+    +unsubscribe(ids: readonly string[]) Promise<void>
+  }
   class RetentionJob {
     +onApplicationBootstrap() void
     +run(signal?: AbortSignal) Promise<void>
@@ -101,13 +172,39 @@ classDiagram
     +close: number
     +open: number
   }
+  class SubscriptionManager {
+    +add(token: string) number
+    +groups() string[][]
+    +remove(token: string) void
+  }
+  class Tick {
+    +at: number
+    +cumVolume: number | null
+    +instrumentId: string
+    +price: number
+    +seq?: number
+  }
+  class TickerMapping {
+    +id: string
+    +token: number
+    +volume: boolean
+  }
   BackfillHeld --> HistoryInstruments
   BarBuilder --> MarketCalendar
   CandleStore <|.. DrizzleCandleStore
+  FeedTransport <|.. KiteTickerClient
+  FeedTransport <|.. KiteWsClient
   FillHistory --> CandleStore
   FillHistory --> HistoryInstruments
   FormingBarStore <|.. RedisFormingBarStore
+  KiteTickerClient --> SubscriptionManager
+  LiveBars --> CandleStore
+  LiveBars --> FormingBarStore
+  LiveFeed <|.. ResilientFeed
   MarketCalendar <|.. SessionCalendar
+  MarketDataModule --> KiteTickerFeed
+  MarketDataModule --> LiveBars
   MarketDataProvider <|.. KiteHistoryProvider
   ReadBars --> CandleStore
   ReadBars --> FormingBarStore
+  ResilientFeed <|-- KiteTickerFeed
