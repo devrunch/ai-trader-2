@@ -11,7 +11,7 @@
     },
     "apps/web": {
       "entry": ["src/main.tsx", "**/*.config.*", "src/**/*.spec.tsx"],
-      "project": ["src/**/*.{ts,tsx}", "*.ts"]
+      "project": ["src/**/*.{ts,tsx,css}", "*.ts"]
     },
     "packages/*": { "entry": ["src/index.ts", "src/**/*.spec.ts"], "project": ["src/**/*.ts"] }
   }
