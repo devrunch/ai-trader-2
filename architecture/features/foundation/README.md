@@ -84,6 +84,27 @@ sequenceDiagram
 ## Database
 lands in T-0xx
 
+## Resilience
+
+The dependency-free `@aitrader/resilience` package provides full-jitter backoff
+and retries (NFR-RB-1), circuit breaking (NFR-RB-2), abortable sleep and deadlines
+(NFR-RB-3), and token-bucket rate limiting (NFR-SC-5). Clocks and randomness are
+injectable. Retry callbacks use the zero-based failed attempt. Ignored breaker
+errors pass through without counting; an ignored probe error releases the probe
+slot and leaves the breaker half-open. Concurrent probe callers fail immediately
+with zero remaining wait once the open interval has expired.
+
+```mermaid
+stateDiagram-v2
+  [*] --> closed
+  closed --> closed: Success resets consecutive failures
+  closed --> open: Failure threshold reached
+  open --> half_open: openMs elapsed
+  half_open --> closed: Single probe succeeds
+  half_open --> open: Probe fails / restart openMs
+  half_open --> half_open: Probe busy or ignored error
+```
+
 ## Redis
 lands in T-0xx
 
