@@ -20,7 +20,7 @@ Every domain module has this structure: `modules/<module>/{api,application,domai
 
 | Rule | Statement |
 |---|---|
-| R-1 | `domain/` imports only `domain/` of the same module and `@aitrader/contracts` types. No framework, ORM, Redis, HTTP or logger imports. |
+| R-1 | `domain/` imports only `domain/` of the same module, `@aitrader/contracts` types, and the pure date libraries `date-fns` and `@date-fns/tz`. No framework, ORM, Redis, HTTP or logger imports. |
 | R-2 | `application/` imports its own `domain/` and its own ports (interfaces in `application/ports/`). Never `infrastructure/`, never `api/`. |
 | R-3 | `api/` (controllers, DTOs, gateways) imports `application/` only. No logic beyond mapping DTO ⇄ application types. |
 | R-4 | `infrastructure/` implements `application/` ports and may import `domain/`. Never `api/`. |
@@ -46,7 +46,7 @@ R-1 to R-8 and R-12 are enforced by `pnpm depcruise`, `pnpm knip` and ESLint. A 
 
 ## 3. Errors
 
-- Throw `DomainError` subclasses from `apps/api/src/shared/errors`. Codes come only from `ERROR_CODES` in `@aitrader/contracts`.
+- `domain/` throws plain error classes with a stable `code` (no imports from `shared/`, R-1). `application/` and `api/` throw `DomainError` subclasses from `apps/api/src/shared/errors`, mapping domain errors where needed. Codes come only from `ERROR_CODES` in `@aitrader/contracts`.
 - Every error response is `{ code, message, details?, requestId }`. Never leak stacks, SQL or secrets.
 - Never swallow an error silently. Either handle it with a visible outcome (a typed reason, a `stale` flag) or let it reach the filter.
 
