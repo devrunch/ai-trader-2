@@ -3,6 +3,7 @@
 set -euo pipefail
 id="${1:?usage: finish.sh <id> \"<commit message>\"}"; msg="${2:?usage: finish.sh <id> \"<commit message>\"}"
 root="$(git rev-parse --show-toplevel)"; cd "$root"
+source "$root/scripts/lib/node-env.sh"
 branch="$(git branch --show-current)"
 case "$branch" in task/${id}-*) ;; *) echo "not on task/${id}-* branch (on $branch)" >&2; exit 1;; esac
 rm -f "docs/tasks/${id}.result.md.last-message.txt"

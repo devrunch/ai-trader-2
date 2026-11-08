@@ -6,6 +6,7 @@
 set -euo pipefail
 id="${1:?usage: codex.sh <id> [--resume <notes-file>]}"
 root="$(git rev-parse --show-toplevel)"; cd "$root"
+source "$root/scripts/lib/node-env.sh"
 brief="docs/tasks/${id}.md"; result="docs/tasks/${id}.result.md"
 case "$(git branch --show-current)" in task/${id}-*) ;; *) echo "not on task/${id}-* branch" >&2; exit 1;; esac
 mkdir -p .superpowers/codex
