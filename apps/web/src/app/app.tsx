@@ -1,3 +1,8 @@
+import { useState } from 'react';
+import { RouterProvider } from '@tanstack/react-router';
+import { Providers } from './providers';
+import { createAppRouter } from './router';
 export function App() {
-  return <div data-testid="app-root">AI Trader</div>;
+  const [router] = useState(createAppRouter);
+  return <Providers><RouterProvider router={router} /></Providers>;
 }

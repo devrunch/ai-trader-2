@@ -6,276 +6,362 @@ end
 subgraph 2["@rolldown"]
 3["plugin-babel"]
 end
-subgraph 4["@vitejs"]
-5["plugin-react"]
+subgraph 4["@tailwindcss"]
+5["vite"]
 end
-subgraph 6["apps"]
-subgraph 7["api"]
-8["drizzle.config.ts"]
-subgraph 9["src"]
-A["app.module.spec.ts"]
-B["app.module.ts"]
-C["main.ts"]
-subgraph D["modules"]
-E["health"]
+subgraph 6["@vitejs"]
+7["plugin-react"]
 end
-subgraph F["shared"]
-G["config"]
-H["database"]
-I["errors"]
-J["health"]
-K["observability"]
-L["redis"]
+subgraph 8["apps"]
+subgraph 9["api"]
+A["drizzle.config.ts"]
+subgraph B["src"]
+C["app.module.spec.ts"]
+D["app.module.ts"]
+E["main.ts"]
+subgraph F["modules"]
+G["health"]
 end
-end
-subgraph M["test"]
-N["infra.int-spec.ts"]
-subgraph O["support"]
-P["containers.ts"]
+subgraph H["shared"]
+I["config"]
+J["database"]
+K["errors"]
+L["health"]
+M["observability"]
+N["redis"]
 end
 end
-Q["vitest.config.mts"]
-R["vitest.int.config.mts"]
-end
-subgraph S["web"]
-subgraph T["src"]
-subgraph U["app"]
-V["app.spec.tsx"]
-W["app.tsx"]
-X["contracts.spec.tsx"]
-end
-Y["main.tsx"]
-end
-Z["vite.config.ts"]
+subgraph O["test"]
+P["infra.int-spec.ts"]
+subgraph Q["support"]
+R["containers.ts"]
 end
 end
-10["crypto"]
-11["events"]
-12["http"]
-13["node"]
-subgraph 14["node_modules"]
-subgraph 15[".pnpm"]
-subgraph 16["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
-subgraph 17["node_modules"]
-subgraph 18["@nestjs"]
-subgraph 19["common"]
-1A["index.js"]
+S["vitest.config.mts"]
+T["vitest.int.config.mts"]
+end
+subgraph U["web"]
+subgraph V["src"]
+subgraph W["app"]
+X["app.spec.tsx"]
+Y["app.tsx"]
+Z["contracts.spec.tsx"]
+subgraph 10["layout"]
+11["app-shell.tsx"]
+12["terminal-layout.spec.tsx"]
+13["terminal-layout.tsx"]
+14["use-is-desktop.ts"]
+end
+15["providers.tsx"]
+16["query-client.ts"]
+17["router.tsx"]
+subgraph 18["routes"]
+19["home-route.tsx"]
+1A["root-route.tsx"]
+1B["terminal-route.spec.tsx"]
+1C["terminal-route.tsx"]
+end
+1D["theme.css"]
+end
+1E["main.tsx"]
+subgraph 1F["shared"]
+1G["api"]
+1H["state"]
+1I["ui"]
+end
+1J["test-setup.ts"]
+end
+1K["vite.config.ts"]
 end
 end
-end
-end
-subgraph 1B["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
-subgraph 1C["node_modules"]
-subgraph 1D["@nestjs"]
-subgraph 1E["core"]
-1F["index.js"]
-end
-end
-end
-end
-subgraph 1G["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
-subgraph 1H["node_modules"]
-subgraph 1I["@nestjs"]
-subgraph 1J["testing"]
-1K["index.js"]
-end
-end
-end
-end
-subgraph 1L["@testcontainers+postgresql@12.2.1_bare-buffer@3.7.1"]
-subgraph 1M["node_modules"]
-subgraph 1N["@testcontainers"]
-subgraph 1O["postgresql"]
-subgraph 1P["build"]
-1Q["index.js"]
-end
-end
-end
-end
-end
-subgraph 1R["@testcontainers+redis@12.2.1_bare-buffer@3.7.1"]
+1L["crypto"]
+1M["events"]
+1N["http"]
+1O["node"]
+subgraph 1P["node_modules"]
+subgraph 1Q[".pnpm"]
+subgraph 1R["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
 subgraph 1S["node_modules"]
-subgraph 1T["@testcontainers"]
-subgraph 1U["redis"]
-subgraph 1V["build"]
-1W["index.js"]
+subgraph 1T["@nestjs"]
+subgraph 1U["common"]
+1V["index.js"]
+end
+end
+end
+end
+subgraph 1W["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
+subgraph 1X["node_modules"]
+subgraph 1Y["@nestjs"]
+subgraph 1Z["core"]
+20["index.js"]
+end
+end
+end
+end
+subgraph 21["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
+subgraph 22["node_modules"]
+subgraph 23["@nestjs"]
+subgraph 24["testing"]
+25["index.js"]
+end
+end
+end
+end
+subgraph 26["@tanstack+react-query@5.107_412b1c1983c52cebcb486b0896765416"]
+subgraph 27["node_modules"]
+subgraph 28["@tanstack"]
+subgraph 29["react-query"]
+subgraph 2A["build"]
+subgraph 2B["legacy"]
+2C["index.cjs"]
 end
 end
 end
 end
 end
-subgraph 1X["@testcontainers+toxiproxy@12.2.1_bare-buffer@3.7.1"]
-subgraph 1Y["node_modules"]
-subgraph 1Z["@testcontainers"]
-subgraph 20["toxiproxy"]
-subgraph 21["build"]
-22["index.js"]
 end
-end
-end
-end
-end
-subgraph 23["drizzle-kit@0.31.11"]
-subgraph 24["node_modules"]
-subgraph 25["drizzle-kit"]
-26["index.js"]
-end
-end
-end
-subgraph 27["drizzle-orm@0.45.4_@types+pg@8.23.1_pg@8.23.1"]
-subgraph 28["node_modules"]
-subgraph 29["drizzle-orm"]
-2A["index.cjs"]
-subgraph 2B["node-postgres"]
-2C["index.js"]
-end
-end
-end
-end
-subgraph 2D["ioredis@6.0.0"]
+subgraph 2D["@testcontainers+postgresql@12.2.1_bare-buffer@3.7.1"]
 subgraph 2E["node_modules"]
-subgraph 2F["ioredis"]
-subgraph 2G["built"]
-2H["index.js"]
+subgraph 2F["@testcontainers"]
+subgraph 2G["postgresql"]
+subgraph 2H["build"]
+2I["index.js"]
 end
 end
 end
 end
-subgraph 2I["pg@8.23.1"]
-subgraph 2J["node_modules"]
-subgraph 2K["pg"]
-subgraph 2L["lib"]
-2M["index.js"]
+end
+subgraph 2J["@testcontainers+redis@12.2.1_bare-buffer@3.7.1"]
+subgraph 2K["node_modules"]
+subgraph 2L["@testcontainers"]
+subgraph 2M["redis"]
+subgraph 2N["build"]
+2O["index.js"]
 end
 end
 end
 end
-subgraph 2N["react-dom@19.3.1_react@19.3.1"]
-subgraph 2O["node_modules"]
-subgraph 2P["react-dom"]
-2Q["client.js"]
+end
+subgraph 2P["@testcontainers+toxiproxy@12.2.1_bare-buffer@3.7.1"]
+subgraph 2Q["node_modules"]
+subgraph 2R["@testcontainers"]
+subgraph 2S["toxiproxy"]
+subgraph 2T["build"]
+2U["index.js"]
 end
 end
 end
-subgraph 2R["reflect-metadata@0.2.2"]
-subgraph 2S["node_modules"]
-subgraph 2T["reflect-metadata"]
-2U["Reflect.js"]
 end
 end
-end
-subgraph 2V["supertest@7.3.2"]
+subgraph 2V["drizzle-kit@0.31.11"]
 subgraph 2W["node_modules"]
-subgraph 2X["supertest"]
+subgraph 2X["drizzle-kit"]
 2Y["index.js"]
 end
 end
 end
-subgraph 2Z["zod@4.6.7"]
+subgraph 2Z["drizzle-orm@0.45.4_@types+pg@8.23.1_pg@8.23.1"]
 subgraph 30["node_modules"]
-subgraph 31["zod"]
+subgraph 31["drizzle-orm"]
 32["index.cjs"]
+subgraph 33["node-postgres"]
+34["index.js"]
+end
+end
+end
+end
+subgraph 35["ioredis@6.0.0"]
+subgraph 36["node_modules"]
+subgraph 37["ioredis"]
+subgraph 38["built"]
+39["index.js"]
+end
+end
+end
+end
+subgraph 3A["pg@8.23.1"]
+subgraph 3B["node_modules"]
+subgraph 3C["pg"]
+subgraph 3D["lib"]
+3E["index.js"]
+end
+end
+end
+end
+subgraph 3F["react-dom@19.3.1_react@19.3.1"]
+subgraph 3G["node_modules"]
+subgraph 3H["react-dom"]
+3I["client.js"]
+end
+end
+end
+subgraph 3J["react@19.3.1"]
+subgraph 3K["node_modules"]
+subgraph 3L["react"]
+3M["index.js"]
+end
+end
+end
+subgraph 3N["reflect-metadata@0.2.2"]
+subgraph 3O["node_modules"]
+subgraph 3P["reflect-metadata"]
+3Q["Reflect.js"]
+end
+end
+end
+subgraph 3R["supertest@7.3.2"]
+subgraph 3S["node_modules"]
+subgraph 3T["supertest"]
+3U["index.js"]
+end
+end
+end
+subgraph 3V["zod@4.6.7"]
+subgraph 3W["node_modules"]
+subgraph 3X["zod"]
+3Y["index.cjs"]
+end
+end
+end
+subgraph 3Z["zustand@5.1.0_@types+react@_264fdbbf374d33d30b7ff23cbb51761d"]
+subgraph 40["node_modules"]
+subgraph 41["zustand"]
+42["index.js"]
 end
 end
 end
 end
 end
-subgraph 33["packages"]
-34["contracts"]
-35["resilience"]
+subgraph 43["packages"]
+44["contracts"]
+45["resilience"]
 end
-36["process"]
-subgraph 37["timers"]
-38["promises"]
+46["process"]
+subgraph 47["timers"]
+48["promises"]
 end
-39["unplugin-swc"]
-subgraph 3A["vitest"]
-3B["config"]
+49["unplugin-swc"]
+4A["url"]
+subgraph 4B["vitest"]
+4C["config"]
 end
-8-->26
-A-->B
-A-->G
-A-->H
-A-->L
-A-->1A
-A-->1K
-A-->2U
-B-->E
-B-->G
-B-->H
-B-->I
-B-->K
-B-->L
-B-->1A
-B-->1F
-C-->B
-C-->G
-C-->1F
-C-->13
-C-->36
-C-->2U
-E-->J
-E-->1A
-E-->B
-E-->G
-E-->H
-E-->L
-E-->1K
-E-->12
-E-->2U
-E-->2Y
-G-->32
-G-->1A
-G-->1K
-G-->2U
-H-->G
-H-->J
-H-->1A
-H-->2C
-H-->2M
-H-->I
-I-->1A
-I-->32
-I-->1K
-I-->12
-I-->2U
-I-->2Y
-J-->1A
-J-->2U
-K-->G
-K-->1A
-K-->10
-L-->G
-L-->J
-L-->1A
-L-->11
-L-->2H
-L-->I
-N-->B
-N-->G
-N-->H
+A-->2Y
+C-->D
+C-->I
+C-->J
+C-->N
+C-->1V
+C-->25
+C-->3Q
+D-->G
+D-->I
+D-->J
+D-->K
+D-->M
+D-->N
+D-->1V
+D-->20
+E-->D
+E-->I
+E-->20
+E-->1O
+E-->46
+E-->3Q
+G-->L
+G-->1V
+G-->D
+G-->I
+G-->J
+G-->N
+G-->25
+G-->1N
+G-->3Q
+G-->3U
+I-->3Y
+I-->1V
+I-->25
+I-->3Q
+J-->I
+J-->L
+J-->1V
+J-->34
+J-->3E
+J-->K
+K-->1V
+K-->3Y
+K-->25
+K-->1N
+K-->3Q
+K-->3U
+L-->1V
+L-->3Q
+M-->I
+M-->1V
+M-->1L
+N-->I
 N-->L
-N-->P
-N-->1A
-N-->1K
-N-->2A
-N-->12
-N-->2H
-N-->2U
-N-->2Y
-N-->38
-N-->32
-P-->1Q
-P-->1W
-P-->22
-Q-->39
-Q-->3B
-R-->1
-R-->3B
-V-->W
-Y-->W
-Y-->2Q
-Z-->3
-Z-->5
-Z-->3B
-34-->32
+N-->1V
+N-->1M
+N-->39
+N-->K
+P-->D
+P-->I
+P-->J
+P-->N
+P-->R
+P-->1V
+P-->25
+P-->32
+P-->1N
+P-->39
+P-->3Q
+P-->3U
+P-->48
+P-->3Y
+R-->2I
+R-->2O
+R-->2U
+S-->49
+S-->4C
+T-->1
+T-->4C
+X-->Y
+Y-->15
+Y-->17
+Y-->3M
+11-->1H
+11-->1I
+12-->13
+13-->1I
+13-->14
+13-->3M
+14-->3M
+15-->1I
+15-->16
+15-->2C
+15-->3M
+16-->1G
+16-->2C
+17-->19
+17-->1A
+17-->1C
+19-->1I
+19-->1A
+1A-->11
+1B-->15
+1B-->17
+1C-->13
+1C-->1A
+1C-->3Y
+1E-->Y
+1E-->1D
+1E-->3I
+1G-->3Y
+1H-->42
+1I-->3M
+1K-->3
+1K-->5
+1K-->7
+1K-->4A
+1K-->4C
+44-->3Y

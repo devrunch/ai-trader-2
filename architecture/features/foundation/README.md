@@ -184,7 +184,42 @@ stateDiagram-v2
 ```
 
 ## Web shell
-lands in T-0xx
+
+FR-UI-1/3/4/5/6, SRD §10.3, NFR-PF-5: code-based typed routing and
+responsive terminal placeholders provide the foundation for future features.
+The API client validates JSON contracts, preserves aborts, maps transport errors,
+and bounds requests to 15 seconds. Query defaults retry only transient API codes.
+Storage is optional; theme mode is applied before the first render.
+
+```mermaid
+flowchart TD
+  App --> Providers
+  Providers --> QueryClientProvider
+  QueryClientProvider --> TooltipProvider
+  TooltipProvider --> RouterProvider
+  RouterProvider --> AppShell
+  AppShell --> Home["/ ? Home and skeleton cards"]
+  AppShell --> Terminal["/terminal?symbol=NSE:NIFTY&interval=5"]
+  Terminal --> Desktop["Desktop: 18% watchlist / 56% chart / 26% side tabs"]
+  Terminal --> Mobile["Phone: Chart / Watchlist / Chat / Positions / News / Alerts tabs"]
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> system: No valid saved preference
+  [*] --> light: Saved light
+  [*] --> dark: Saved dark
+  system --> light: Toggle
+  light --> dark: Toggle
+  dark --> system: Toggle
+  system --> system: OS preference changes
+  note right of system
+    Remove data-theme; follow prefers-color-scheme
+  end note
+  note right of dark
+    Persist mode; set data-theme to dark
+  end note
+```
 
 ## Live store
 lands in T-0xx
