@@ -5,7 +5,7 @@ const rule = (name, from, to) => ({ name, severity: 'error', from, to });
 module.exports = {
   forbidden: [
     rule('domain-no-framework', { path: `^(${apiRoot}/modules/[^/]+/domain/)` }, {
-      pathNot: ['^$1', '(?:^|/)@aitrader/contracts(?:/|$)', '^packages/contracts/', '(?:^|/)node_modules/(?:\.pnpm/[^/]+/node_modules/)?(?:date-fns|@date-fns/tz)/'],
+      pathNot: ['^$1', '(?:^|/)@aitrader/contracts(?:/|$)', '^packages/contracts/', 'node_modules/date-fns/', 'node_modules/@date-fns/tz/'],
     }),
     rule('application-no-infrastructure', { path: `${apiRoot}/modules/[^/]+/application/` }, {
       path: `${apiRoot}/modules/[^/]+/(?:infrastructure|api)/`,
