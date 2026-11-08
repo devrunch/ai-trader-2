@@ -12,6 +12,13 @@ run signal and records failed with detail `timeout`. Job implementations must
 honor cancellation; JavaScript promises cannot forcibly stop external effects.
 Shutdown waits ten seconds before aborting active signals.
 
+Run records contain `at` (finish time), `scheduledAt` (the served occurrence's
+ISO timestamp, or null for manual runs), and `outcome`. Legacy records without
+`scheduledAt` parse as null. Delivery de-duplication compares scheduled occurrences
+only; a late finish cannot suppress a later occurrence. Startup catch-up compares
+the previous fire with `last.scheduledAt ?? last.at`, retaining the finish-time
+fallback for legacy and manual records (NFR-RB-5, E22).
+
 ```mermaid
 stateDiagram-v2
   [*] --> startup
@@ -40,10 +47,15 @@ sequenceDiagram
   Queue->>API: Worker delivery (concurrency 1)
   API->>Redis: SET jobs:name:lock owner NX PX maxRuntime+30000
   alt Lock acquired
-    API->>Run: run(AbortSignal)
-    Run-->>API: Completion, error or deadline
-    API->>Redis: SET jobs:name:last JSON outcome
-    API->>Sink: beat(name, outcome, detail)
+    API->>Redis: GET last covered scheduled occurrence
+    alt Scheduled occurrence already covered
+      API-->>Queue: Complete duplicate without running callback
+    else New occurrence or manual delivery
+      API->>Run: run(AbortSignal)
+      Run-->>API: Completion, error or deadline
+      API->>Redis: SET jobs:name:last JSON at, scheduledAt, outcome
+      API->>Sink: beat(name, outcome, detail)
+    end
     API->>Redis: Compare owner and delete lock atomically
   else Another instance owns lock
     API-->>Queue: Complete duplicate without running callback

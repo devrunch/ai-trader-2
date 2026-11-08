@@ -11,7 +11,7 @@ export function parseContinuous(id: InstrumentId): { root: string; rank: number 
 export function resolveContinuous(
   root: string, rank: number, contracts: readonly Instrument[], today: string,
 ): Instrument | null {
-  const candidates = contracts.filter(instrument => instrument.type === 'futures'
+  const candidates = contracts.filter(instrument => (instrument.type === 'futures' || instrument.type === 'commodity')
     && (instrument.underlying ? instrument.underlying.ticker === root : instrument.ticker.startsWith(root))
     && instrument.expiry !== undefined && instrument.expiry >= today);
   candidates.sort((a, b) => (a.expiry ?? '').localeCompare(b.expiry ?? ''));
