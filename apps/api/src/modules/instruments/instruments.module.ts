@@ -1,8 +1,8 @@
-import { Logger, Module } from '@nestjs/common';
+import { Inject, Logger, Module, type OnApplicationBootstrap } from '@nestjs/common';
 import { DB, type Database } from '../../shared/database/index.js';
 import { JobScheduler } from '../../shared/jobs/index.js';
 import { ReadinessRegistry } from '../../shared/health/index.js';
-import { RefreshInstruments, ResolveInstrument } from './application/index.js';
+import { RefreshInstruments, ResolveInstrument, SearchInstruments } from './application/index.js';
 import { INSTRUMENT_REPOSITORY, type InstrumentRepository } from './application/ports/instrument-repository.js';
 import { INSTRUMENT_SOURCES, type InstrumentSource } from './application/ports/instrument-source.js';
 import { SEARCH_INDEX, type SearchIndex } from './application/ports/search-index.js';
@@ -10,12 +10,19 @@ import { DrizzleInstrumentRepository } from './infrastructure/drizzle-instrument
 import { RefreshJob } from './infrastructure/refresh.job.js';
 import { DerivSource, KiteSource, NasdaqSource } from './infrastructure/sources/index.js';
 
+import { MiniSearchIndex } from './infrastructure/minisearch-index.js';
+import { InstrumentsController } from './api/instruments.controller.js';
+import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.guard.js';
+
 @Module({
+  controllers: [InstrumentsController],
   providers: [
+    { provide: CLOCK, useValue: Date.now },
+    InstrumentsRateLimitGuard,
+    { provide: SearchInstruments, inject: [SEARCH_INDEX], useFactory: (index: SearchIndex) => new SearchInstruments(index) },
     { provide: INSTRUMENT_REPOSITORY, inject: [DB], useFactory: (db: Database) => new DrizzleInstrumentRepository(db) },
     { provide: INSTRUMENT_SOURCES, useFactory: (): InstrumentSource[] => [new KiteSource(), new DerivSource(), new NasdaqSource()] },
-    // P1-6 supplies the search implementation; persistence can run before that feature exists.
-    { provide: SEARCH_INDEX, useValue: { rebuild: () => {}, suggest: () => [] } satisfies SearchIndex },
+    { provide: SEARCH_INDEX, useClass: MiniSearchIndex },
     { provide: RefreshInstruments, inject: [INSTRUMENT_REPOSITORY, INSTRUMENT_SOURCES, SEARCH_INDEX],
       useFactory: (repo: InstrumentRepository, sources: InstrumentSource[], index: SearchIndex) =>
         new RefreshInstruments(repo, sources, index, () => new Date(), new Logger('RefreshInstruments')) },
@@ -27,4 +34,12 @@ import { DerivSource, KiteSource, NasdaqSource } from './infrastructure/sources/
   ],
   exports: [RefreshInstruments, ResolveInstrument],
 })
-export class InstrumentsModule {}
+export class InstrumentsModule implements OnApplicationBootstrap {
+  constructor(@Inject(INSTRUMENT_REPOSITORY) private readonly repository: InstrumentRepository,
+    @Inject(SEARCH_INDEX) private readonly index: SearchIndex) {}
+
+  async onApplicationBootstrap(): Promise<void> {
+    try { this.index.rebuild(await this.repository.listForIndex()); }
+    catch { new Logger('InstrumentsIndex').warn('Unable to load persisted instrument search index'); }
+  }
+}

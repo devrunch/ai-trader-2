@@ -14,6 +14,7 @@ export function repository() {
   return { loadSource: vi.fn<InstrumentRepository['loadSource']>().mockResolvedValue({ instruments: [], mappings: [] }),
     applySource: vi.fn<InstrumentRepository['applySource']>().mockResolvedValue(undefined),
     findById: vi.fn<InstrumentRepository['findById']>().mockResolvedValue(null),
+    findLastChange: vi.fn<InstrumentRepository['findLastChange']>().mockResolvedValue(null),
     findRenameSuccessor: vi.fn<InstrumentRepository['findRenameSuccessor']>().mockResolvedValue(null),
     listForIndex: vi.fn<InstrumentRepository['listForIndex']>().mockResolvedValue([]),
     listContinuousCandidates: vi.fn<InstrumentRepository['listContinuousCandidates']>().mockResolvedValue([]),
@@ -21,5 +22,5 @@ export function repository() {
     purgeExpired: vi.fn<InstrumentRepository['purgeExpired']>().mockResolvedValue(0) };
 }
 export function index() {
-  return { rebuild: vi.fn<SearchIndex['rebuild']>(), suggest: vi.fn<SearchIndex['suggest']>().mockReturnValue([]) };
+  return { search: vi.fn<SearchIndex['search']>().mockReturnValue([]), rebuild: vi.fn<SearchIndex['rebuild']>(), suggest: vi.fn<SearchIndex['suggest']>().mockReturnValue([]) };
 }

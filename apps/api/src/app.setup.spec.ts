@@ -34,7 +34,7 @@ it('configureApp removes x-powered-by', async () => {
 });
 
 it('configureApp maps errors through the global filter', async () => {
-  const response = await request(app.getHttpServer()).get('/missing').expect(404);
+  const response = await request(app.getHttpServer()).get('/api/missing').expect(404);
   const body = ErrorBodySchema.parse(response.body);
   expect(body.code).toBe('NOT_FOUND');
   expect(body.requestId).toBeTruthy();

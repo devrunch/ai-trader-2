@@ -22,7 +22,14 @@ export class ResolveInstrument {
       return { instrument, via: 'continuous', resolvedFrom: raw };
     }
     let instrument = await this.repository.findById(String(id));
-    if (!instrument) throw this.notFound(raw, id.ticker);
+    if (!instrument) {
+      const change = await this.repository.findLastChange(String(id));
+      const error = this.notFound(raw, id.ticker);
+      if (change?.kind === 'expired' || change?.kind === 'delisted') {
+        throw new SymbolNotFoundError(error.message, { ...error.details, reason: change.kind, at: change.at });
+      }
+      throw error;
+    }
     const visited = new Set([String(instrument.id)]);
     let renamed = false;
     for (let hop = 0; hop < 5 && instrument.status === 'delisted'; hop++) {

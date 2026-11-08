@@ -8,11 +8,11 @@ import { mapKiteRows } from './kite-mapping.js';
 
 export class KiteSource implements InstrumentSource {
   readonly name = 'kite';
-  private readonly logger = new Logger('KiteSource');
   private readonly runtime: SourceRuntime;
   constructor(
     private readonly fetchText: FetchText = textFetcher({ 'X-Kite-Version': '3' }),
     private readonly clock: Clock = () => new Date(),
+    private readonly logger: Pick<Logger, 'log'> = new Logger('KiteSource'),
   ) { this.runtime = new SourceRuntime(this.name, clock); }
 
   identity(mappings: readonly ProviderMapping[]): (instrument: Instrument) => string | undefined {

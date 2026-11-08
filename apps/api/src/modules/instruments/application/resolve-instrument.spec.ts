@@ -53,3 +53,23 @@ describe('FR-SY-5/7, E23 instrument resolution', () => {
     }
   });
 });
+
+// FR-SY-7, E23
+it('a purged expired id reports reason expired with its date', async () => {
+  const repo = repository();
+  const searchIndex = index();
+  repo.findLastChange.mockResolvedValue({ id: instrument('NFO:OLD').id, kind: 'expired', at: '2026-09-01T00:00:00Z' });
+  const resolve = new ResolveInstrument(repo, searchIndex);
+  await expect(resolve.execute('NFO:OLD')).rejects.toMatchObject({
+    code: 'SYMBOL_NOT_FOUND', details: { id: 'NFO:OLD', reason: 'expired', at: '2026-09-01T00:00:00Z', suggestions: [] },
+  });
+});
+
+// FR-SY-7, E23
+it('a purged delisted id reports reason delisted with its date', async () => {
+  const repo = repository();
+  repo.findLastChange.mockResolvedValue({ id: instrument('NSE:OLD').id, kind: 'delisted', at: '2026-09-01T00:00:00Z' });
+  await expect(new ResolveInstrument(repo, index()).execute('NSE:OLD')).rejects.toMatchObject({
+    code: 'SYMBOL_NOT_FOUND', details: { id: 'NSE:OLD', reason: 'delisted', at: '2026-09-01T00:00:00Z', suggestions: [] },
+  });
+});
