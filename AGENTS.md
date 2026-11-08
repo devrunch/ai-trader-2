@@ -63,6 +63,7 @@ R-1 to R-8 and R-12 are enforced by `pnpm depcruise`, `pnpm knip` and ESLint. A 
 - Names say what things are. Small files with one responsibility. Functions over 40 lines need a reason.
 - **Comments:** short, saying *what* or *why*. Never narrate history ("used to…", "this fixes…"). Delete removed code; never comment it out.
 - **Reuse before writing.** Check `packages/*`, `apps/*/src/shared/` and `architecture/generated/jscpd.md` first. Copied logic above the jscpd threshold fails the build.
+- **Files:** UTF-8 without BOM, LF line endings. On Windows, write files with your edit tool or `Set-Content -Encoding utf8NoBOM`, never PowerShell's default encoding.
 - **Versions:** exact versions in `package.json` (no `^` or `~`). Latest stable unless the brief pins otherwise. TypeScript stays `~6.0` until NestJS and typescript-eslint support 7.
 
 ## 6. Tests
