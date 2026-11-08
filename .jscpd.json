@@ -4,5 +4,6 @@
   "format": ["typescript", "tsx"],
   "ignore": ["**/*.spec.*", "**/*.int-spec.*", "**/node_modules/**", "tools/gates/fixtures/**", "**/dist/**", "**/coverage/**", "architecture/generated/**", "spikes/**"],
   "reporters": ["console", "markdown"],
-  "output": "architecture/generated/"
+  "output": "architecture/generated/",
+  "reportName": "jscpd"
 }
