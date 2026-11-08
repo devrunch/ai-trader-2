@@ -13,26 +13,27 @@ subgraph 7["shared"]
 9["apps/api/src/shared/database"]
 A["apps/api/src/shared/errors"]
 B["apps/api/src/shared/health"]
-C["apps/api/src/shared/observability"]
-D["apps/api/src/shared/redis"]
+C["apps/api/src/shared/jobs"]
+D["apps/api/src/shared/observability"]
+E["apps/api/src/shared/redis"]
 end
 end
 end
-subgraph E["web"]
-subgraph F["src"]
-G["apps/web/src/app"]
-subgraph H["shared"]
-I["apps/web/src/shared/api"]
-J["apps/web/src/shared/live"]
-K["apps/web/src/shared/state"]
-L["apps/web/src/shared/ui"]
+subgraph F["web"]
+subgraph G["src"]
+H["apps/web/src/app"]
+subgraph I["shared"]
+J["apps/web/src/shared/api"]
+K["apps/web/src/shared/live"]
+L["apps/web/src/shared/state"]
+M["apps/web/src/shared/ui"]
 end
 end
 end
 end
-subgraph M["packages"]
-N["packages/contracts"]
-O["packages/resilience"]
+subgraph N["packages"]
+O["packages/contracts"]
+P["packages/resilience"]
 end
 3-->5
 3-->8
@@ -40,14 +41,16 @@ end
 3-->A
 3-->C
 3-->D
+3-->E
 5-->B
 9-->8
 9-->B
 9-->A
 C-->8
 D-->8
-D-->B
-D-->A
-G-->L
-G-->I
-G-->K
+E-->8
+E-->B
+E-->A
+H-->M
+H-->J
+H-->L
