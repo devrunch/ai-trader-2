@@ -1,3 +1,4 @@
+import { configureApp } from '../../app.setup';
 import 'reflect-metadata';
 import { Controller, Get, HttpException, Param } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
@@ -42,14 +43,14 @@ const bodies: unknown[] = [];
 beforeAll(async () => {
   vi.spyOn(PinoLogger.prototype, 'warn').mockImplementation(() => undefined);
   vi.spyOn(PinoLogger.prototype, 'error').mockImplementation(() => undefined);
-  const module = await Test.createTestingModule({ controllers: [ThrowController] }).compile();
+  const module = await Test.createTestingModule({ controllers: [ThrowController], providers: [GlobalExceptionFilter, { provide: PinoLogger, useValue: new PinoLogger({ pinoHttp: { level: 'silent' } }) }] }).compile();
   app = module.createNestApplication();
+  configureApp(app);
   app.use((req: { id?: string; headers: Record<string, unknown> }, _res: unknown, next: () => void) => {
     const header = req.headers['x-request-id'];
     if (typeof header === 'string') req.id = header;
     next();
   });
-  app.useGlobalFilters(new GlobalExceptionFilter(new PinoLogger({ pinoHttp: { level: 'silent' } })));
   await app.init();
   server = app.getHttpServer();
 });

@@ -14,7 +14,7 @@ class ConsumerModule {}
 
 // SRD §10.1, R-9: sibling modules receive the same validated config.
 it('provides APP_CONFIG globally', async () => {
-  const cfg = AppConfigSchema.parse({ NODE_ENV: 'test', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
+  const cfg = AppConfigSchema.parse({ NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
   const module = await Test.createTestingModule({
     imports: [AppConfigModule.forRoot(cfg), ConsumerModule],
   }).compile();

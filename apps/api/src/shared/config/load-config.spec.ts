@@ -3,6 +3,7 @@ import { ConfigError, loadConfig } from './load-config';
 
 const required = {
   NODE_ENV: 'test',
+  LOG_LEVEL: 'silent',
   DATABASE_URL: 'postgresql://localhost/test',
   REDIS_URL: 'redis://localhost:6379',
 };
@@ -18,7 +19,7 @@ describe('loadConfig', () => {
   it('applies defaults', () => {
     const config = loadConfig(required);
     expect(config.PORT).toBe(8000);
-    expect(config.LOG_LEVEL).toBe('info');
+    expect(config.LOG_LEVEL).toBe('silent');
     expect(config.CORS_ORIGINS).toEqual([]);
     expect(config.DATABASE_POOL_MAX).toBe(10);
   });
@@ -38,7 +39,7 @@ describe('loadConfig', () => {
   it('reports all invalid keys at once', () => {
     expect.assertions(2);
     try {
-      loadConfig({ NODE_ENV: 'prod', PORT: 'abc', REDIS_URL: required.REDIS_URL });
+      loadConfig({ LOG_LEVEL: 'silent', NODE_ENV: 'prod', PORT: 'abc', REDIS_URL: required.REDIS_URL });
     } catch (error) {
       expect(error).toBeInstanceOf(ConfigError);
       if (error instanceof ConfigError) {
