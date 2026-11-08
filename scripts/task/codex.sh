@@ -23,6 +23,7 @@ if [ "${2:-}" = "--resume" ]; then
   codex exec resume --last "${opts[@]}" - < "$notes" > "$log" 2>&1 || status=$?
 else
   [ -f "$brief" ] || { echo "missing $brief" >&2; exit 1; }
+  if grep -qE '<title>|<one sentence>' "$brief"; then echo "brief $brief is still the template" >&2; exit 1; fi
   log=".superpowers/codex/${id}.log"
   codex exec -C "$root" "${opts[@]}" - < "$brief" > "$log" 2>&1 || status=$?
 fi
