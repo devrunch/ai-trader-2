@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { loadConfig } from './shared/config';
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from './shared/database';
+import { KiteModule } from './shared/vendors/kite';
 import { RedisModule } from './shared/redis';
 
 @Module({})
@@ -15,6 +16,7 @@ class NoInfrastructureModule {}
 it('boots the Nest application', async () => {
   const testConfig = loadConfig({ NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
   const module = await Test.createTestingModule({ imports: [AppModule.forRoot(testConfig)] })
+    .overrideModule(KiteModule).useModule(NoInfrastructureModule)
     .overrideModule(DatabaseModule).useModule(NoInfrastructureModule)
     .overrideModule(RedisModule).useModule(NoInfrastructureModule).compile();
   const app = module.createNestApplication();

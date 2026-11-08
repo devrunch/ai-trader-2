@@ -331,3 +331,52 @@ sequenceDiagram
   Setup->>App: Register global exception filter
   Bootstrap->>App: Initialize application
 ```
+
+## Kite session
+
+FR-MD-3, E3, NFR-SC-1, NFR-RB-2 and NFR-RB-5: a shared session service
+reuses the Postgres token until its final minute, then shares one mint among
+callers. Tokens expire at the next 06:00 IST. The durable refresh runs at
+06:20 Asia/Kolkata with six-hour catch-up, bounded retries with full jitter,
+and a breaker opening after three failed mints for fifteen minutes.
+Readiness checks storage without minting. Failures expose fixed reasons only.
+The vendor primary key makes repeated storage writes idempotent.
+
+```mermaid
+sequenceDiagram
+  participant Caller as Caller or durable refresh job
+  participant Session as KiteSessionService
+  participant Kite as Kite login HTTP
+  participant SDK as Kite Connect SDK
+  participant DB as Postgres
+  Caller->>Session: Get token or force refresh
+  Session->>DB: Read stored token (get only)
+  alt Stored token has more than 60 seconds left
+    DB-->>Session: Valid token
+  else Mint through circuit breaker
+    Session->>Kite: Login (password)
+    Kite-->>Session: request_id
+    Session->>Kite: Twofa (TOTP)
+    Session->>Kite: Redirect walk (max 10)
+    Kite-->>Session: request_token
+    Note over Session,Kite: Never fetch registered redirect URL
+    Session->>SDK: Official generateSession exchange
+    SDK-->>Session: Access token
+    Session->>DB: Upsert token and expiry by vendor
+  end
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> none
+  none --> minting: Get token or scheduled refresh
+  none --> valid: Load stored token
+  valid --> expiring: Last 60 seconds
+  valid --> minting: Scheduled refresh
+  expiring --> minting: Get token or scheduled refresh
+  minting --> valid: Exchange and store succeed
+  minting --> failed: Mint fails
+  failed --> minting: Retry with backoff
+  failed --> breaker: Three failures
+  breaker --> minting: Next request or job after 15 minutes
+```

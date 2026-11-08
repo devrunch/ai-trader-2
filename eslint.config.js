@@ -21,7 +21,7 @@ export default defineConfig(
   },
   {
     files: ['**/*.{js,cjs,mjs,ts,tsx,mts}'],
-    ignores: ['apps/api/src/main.ts', '**/*.config.*'],
+    ignores: ['apps/api/src/main.ts', '**/*.config.*', 'scripts/smoke/**'],
     rules: { 'no-restricted-properties': ['error', { object: 'process', property: 'env', message: 'Inject APP_CONFIG instead.' }] },
   },
   { files: ['apps/*/src/**/*.{ts,tsx}'], ignores: ['apps/api/src/main.ts'], rules: { 'no-console': 'error' } },
