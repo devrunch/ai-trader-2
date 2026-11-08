@@ -16,7 +16,7 @@ sequenceDiagram
   participant C as Codex (employee)
   M->>G: scripts/task/start.sh <id> <slug>  (branch task/<id>-<slug> from main, brief from template)
   M->>M: fill docs/tasks/<id>.md from the phase plan
-  M->>C: scripts/task/codex.sh <id>  (brief on stdin, workspace-write sandbox)
+  M->>C: scripts/task/codex.sh <id>  (brief on stdin, no sandbox)
   C->>C: TDD: tests fail, implement, tests pass, pnpm check, pnpm diagrams
   C-->>M: docs/tasks/<id>.result.md
   M->>M: review (checklist below)
@@ -27,7 +27,7 @@ sequenceDiagram
   M->>G: scripts/task/finish.sh <id> "<message>"  (check, commit as Codex, merge --no-ff, delete branch)
 ```
 
-**Why the manager commits:** Codex's sandbox can't write `.git`. This was verified with `codex-cli 0.163.0`, including with `--add-dir .git`. The commit is authored `Codex <codex@users.noreply.local>`; the manager is the committer.
+**Codex runtime:** no sandbox (`--dangerously-bypass-approvals-and-sandbox`), the owner's decision of 2026-11-08. The Windows sandbox blocked pnpm's file locks, SWC's native binary and Docker, so no test could run. AGENTS.md §0 confines Codex to the repo and away from credentials. The manager still owns every commit and merge: that is the review gate. Commits are authored `Codex <codex@users.noreply.local>`; the manager is the committer.
 
 **If Codex can't finish after 2 review rounds:** the manager splits the task into smaller briefs on fresh branches and deletes the failed branch. Partial work is never merged.
 

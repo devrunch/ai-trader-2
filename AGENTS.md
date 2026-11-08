@@ -5,6 +5,7 @@ Codex (the implementer) follows these rules. Claude (the manager) reviews every 
 ## 0. Scope
 
 - Do **only** what the task brief in `docs/tasks/<id>.md` asks. Anything else you notice goes under **Follow-ups** in `docs/tasks/<id>.result.md`. Don't do it.
+- You run without a sandbox. Work only inside this repository. Never read, list or copy anything under your home directory's credential locations (`.ssh`, `.aws`, `.codex`, `.config`, `*.pem`, `*.key`, `.env` files), never change global tools or system settings, and never delete outside the repo. Install dependencies with `pnpm install` from the repo root only.
 - Never commit, merge, push, or edit `AGENTS.md`, `docs/process/**`, `docs/SRD.md` or `docs/superpowers/**`. The manager owns them.
 - Write the result file before you finish, with these sections:
   - **What changed:** files and one line each.
