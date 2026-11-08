@@ -3,6 +3,13 @@ import { FillHistory } from './fill-history';
 import { historyBar, historyFixture, historySignal } from './history.spec-helper';
 
 describe('FR-MD-1 FR-MD-2 fill history', () => {
+  it.each([{ id: 'OANDA:EURUSD', provider: 'deriv' }, { id: 'NASDAQ:AAPL', provider: 'us-delayed' }] as const)('routes $id to $provider and preserves provenance', async ({ id, provider }) => {
+    const f = historyFixture(); const signal = historySignal();
+    f.providers.set(provider, { name: provider, history: f.history });
+    expect(await new FillHistory(f.store, f.instruments, f.providers).execute(id, '1m', 0, 100, signal)).toEqual({ ok: true, data: { written: 1, repaired: 0 } });
+    expect(f.instruments.getMapping).toHaveBeenCalledWith(id, provider, signal);
+    expect(f.store.upsert1m).toHaveBeenCalledWith(id, [historyBar], provider, signal);
+  });
   it('stores fetched bars and reports written', async () => {
     const f = historyFixture(); const fill = new FillHistory(f.store, f.instruments, f.providers);
     const signal = historySignal();

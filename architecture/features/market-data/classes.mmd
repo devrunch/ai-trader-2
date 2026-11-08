@@ -33,6 +33,22 @@ classDiagram
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
+  class DerivFeed {
+    +disconnectSocket() void
+  }
+  class DerivHistoryProvider {
+    +history(mapping: { providerSymbol: string }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
+    +name: "deriv"
+  }
+  class DerivWsClient {
+    +close() void
+    +connect(signal: AbortSignal) Promise<void>
+    +disconnectSocket() void
+    +onClose(cb: (reason: string) => void) void
+    +onMessage(cb: (ticks: Tick[]) => void) void
+    +sendSubscribe(keys: readonly string[]) void
+    +sendUnsubscribe(keys: readonly string[]) void
+  }
   class DrizzleCandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
     +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
@@ -57,7 +73,7 @@ classDiagram
     +set(instrumentId: string, v: { bar: Bar; lastCumVolume: number | null; seq: number | null }) Promise<void>
   }
   class HistoryInstruments {
-    +getMapping(id: string, provider: 'kite', signal: AbortSignal) Promise<HistoryMapping | undefined>
+    +getMapping(id: string, provider: 'kite' | 'deriv' | 'us-delayed', signal: AbortSignal) Promise<HistoryMapping | undefined>
     +held(signal: AbortSignal) Promise<string[]>
   }
   class InvalidIntervalError {
@@ -110,7 +126,8 @@ classDiagram
     +attach(feed: LiveFeed) () => void
   }
   class LiveFeed {
-    +name: 'kite' | 'deriv'
+    +delayMs?: number
+    +name: 'kite' | 'deriv' | 'us-delayed'
     +onState(listener: (s: FeedState, reason?: string) => void) () => void
     +onTick(listener: (t: Tick) => void) () => void
     +start() Promise<void>
@@ -189,9 +206,24 @@ classDiagram
     +token: number
     +volume: boolean
   }
+  class UsDelayedFeed {
+    +delayMs: number
+    +name: "us-delayed"
+    +onState(cb: (state: FeedState, reason?: string) => void) () => void
+    +onTick(cb: (tick: Tick) => void) () => void
+    +start() Promise<void>
+    +stop() Promise<void>
+    +subscribe(ids: readonly string[]) Promise<void>
+    +unsubscribe(ids: readonly string[]) Promise<void>
+  }
+  class UsDelayedProvider {
+    +history(mapping: { providerSymbol: string }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
+    +name: "us-delayed"
+  }
   BackfillHeld --> HistoryInstruments
   BarBuilder --> MarketCalendar
   CandleStore <|.. DrizzleCandleStore
+  FeedTransport <|.. DerivWsClient
   FeedTransport <|.. KiteTickerClient
   FeedTransport <|.. KiteWsClient
   FillHistory --> CandleStore
@@ -201,10 +233,14 @@ classDiagram
   LiveBars --> CandleStore
   LiveBars --> FormingBarStore
   LiveFeed <|.. ResilientFeed
+  LiveFeed <|.. UsDelayedFeed
   MarketCalendar <|.. SessionCalendar
   MarketDataModule --> KiteTickerFeed
   MarketDataModule --> LiveBars
+  MarketDataProvider <|.. DerivHistoryProvider
   MarketDataProvider <|.. KiteHistoryProvider
+  MarketDataProvider <|.. UsDelayedProvider
   ReadBars --> CandleStore
   ReadBars --> FormingBarStore
+  ResilientFeed <|-- DerivFeed
   ResilientFeed <|-- KiteTickerFeed

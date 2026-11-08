@@ -19,10 +19,24 @@ import { KiteHistoryProvider } from './infrastructure/kite/kite-history.provider
 import { BackfillJob } from './infrastructure/backfill.job';
 import { LiveBars } from './application/live-bars';
 import { KiteTickerFeed } from './infrastructure/kite/kite-ticker.feed';
+import { DerivFeed } from './infrastructure/deriv/deriv.feed';
+import { DerivHistoryProvider } from './infrastructure/deriv/deriv-history.provider';
+import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
+import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 
 @Module({
   imports: [KiteModule],
   providers: [
+    { provide: DerivHistoryProvider, useFactory: () => new DerivHistoryProvider() },
+    { provide: UsDelayedProvider, useFactory: () => new UsDelayedProvider() },
+    { provide: UsDelayedFeed, inject: [UsDelayedProvider, InstrumentHistory],
+      useFactory: (provider: UsDelayedProvider, instruments: InstrumentHistory) => new UsDelayedFeed({ provider, instruments }) },
+    { provide: DerivFeed, inject: [InstrumentHistory, FillHistory, DrizzleCandleStore],
+      useFactory: (instruments: InstrumentHistory, fill: FillHistory, store: DrizzleCandleStore) => {
+        const logger = new Logger('Deriv');
+        return new DerivFeed({ instruments, fill, store,
+          log: (reason, error) => { logger.warn({ reason, code: error instanceof Error ? error.name : 'UNKNOWN' }); } });
+      } },
     { provide: KiteTickerFeed, inject: [KiteSessionService, InstrumentHistory, FillHistory, DrizzleCandleStore, APP_CONFIG],
       useFactory: (session: KiteSessionService, instruments: InstrumentHistory, fill: FillHistory, store: DrizzleCandleStore, config: AppConfig) => {
         const logger = new Logger('KiteTicker');
@@ -38,8 +52,9 @@ import { KiteTickerFeed } from './infrastructure/kite/kite-ticker.feed';
     { provide: KiteHistoryProvider, inject: [KiteSessionService, RedisTokenBucket, APP_CONFIG],
       useFactory: (session: KiteSessionService, bucket: RedisTokenBucket, config: AppConfig) =>
         new KiteHistoryProvider(session, bucket, config.ZERODHA_API_KEY ?? '') },
-    { provide: MARKET_DATA_PROVIDERS, inject: [KiteHistoryProvider],
-      useFactory: (kite: KiteHistoryProvider) => new Map<string, MarketDataProvider>([['kite', kite]]) },
+    { provide: MARKET_DATA_PROVIDERS, inject: [KiteHistoryProvider, DerivHistoryProvider, UsDelayedProvider],
+      useFactory: (kite: KiteHistoryProvider, deriv: DerivHistoryProvider, us: UsDelayedProvider) =>
+        new Map<string, MarketDataProvider>([['kite', kite], ['deriv', deriv], ['us-delayed', us]]) },
     { provide: FillHistory, inject: [DrizzleCandleStore, InstrumentHistory, MARKET_DATA_PROVIDERS],
       useFactory: (store: DrizzleCandleStore, instruments: InstrumentHistory, providers: Map<string, MarketDataProvider>) =>
         new FillHistory(store, instruments, providers) },
@@ -47,8 +62,9 @@ import { KiteTickerFeed } from './infrastructure/kite/kite-ticker.feed';
       const logger = new Logger('BarsBackfill');
       return new BackfillHeld(fill, instruments, Date.now, { info: value => { logger.log(value); } });
     } },
-    { provide: BackfillJob, inject: [JobScheduler, BackfillHeld, KiteTickerFeed],
-      useFactory: (scheduler: JobScheduler, backfill: BackfillHeld, feed: KiteTickerFeed) => new BackfillJob(scheduler, backfill, signal => feed.retryBackfills(signal)) },
+    { provide: BackfillJob, inject: [JobScheduler, BackfillHeld, KiteTickerFeed, DerivFeed],
+      useFactory: (scheduler: JobScheduler, backfill: BackfillHeld, kite: KiteTickerFeed, deriv: DerivFeed) =>
+        new BackfillJob(scheduler, backfill, async signal => { await Promise.all([kite.retryBackfills(signal), deriv.retryBackfills(signal)]); }) },
     { provide: DrizzleCandleStore, inject: [DB], useFactory: (db: Database) => new DrizzleCandleStore(db) },
     { provide: RedisFormingBarStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFormingBarStore(redis) },
     { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory],
@@ -57,7 +73,7 @@ import { KiteTickerFeed } from './infrastructure/kite/kite-ticker.feed';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed],
+  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;
