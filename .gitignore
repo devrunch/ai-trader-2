@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.likec4/
+architecture/site/
+playwright-report/
+test-results/
+.superpowers/
+spikes/**/node_modules/
+spikes/**/tv-*.json
+spikes/**/bars.csv
+spikes/**/engine-values.json
+*.log
+.DS_Store

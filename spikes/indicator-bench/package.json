@@ -1,0 +1,10 @@
+{
+  "name": "indicator-bench",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway benchmark spike for the AI Trader 2 indicator engine decision (2026-11-08).",
+  "dependencies": {
+    "pinets": "0.13.1",
+    "trading-signals": "8.3.0"
+  }
+}
