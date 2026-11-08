@@ -2,8 +2,42 @@ model {
   trader = actor 'Trader'
   admin = actor 'Admin'
   aitrader = system 'AI Trader' {
-    web = container 'Web' { technology 'React SPA — SRD §10.3' }
-    api = container 'API' { technology 'NestJS — SRD §10.1' }
+    web = container 'Web' {
+      technology 'React SPA — SRD §10.3'
+      shell = component 'App shell' {
+        description 'Typed routes (symbol and interval in the URL), providers, responsive terminal layout'
+      }
+      apiClient = component 'API client' {
+        description 'apiFetch: Zod-validated responses, ApiError from the shared error contract, 15 s timeout'
+      }
+      liveStore = component 'Live store' {
+        description 'Latest value per key, one flush per animation frame; ticks never enter React state'
+      }
+      theme = component 'Theme' {
+        description 'CSS tokens, light/dark/system, safe storage'
+      }
+    }
+    api = container 'API' {
+      technology 'NestJS — SRD §10.1'
+      config = component 'Config' {
+        description 'Zod-validated AppConfig; the only reader of env (main.ts)'
+      }
+      errors = component 'Errors' {
+        description 'DomainError hierarchy + global filter → { code, message, details?, requestId }'
+      }
+      observability = component 'Observability' {
+        description 'pino JSON logs, request ids, redaction'
+      }
+      health = component 'Health' {
+        description '/health (process up) and /ready (readiness registry)'
+      }
+      database = component 'Database' {
+        description 'Drizzle over pg Pool; 3 s connect, 5 s statements; readiness check'
+      }
+      redisClient = component 'Redis client' {
+        description 'ioredis; backoff reconnect, fail-fast commands; readiness check'
+      }
+    }
     marketData = container 'Market data' {
       technology 'Node — SRD §7.2'
       description 'Vendor sockets and the bar builder'
@@ -12,6 +46,14 @@ model {
       technology 'Python FastAPI — SRD §10.2'
       description 'Stateless computation'
     }
+  }
+  resilience = component 'Resilience package' {
+    technology '@aitrader/resilience'
+    description 'backoff, retry, timeout, circuit breaker, token bucket — shared by api and web'
+  }
+  contracts = component 'Contracts package' {
+    technology '@aitrader/contracts'
+    description 'Error codes and body schema shared by api and web'
   }
   postgres = store 'Postgres' { description 'SRD §10.4' }
   redis = store 'Redis' { description 'SRD §10.4' }
@@ -22,10 +64,21 @@ model {
   telegram = external 'Telegram'
 
   trader .calls aitrader.web
-  aitrader.web .calls aitrader.api 'REST'
-  aitrader.web .streams aitrader.api 'Socket'
-  aitrader.api .reads postgres
-  aitrader.api .reads redis
+  admin .calls aitrader.web
+  aitrader.web.shell .calls aitrader.web.apiClient
+  aitrader.web.apiClient .calls aitrader.api 'REST'
+  aitrader.web.liveStore .streams aitrader.api 'Socket (Phase 3)'
+  aitrader.api.database .reads postgres
+  aitrader.api.database .writes postgres
+  aitrader.api.redisClient .reads redis
+  aitrader.api.redisClient .writes redis
+  aitrader.api.health .calls aitrader.api.database 'readiness'
+  aitrader.api.health .calls aitrader.api.redisClient 'readiness'
+  aitrader.api.errors .calls aitrader.api.observability 'logs'
+  aitrader.api.database .calls resilience
+  aitrader.api.redisClient .calls resilience
+  aitrader.api.errors .calls contracts
+  aitrader.web.apiClient .calls contracts
   aitrader.marketData .streams kite
   aitrader.marketData .streams deriv
   aitrader.marketData .writes redis 'Ticks'
@@ -43,5 +96,13 @@ views {
   view containers of aitrader {
     title 'AI Trader containers'
     include aitrader.*, ->aitrader.*->
+  }
+  view api of aitrader.api {
+    title 'API components (Phase 0)'
+    include *, postgres, redis, resilience, contracts
+  }
+  view web of aitrader.web {
+    title 'Web components (Phase 0)'
+    include *, contracts
   }
 }
