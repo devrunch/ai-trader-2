@@ -1,3 +1,4 @@
+import { configureApp } from './app.setup';
 /// <reference types="node" />
 import 'reflect-metadata';
 import process from 'node:process';
@@ -9,6 +10,7 @@ import { ConfigError, loadConfig } from './shared/config';
 async function bootstrap(): Promise<void> {
   const config = loadConfig(process.env);
   const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
+  configureApp(app);
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
   await app.listen(config.PORT);

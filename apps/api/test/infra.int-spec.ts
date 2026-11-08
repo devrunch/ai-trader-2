@@ -1,3 +1,4 @@
+import { configureApp } from '../src/app.setup';
 import 'reflect-metadata';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Test } from '@nestjs/testing';
@@ -28,6 +29,7 @@ describe('Postgres and Redis infrastructure', () => {
       NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: databaseProxy.url, REDIS_URL: redisProxy.url,
     }))] }).compile();
     app = module.createNestApplication<INestApplication<Server>>();
+    configureApp(app);
     await app.init();
     return app;
   }

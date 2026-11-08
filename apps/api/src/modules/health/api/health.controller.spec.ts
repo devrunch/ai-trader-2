@@ -1,3 +1,4 @@
+import { configureApp } from '../../../app.setup';
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -20,11 +21,12 @@ let app: INestApplication<Server>;
 let server: Server;
 let registry: ReadinessRegistry;
 beforeEach(async () => {
-  const config = AppConfigSchema.parse({ NODE_ENV: 'test', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
+  const config = AppConfigSchema.parse({ NODE_ENV: 'test', LOG_LEVEL: 'silent', DATABASE_URL: 'postgres://localhost/test', REDIS_URL: 'redis://localhost' });
   const module = await Test.createTestingModule({ imports: [AppModule.forRoot(config)] })
     .overrideModule(DatabaseModule).useModule(NoInfrastructureModule)
     .overrideModule(RedisModule).useModule(NoInfrastructureModule).compile();
   app = module.createNestApplication();
+  configureApp(app);
   await app.init();
   server = app.getHttpServer();
   registry = app.get(ReadinessRegistry);

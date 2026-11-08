@@ -263,3 +263,21 @@ sequenceDiagram
   Generator->>Reports: Hash, regenerate, hash
   Generator-->>Developer: Fail when generated content differs
 ```
+
+## Shared HTTP setup (NFR-SC, NFR-QL)
+
+Production and test applications call `configureApp` before initialization.
+It disables Express stack advertising and installs the global exception filter.
+Test applications use silent pino logging. The dependency graph includes only
+production source, collapsed by app layer/module and package (AGENTS.md ?7).
+
+```mermaid
+sequenceDiagram
+  participant Bootstrap as Production or test bootstrap
+  participant Setup as configureApp
+  participant App as Nest application
+  Bootstrap->>Setup: Configure application
+  Setup->>App: Disable x-powered-by
+  Setup->>App: Register global exception filter
+  Bootstrap->>App: Initialize application
+```

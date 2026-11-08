@@ -49,11 +49,15 @@ function edges(declaration: Declaration, declarations: readonly Declaration[]): 
   return result;
 }
 
-/** SRD §14: stable code-derived diagrams, restricted to the requested module. */
+/** SRD Â§14: stable code-derived diagrams, restricted to the requested module. */
 export function generateClassDiagram(tsconfigPath: string, moduleDir: string): string {
-  const project = new Project({ tsConfigFilePath: tsconfigPath, skipAddingFilesFromTsConfig: true });
+  const project = new Project({
+    tsConfigFilePath: tsconfigPath,
+    skipAddingFilesFromTsConfig: true,
+    skipFileDependencyResolution: true,
+  });
   const root = resolve(moduleDir);
-  project.addSourceFilesAtPaths(`${root.replaceAll('\\', '/')}/**/*.{ts,tsx}`);
+  project.addSourceFilesAtPaths(`${root.replaceAll('\\', '/')}/**/*.ts`);
   const declarations = project.getSourceFiles()
     .filter((file) => file.getFilePath().replaceAll('/', sep).startsWith(root + sep))
     .flatMap((file) => [...file.getClasses(), ...file.getInterfaces()])
