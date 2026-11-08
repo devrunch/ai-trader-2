@@ -12,85 +12,106 @@ subgraph 6["src"]
 7["app.module.spec.ts"]
 8["app.module.ts"]
 9["main.ts"]
-end
-A["vitest.config.mts"]
-end
-subgraph B["web"]
-subgraph C["src"]
-subgraph D["app"]
-E["app.spec.tsx"]
-F["app.tsx"]
-end
-G["main.tsx"]
-end
-H["vite.config.ts"]
+subgraph A["shared"]
+B["config"]
 end
 end
-subgraph I["node_modules"]
-subgraph J[".pnpm"]
-subgraph K["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
+C["vitest.config.mts"]
+end
+subgraph D["web"]
+subgraph E["src"]
+subgraph F["app"]
+G["app.spec.tsx"]
+H["app.tsx"]
+end
+I["main.tsx"]
+end
+J["vite.config.ts"]
+end
+end
+K["node"]
 subgraph L["node_modules"]
-subgraph M["@nestjs"]
-subgraph N["common"]
-O["index.js"]
+subgraph M[".pnpm"]
+subgraph N["@nestjs+common@12.4.0_reflect-metadata@0.2.2_rxjs@7.8.2"]
+subgraph O["node_modules"]
+subgraph P["@nestjs"]
+subgraph Q["common"]
+R["index.js"]
 end
 end
 end
 end
-subgraph P["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
-subgraph Q["node_modules"]
-subgraph R["@nestjs"]
-subgraph S["core"]
-T["index.js"]
+subgraph S["@nestjs+core@12.4.0_@nestjs_96a1cd504770b4595f5e6d9022e2b001"]
+subgraph T["node_modules"]
+subgraph U["@nestjs"]
+subgraph V["core"]
+W["index.js"]
 end
 end
 end
 end
-subgraph U["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
-subgraph V["node_modules"]
-subgraph W["@nestjs"]
-subgraph X["testing"]
-Y["index.js"]
+subgraph X["@nestjs+testing@12.4.0_@nes_600962a9a0026c535127eeb4f82a4c7d"]
+subgraph Y["node_modules"]
+subgraph Z["@nestjs"]
+subgraph 10["testing"]
+11["index.js"]
 end
 end
 end
 end
-subgraph Z["react-dom@19.3.1_react@19.3.1"]
-subgraph 10["node_modules"]
-subgraph 11["react-dom"]
-12["client.js"]
+subgraph 12["react-dom@19.3.1_react@19.3.1"]
+subgraph 13["node_modules"]
+subgraph 14["react-dom"]
+15["client.js"]
 end
 end
 end
-subgraph 13["reflect-metadata@0.2.2"]
-subgraph 14["node_modules"]
-subgraph 15["reflect-metadata"]
-16["Reflect.js"]
+subgraph 16["reflect-metadata@0.2.2"]
+subgraph 17["node_modules"]
+subgraph 18["reflect-metadata"]
+19["Reflect.js"]
+end
+end
+end
+subgraph 1A["zod@4.6.7"]
+subgraph 1B["node_modules"]
+subgraph 1C["zod"]
+1D["index.cjs"]
 end
 end
 end
 end
 end
-subgraph 17["packages"]
-18["contracts"]
-19["resilience"]
+subgraph 1E["packages"]
+1F["contracts"]
+1G["resilience"]
 end
-1A["unplugin-swc"]
-subgraph 1B["vitest"]
-1C["config"]
+1H["process"]
+1I["unplugin-swc"]
+subgraph 1J["vitest"]
+1K["config"]
 end
 7-->8
-7-->Y
-7-->16
-8-->O
+7-->B
+7-->11
+7-->19
+8-->B
+8-->R
 9-->8
-9-->T
-9-->16
-A-->1A
-A-->1C
-E-->F
-G-->F
-G-->12
-H-->1
-H-->3
-H-->1C
+9-->B
+9-->W
+9-->K
+9-->1H
+9-->19
+B-->1D
+B-->R
+B-->11
+B-->19
+C-->1I
+C-->1K
+G-->H
+I-->H
+I-->15
+J-->1
+J-->3
+J-->1K
