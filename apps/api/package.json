@@ -31,7 +31,8 @@
     "kiteconnect": "5.3.0",
     "ws": "8.22.2",
     "otplib": "13.6.0",
-    "undici": "8.12.4"
+    "undici": "8.12.4",
+    "yahoo-finance2": "4.0.6"
   },
   "devDependencies": {
     "@types/ws": "8.18.2",

@@ -4,6 +4,6 @@ interface HistoryMapping {
   volumeType: 'real' | 'tick' | 'none';
 }
 export interface HistoryInstruments {
-  getMapping(id: string, provider: 'kite', signal: AbortSignal): Promise<HistoryMapping | undefined>;
+  getMapping(id: string, provider: 'kite' | 'deriv' | 'us-delayed', signal: AbortSignal): Promise<HistoryMapping | undefined>;
   held(signal: AbortSignal): Promise<string[]>;
 }

@@ -24,9 +24,12 @@ export class FillHistory {
   private async fill(id: string, res: '1m' | '1d', from: number, to: number, signal: AbortSignal): Promise<ProviderResult<Counts>> {
     if (id.endsWith('1!')) return { ok: false, reason: 'UNSUPPORTED', detail: 'continuous history arrives in P2-8' };
     const exchange = id.split(':')[0] ?? '';
-    if (!['NSE', 'BSE', 'MCX', 'NFO'].includes(exchange)) return { ok: false, reason: 'UNSUPPORTED' };
-    const mapping = await this.instruments.getMapping(id, 'kite', signal);
-    const provider = this.providers.get('kite');
+    const name = ['NSE', 'BSE', 'MCX', 'NFO'].includes(exchange) ? 'kite'
+      : ['FX', 'OANDA'].includes(exchange) ? 'deriv'
+      : ['NASDAQ', 'NYSE', 'NYSEARCA', 'AMEX', 'CBOE', 'IEX'].includes(exchange) ? 'us-delayed' : undefined;
+    if (!name) return { ok: false, reason: 'UNSUPPORTED' };
+    const mapping = await this.instruments.getMapping(id, name, signal);
+    const provider = this.providers.get(name);
     if (!mapping || !provider) return { ok: false, reason: 'UNSUPPORTED' };
     const result = await provider.history(mapping, res, from, to, signal);
     if (!result.ok) return result;
@@ -37,8 +40,8 @@ export class FillHistory {
     // Upsert only vendor timestamps; preserve live-only bars and their provenance.
     const times = new Set(result.data.map(bar => bar.time));
     const bars = merged.bars.filter(bar => times.has(bar.time));
-    const data = res === '1m' ? await this.store.upsert1m(id, bars, 'kite', signal)
-      : await this.store.upsert1d(id, bars, 'kite', signal);
+    const data = res === '1m' ? await this.store.upsert1m(id, bars, name, signal)
+      : await this.store.upsert1d(id, bars, name, signal);
     return { ok: true, data };
   }
 }

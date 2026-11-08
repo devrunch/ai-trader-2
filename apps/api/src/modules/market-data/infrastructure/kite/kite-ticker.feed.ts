@@ -6,6 +6,7 @@ import type { CandleStore } from '../../application/ports/candle-store';
 import type { FillHistory } from '../../application/fill-history';
 import { calendarFor } from '../../domain/calendar';
 import { ResilientFeed } from '../feed/resilient-feed';
+import { gapBackfill } from '../feed/gap-backfill';
 import { KiteTickerClient } from './kite-ticker.client';
 import type { TickerMapping } from './kite-ws.client';
 import { SubscriptionManager } from './subscription-manager';
@@ -54,14 +55,7 @@ export class KiteTickerFeed extends ResilientFeed {
         // Invalidate an upstream-rejected token even when its local expiry is still in the future.
         await deps.session.refresh(signal); refreshedToken = await deps.session.getAccessToken(signal);
       },
-      backfill: async (id, from, to, signal) => {
-        const start = Math.floor(from / 60000) * 60000; const end = Math.floor(to / 60000) * 60000;
-        if (start >= end) return;
-        const result = await deps.fill.execute(id, '1m', start, end, signal);
-        if (!result.ok) throw new Error(result.reason);
-        const bars = await deps.store.range1m(id, start, end, signal);
-        await deps.store.upsert1m(id, bars.map(bar => ({ ...bar, repaired: true })), 'kite', signal);
-      },
+      backfill: gapBackfill(deps.fill, deps.store, 'kite'),
     });
     this.kill = () => { client?.disconnectSocket(); };
   }

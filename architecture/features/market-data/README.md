@@ -1,5 +1,84 @@
 # Market data domain
 
+## Deriv and US delayed adapters (P2-6)
+
+FR-MD-1, FR-UI-8, E1, E2, E5 and E6. Providers return bars or typed reasons.
+FillHistory routes canonical exchanges to their mapped provider and persists
+that provider as provenance. DerivFeed uses ResilientFeed unchanged, including
+the FX calendar watchdog and asynchronous gap repair. Both feeds are exported
+for P2-9; module construction opens no connections. Failed Deriv gap repairs
+join Kite's existing nightly retry hook.
+
+| Vendor | Markets | Live or delayed | History limits | Volume |
+| --- | --- | --- | --- | --- |
+| Kite | NSE, BSE, MCX, NFO | Live socket | 1m: 60 days/request; 1d: 2,000 days/request | Real; null for indices |
+| Deriv | 29 forex and metal instruments (FX/OANDA mappings) | Live socket | 1m and 1d; 1,000 candles/page backwards, at most 20 pages/call | Always null |
+| US delayed (Yahoo) | US mapped exchanges | Polled, 15 minutes delayed | 1m: last 30 days, at most 7 days/request; 1d | Reported history volume; tick cumulative volume null |
+
+Deriv uses `wss://api.derivws.com/trading/v1/options/ws/public` without an app ID.
+Each history page uses a separate socket with req_id correlation and a 15-second deadline;
+history never blocks the live socket. Three failed history calls open the
+breaker for 60 seconds. MarketIsClosed returns MARKET_CLOSED and empty candles
+return NO_DATA, including entirely closed windows. Live sockets
+send a ping every 30 seconds and forget the subscription ID from the current
+connection, including subscriptions cancelled before their acknowledgement.
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Feed as DerivFeed / ResilientFeed
+    participant Socket as Deriv transport
+    participant Vendor as Deriv
+    participant Fill as FillHistory
+    Caller->>Feed: subscribe(canonical IDs), start()
+    Feed->>Socket: connect(signal), sendSubscribe(mapped symbols)
+    Socket->>Vendor: ticks + subscribe=1 + req_id
+    Vendor-->>Socket: tick + subscription.id
+    Socket-->>Feed: canonical Tick(epoch * 1000, quote, null volume)
+    loop every 30 seconds
+        Socket->>Vendor: ping=1
+    end
+    Vendor--xSocket: drop, or silence during FX session
+    Feed->>Socket: reconnect with jitter, resubscribe
+    Vendor-->>Socket: tick + new subscription.id
+    Feed->>Fill: missing minute range (asynchronous)
+    loop backwards until from covered, including closed-market gaps (max 20 pages)
+        Fill->>Vendor: separate socket: ticks_history, count=1000, end, req_id (no start)
+        Vendor-->>Fill: candles or typed error
+        Note over Fill: next end = oldest epoch - granularity; empty page moves back 1000 intervals
+    end
+    Caller->>Feed: unsubscribe (reference count and grace)
+    Socket->>Vendor: forget=current subscription.id
+```
+
+UsDelayedFeed polls every 60 seconds only during open US sessions, rotating a
+maximum of ten symbols per cycle with one second between requests. Overlapping
+cycles are skipped. Only completed bars at least 15 minutes old emit ticks;
+monotonic close timestamps prevent repeat emission. Consumers must inspect
+`delayMs = 900000` even when transport state is `live`. Three unsuccessful cycles
+emit `stale` with a reason; a successful cycle restores `live`. HTTP 429 includes
+retryAfterMs 60000; unknown symbols are UNSUPPORTED. Three failed Yahoo calls
+open the breaker for five minutes. Every call has an abortable 15-second timeout.
+
+```mermaid
+stateDiagram-v2
+    [*] --> connecting: start
+    connecting --> live: successful poll cycle
+    connecting --> stale: three failed cycles
+    live --> live: success, emit unseen delayed bar closes
+    live --> stale: three failed cycles
+    stale --> live: successful poll cycle
+    live --> stopped: stop and abort pending poll
+    stale --> stopped: stop and abort pending poll
+    connecting --> stopped: stop
+```
+
+The manager-only smoke script `scripts/smoke/deriv-us.ts` reads XAUUSD minute
+history for the last full hour before the most recent completed FX session close,
+counts 60 seconds of ticks and reads AAPL daily history for ten days.
+It prints counts or reason codes; automated work never
+runs it.
+
 ## Live Kite feed (P2-5)
 
 Requirements: FR-MD-2, FR-MD-4, FR-MD-5, E1, E2, E3, E11, E12, E16,
@@ -233,7 +312,7 @@ integration test measures a full 5,000-bucket page against real containers.
 ## Kite history and read-through (P2-4)
 
 FR-MD-1 defines `MarketDataProvider.history`: a `ProviderResult<Bar[]>`, never
-null. The injected `MARKET_DATA_PROVIDERS` map currently contains only Kite.
+null. The injected `MARKET_DATA_PROVIDERS` map contains Kite, Deriv and US delayed.
 InstrumentHistory exposes mappings through the instruments application API.
 Canonical volume metadata travels with the mapping: indices have null volume;
 zero equity/futures volume stays zero. The adapter also recognizes index tokens
