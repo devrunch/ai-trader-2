@@ -18,7 +18,7 @@ opts=(--dangerously-bypass-approvals-and-sandbox)
 status=0
 if [ "${2:-}" = "--resume" ]; then
   notes="${3:?usage: codex.sh <id> --resume <notes-file>}"
-  n=$(ls .superpowers/codex/"${id}".resume*.log 2>/dev/null | wc -l)
+  n=$(find .superpowers/codex -maxdepth 1 -name "${id}.resume*.log" | wc -l)
   log=".superpowers/codex/${id}.resume$((n + 1)).log"
   codex exec resume --last "${opts[@]}" - < "$notes" > "$log" 2>&1 || status=$?
 else
