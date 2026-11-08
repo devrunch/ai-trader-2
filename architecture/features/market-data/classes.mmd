@@ -14,6 +14,30 @@ classDiagram
     +onTick(t: Tick) { updated?: Bar; closed?: Bar[] }
     +restore(forming: Bar | null, lastCumVolume: number | null) void
   }
+  class BarsPage {
+    +bars: Bar[]
+    +complete: boolean
+    +nextBefore: number | null
+  }
+  class CandleStore {
+    +earliest(instrumentId: string, daily: boolean) Promise<number | null>
+    +range1d(instrumentId: string, from: string, to: string) Promise<Bar[]>
+    +range1m(instrumentId: string, from: number, to: number) Promise<Bar[]>
+    +upsert1d(instrumentId: string, bars: readonly Bar[], source: string) Promise<{ written: number; repaired: number }>
+    +upsert1m(instrumentId: string, bars: readonly Bar[], source: string) Promise<{ written: number; repaired: number }>
+  }
+  class DrizzleCandleStore {
+    +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
+    +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
+    +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
+    +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
+  }
+  class FormingBarStore {
+    +clear(instrumentId: string) Promise<void>
+    +get(instrumentId: string) Promise<{ bar: Bar; lastCumVolume: number | null; seq: number | null } | null>
+    +set(instrumentId: string, v: { bar: Bar; lastCumVolume: number | null; seq: number | null }) Promise<void>
+  }
   class InvalidIntervalError {
     +code: "VALIDATION_FAILED"
   }
@@ -24,6 +48,24 @@ classDiagram
     +sessionContaining(at: number) SessionWindow | null
     +sessionsOn(date: string) SessionWindow[]
     +timezone: string
+  }
+  class MarketDataModule {
+  }
+  class PartitionJob {
+    +onApplicationBootstrap() void
+    +run(signal?: AbortSignal) Promise<void>
+  }
+  class ReadBars {
+    +execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number) Promise<BarsPage>
+  }
+  class RedisFormingBarStore {
+    +clear(instrumentId: string, signal?: AbortSignal) Promise<void>
+    +get(instrumentId: string, signal?: AbortSignal) ReturnType<FormingBarStore['get']>
+    +set(instrumentId: string, v: Parameters<FormingBarStore['set']>[1], signal?: AbortSignal) Promise<void>
+  }
+  class RetentionJob {
+    +onApplicationBootstrap() void
+    +run(signal?: AbortSignal) Promise<void>
   }
   class SessionCalendar {
     +id: string
@@ -38,4 +80,8 @@ classDiagram
     +open: number
   }
   BarBuilder --> MarketCalendar
+  CandleStore <|.. DrizzleCandleStore
+  FormingBarStore <|.. RedisFormingBarStore
   MarketCalendar <|.. SessionCalendar
+  ReadBars --> CandleStore
+  ReadBars --> FormingBarStore

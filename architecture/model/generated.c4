@@ -29,7 +29,13 @@ model {
     mod_market_data = component 'market-data' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
       domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
         description 'generated from code — do not edit'
       }
     }
@@ -94,6 +100,11 @@ model {
   aitrader.api.mod_instruments.app -[calls]-> aitrader.api.mod_instruments.domain 'imports'
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.app 'imports'
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.domain 'imports'
+  aitrader.api.mod_market_data -[calls]-> aitrader.api.mod_instruments 'imports'
+  aitrader.api.mod_market_data -[calls]-> pkg_resilience 'imports'
+  aitrader.api.mod_market_data.app -[calls]-> aitrader.api.mod_market_data.domain 'imports'
+  aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.app 'imports'
+  aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.domain 'imports'
   aitrader.api.shared_database -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_errors -[calls]-> pkg_contracts 'imports'
   aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'

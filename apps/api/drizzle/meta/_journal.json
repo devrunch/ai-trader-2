@@ -15,6 +15,20 @@
       "when": 1794143057488,
       "tag": "0001_aspiring_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794157627718,
+      "tag": "0002_candle-store",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794157635338,
+      "tag": "0003_partition-bars",
+      "breakpoints": true
     }
   ]
 }
