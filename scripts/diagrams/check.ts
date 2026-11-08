@@ -13,6 +13,8 @@ function snapshot(): Map<string, string> {
       hashes.set(path, createHash('sha256').update(readFileSync(path)).digest('hex'));
     }
   }
+  const model = 'architecture/model/generated.c4';
+  if (existsSync(model)) hashes.set(model, createHash('sha256').update(readFileSync(model)).digest('hex'));
   return hashes;
 }
 
