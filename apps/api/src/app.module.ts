@@ -8,6 +8,7 @@ import { RedisModule } from './shared/redis';
 import { KiteModule } from './shared/vendors/kite';
 import { JobSchedulerModule } from './shared/jobs';
 import { InstrumentsModule } from './modules/instruments/instruments.module';
+import { MarketDataModule } from './modules/market-data/market-data.module';
 
 @Module({})
 export class AppModule {
@@ -15,7 +16,7 @@ export class AppModule {
     return {
       module: AppModule,
       providers: [GlobalExceptionFilter],
-      imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule, InstrumentsModule],
+      imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule, InstrumentsModule, MarketDataModule],
     };
   }
 }

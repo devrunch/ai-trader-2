@@ -62,3 +62,79 @@ replace the live values, set `repaired: true`, and increment `repairedCount`.
 Matching live bars retain their repair flags. Vendor-only history is added;
 live-only bars remain available until the vendor publishes them. Output is sorted.
 Repeating an identical repair changes no bars and counts no new repairs.
+
+## Candle storage (P2-3)
+
+FR-MD-2 makes Postgres the candle source of truth. FR-CH-5 cursors use bar starts
+in UTC milliseconds; FR-CH-6 aggregates with the domain session grid. NFR-RB-4
+is enforced by composite primary keys and conditional OHLCV updates. Changed
+bars retain a visible `repaired` flag; identical replays do not update rows.
+Writes split into batches of at most 1,000 rows. Daily session dates are stored
+as exchange-local dates and returned at exchange-local midnight expressed in UTC
+milliseconds, matching the domain grid for weekly/monthly aggregation.
+FX daily starts use the grid's 17:00 New York cutover, including DST.
+
+```mermaid
+erDiagram
+    bars_1m {
+        text instrument_id PK
+        timestamptz ts PK
+        double open
+        double high
+        double low
+        double close
+        double volume "nullable"
+        text source
+        boolean repaired
+        timestamptz updated_at
+    }
+    bars_1d {
+        text instrument_id PK
+        date session_date PK
+        double open
+        double high
+        double low
+        double close
+        double volume "nullable"
+        double adj_factor "default 1"
+        text source
+        boolean repaired
+    }
+```
+
+`bars_1m` is range partitioned by UTC calendar month into `bars_1m_YYYYMM`.
+Boot and `bars-partitions` (01:00 IST on each month's first day) create the
+current month plus two ahead. Writes call the same idempotent SQL function
+before inserting into any month. An advisory transaction lock serializes DDL.
+`bars-retention` runs daily at 02:00 IST and drops attached partitions whose
+month precedes the current IST month minus 24 months (Q5). It never deletes
+individual rows. Daily history has no retention job.
+
+Redis holds only transient forming data: hash `bar:forming:<id>`, field `value`,
+JSON `{bar,cumVolume,seq}` with an atomic two-day expiry. Reads expose
+`cumVolume` as `lastCumVolume`. ReadBars never persists this snapshot.
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant ReadBars
+    participant Postgres
+    participant Redis
+    participant Grid
+    Caller->>ReadBars: execute(id, interval, cursor, limit)
+    ReadBars->>Postgres: earliest(id, daily)
+    opt latest or since
+        ReadBars->>Redis: get forming snapshot
+    end
+    loop estimate session window, widen if short until earliest
+        ReadBars->>Postgres: range1m or range1d [from,to)
+        ReadBars->>Grid: aggregate on calendar (cache containing session)
+        Grid-->>ReadBars: sorted buckets
+    end
+    ReadBars-->>Caller: bars, oldest nextBefore, complete
+```
+
+`before` is exclusive and `since` inclusive. Forming minutes merge before
+aggregation only when newer than persisted minutes. Short pages lacking older
+stored history report `complete=false` for P2-4 read-through. The NFR-PF-2
+integration test measures a full 5,000-bucket page against real containers.
