@@ -49,7 +49,7 @@ describe('durable jobs', () => {
     await first.register(job); await second.register(job);
     await Promise.all([first.runNow(job.name), second.runNow(job.name)]);
     await expect.poll(() => maximum).toBe(1);
-    // A distinct delivery bypasses immediate-ID deduplication and exercises the Redis lock.
+    // A distinct delivery bypasses manual-trigger deduplication and exercises the Redis lock.
     const queue = new Queue(job.name, { prefix: 'jobs', connection: { url: container.url } });
     await queue.add(job.name, {}, { jobId: 'concurrent-delivery' });
     await queue.close();
@@ -142,12 +142,34 @@ describe('durable jobs', () => {
       expect(schedules).toHaveLength(1); expect(schedules[0]?.pattern).toBe('0 1 1 1 *');
     } finally { await queue.close(); }
   });
-  it('runNow while a run is active is a no-op', async () => {
-    let release = () => {};
-    const run = vi.fn<JobSpec['run']>().mockImplementation(() => new Promise<void>((resolve) => { release = resolve; }));
+  // NFR-RB-5, E22: manual triggers survive completion and lock contention.
+  it('runNow right after a run finishes queues another run', async () => {
+    const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);
     const job = spec(run); const instance = scheduler(); await instance.register(job);
-    await instance.runNow(job.name); await expect.poll(() => run.mock.calls.length).toBe(1);
-    await instance.runNow(job.name); release(); await delay(150);
+    // Hold the heartbeat after the record is visible, before the lock is released.
+    beat.mockImplementationOnce(async () => { await delay(500); });
+    await instance.runNow(job.name);
+    await expect.poll(() => instance.lastRun(job.name)).toMatchObject({ outcome: 'ok' });
+    await instance.runNow(job.name);
+    await expect.poll(() => run.mock.calls.length, { timeout: 10000 }).toBe(2);
+  });
+  it('runNow during an active run queues exactly one follow-up', async () => {
+    const run = vi.fn<JobSpec['run']>().mockImplementation(async () => { await delay(1000); });
+    const job = spec(run); const instance = scheduler(); await instance.register(job);
+    await instance.runNow(job.name);
+    await expect.poll(() => run.mock.calls.length).toBe(1);
+    await Promise.all([instance.runNow(job.name), instance.runNow(job.name), instance.runNow(job.name)]);
+    await expect.poll(() => run.mock.calls.length, { timeout: 10000 }).toBe(2);
+    await instance.onModuleDestroy(); instances.splice(instances.indexOf(instance), 1);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+  it('concurrent runNow from two instances runs once', async () => {
+    const run = vi.fn<JobSpec['run']>().mockImplementation(async () => { await delay(1000); });
+    const job = spec(run); const first = scheduler(); const second = scheduler();
+    await first.register(job); await second.register(job);
+    await Promise.all([first.runNow(job.name), second.runNow(job.name)]);
+    await expect.poll(() => run.mock.calls.length).toBe(1);
+    await Promise.all([first.onModuleDestroy(), second.onModuleDestroy()]); instances.splice(0);
     expect(run).toHaveBeenCalledTimes(1);
   });
 });

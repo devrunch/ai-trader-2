@@ -6,7 +6,12 @@ NFR-RB-5, NFR-RB-4, E22 and E25: BullMQ persists one scheduler per job
 under `jobs:<name>`. Dedicated connections use APP_CONFIG.REDIS_URL;
 worker connections have maxRetriesPerRequest=null. No concrete jobs register yet.
 Registration updates the cron and zone, compares the previous zoned fire time
-with the last record, and deduplicates immediate catch-up with manual triggers.
+with the last record. Catch-up IDs are deterministic per scheduled occurrence.
+Manual triggers atomically set `jobs:<name>:pending` with a maxRuntimeMs + 60000
+TTL and enqueue a unique `manual-<uuid>` delivery only when the marker is new.
+The worker clears pending after acquiring the execution lock, before the callback;
+triggers during a run therefore queue one follow-up (NFR-RB-5, E22).
+Lock contention polls every 250 ms for up to maxRuntimeMs + 30000, then fails visibly.
 Each completed run writes its outcome and sends a heartbeat. Timeout aborts the
 run signal and records failed with detail `timeout`. Job implementations must
 honor cancellation; JavaScript promises cannot forcibly stop external effects.
@@ -27,7 +32,14 @@ stateDiagram-v2
   startup --> skipped: Missed beyond grace
   catchup --> running: Acquire lock
   skipped --> scheduled: Record and heartbeat skipped
-  scheduled --> running: Cron or manual trigger acquires lock
+  scheduled --> running: Cron delivery acquires lock
+  scheduled --> pending: Manual SET pending NX PX and unique delivery
+  running --> pending: Manual trigger queues one follow-up
+  pending --> pending: Further manual triggers deduplicated
+  pending --> waiting: Manual delivery waits for lock
+  waiting --> waiting: Lock held, poll every 250 ms
+  waiting --> running: Acquire lock and clear pending
+  waiting --> failed: Lock wait deadline
   running --> ok: Resolved
   running --> failed: Thrown error
   running --> timeout: Runtime deadline aborts signal
@@ -43,10 +55,17 @@ sequenceDiagram
   participant Redis
   participant Run as Job callback
   participant Sink as HeartbeatSink
-  API->>Queue: Upsert scheduler or add stable immediate ID
+  API->>Queue: Upsert scheduler or add catchup-scheduledAt ID
+  API->>Redis: Manual SET pending 1 NX PX maxRuntime+60000
+  opt Pending marker newly set
+    API->>Queue: Add manual-uuid delivery
+  end
   Queue->>API: Worker delivery (concurrency 1)
   API->>Redis: SET jobs:name:lock owner NX PX maxRuntime+30000
   alt Lock acquired
+    opt Manual delivery
+      API->>Redis: DEL pending before callback
+    end
     API->>Redis: GET last covered scheduled occurrence
     alt Scheduled occurrence already covered
       API-->>Queue: Complete duplicate without running callback
@@ -58,7 +77,8 @@ sequenceDiagram
     end
     API->>Redis: Compare owner and delete lock atomically
   else Another instance owns lock
-    API-->>Queue: Complete duplicate without running callback
+    API->>Redis: Retry lock every 250 ms until acquired or deadline
+    Note over API,Queue: Deadline fails delivery visibly
   end
 ```
 
