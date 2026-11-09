@@ -2,7 +2,7 @@ import { Global, Inject, Logger, Module, type OnApplicationBootstrap } from '@ne
 import { DB, type Database } from '../../shared/database/index.js';
 import { JobScheduler } from '../../shared/jobs/index.js';
 import { ReadinessRegistry } from '../../shared/health/index.js';
-import { RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory } from './application/index.js';
+import { RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources } from './application/index.js';
 import { POPULAR_INSTRUMENTS } from './infrastructure/popular-instruments';
 import { INSTRUMENT_REPOSITORY, type InstrumentRepository } from './application/ports/instrument-repository.js';
 import { INSTRUMENT_SOURCES, type InstrumentSource } from './application/ports/instrument-source.js';
@@ -21,6 +21,7 @@ import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
 @Global()
 @Module({
   providers: [
+    { provide: ListInstrumentSources, inject: [INSTRUMENT_REPOSITORY], useFactory: (repo: InstrumentRepository) => new ListInstrumentSources(repo) },
     { provide: InstrumentHistory, inject: [INSTRUMENT_REPOSITORY],
       useFactory: (repo: InstrumentRepository) => new InstrumentHistory(repo, POPULAR_INSTRUMENTS) },
     { provide: CLOCK, useValue: Date.now },
@@ -38,7 +39,7 @@ import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
       useFactory: (scheduler: JobScheduler, refresh: RefreshInstruments, db: Database, readiness: ReadinessRegistry) =>
         new RefreshJob(scheduler, refresh, db, readiness) },
   ],
-  exports: [RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, CLOCK, InstrumentsRateLimitGuard],
+  exports: [RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources, CLOCK, InstrumentsRateLimitGuard],
 })
 export class InstrumentsModule implements OnApplicationBootstrap {
   constructor(@Inject(INSTRUMENT_REPOSITORY) private readonly repository: InstrumentRepository,

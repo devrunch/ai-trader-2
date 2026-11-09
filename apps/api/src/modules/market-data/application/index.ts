@@ -6,3 +6,4 @@ export { AggregateLiveBars } from './aggregate-live-bars';
 export { GetQuote } from './get-quote';
 export type { CandleStore } from './ports/candle-store';
 export type { FormingBarStore } from './ports/forming-bar-store';
+export { GetFeedOverview } from './get-feed-overview';

@@ -3,7 +3,8 @@ import { rootRoute } from './routes/root-route';
 import { homeRoute } from './routes/home-route';
 import { terminalRoute } from './routes/terminal-route';
 import { loginRoute } from './routes/login-route';
-const routeTree = rootRoute.addChildren([homeRoute, terminalRoute, loginRoute]);
+import { adminRoute, zerodhaCallbackRoute } from './routes/admin-route';
+const routeTree = rootRoute.addChildren([homeRoute, terminalRoute, loginRoute, adminRoute, zerodhaCallbackRoute]);
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, ...(history ? { history } : {}),
     parseSearch: (search) => Object.fromEntries(new URLSearchParams(search)),
