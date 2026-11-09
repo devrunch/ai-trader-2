@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { Pool } from 'pg';
 import { Redis } from 'ioredis';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -120,7 +122,7 @@ describe('FR-MD-2 E1 E2 E11 E12 Kite ticker integration', () => {
     client.onMessage(ticks);
     try {
       await client.connect(AbortSignal.timeout(5000)); client.sendSubscribe(['256001', '265']);
-      await vi.waitFor(() => { expect(server.commands).toEqual([{ a: 'subscribe', v: [256001, 265] }, { a: 'mode', v: ['full', [256001]] }, { a: 'mode', v: ['ltp', [265]] }]); });
+      await vi.waitFor(() => { expect(server.commands).toEqual([{ a: 'subscribe', v: [256001, 265] }, { a: 'mode', v: ['full', [256001]] }, { a: 'mode', v: ['full', [265]] }]); });
       const url = new URL(server.urls[0] ?? '', server.root);
       expect(url.searchParams.get('api_key')).toBe('key +&'); expect(url.searchParams.get('access_token')).toBe('token +&');
       server.binary(encodeKitePackets([kitePacket(184, 256001, [[4, 1234], [16, 500], [44, start / 1000 + 1]]), kitePacket(8, 265, [[4, 2100000]])]));
@@ -128,6 +130,37 @@ describe('FR-MD-2 E1 E2 E11 E12 Kite ticker integration', () => {
       client.sendUnsubscribe(['265']); await vi.waitFor(() => { expect(server.commands.at(-1)).toEqual({ a: 'unsubscribe', v: [265] }); });
       server.binary(encodeKitePackets([kitePacket(8, 265, [[4, 2200000]])])); now += 1; server.heartbeat();
       await vi.waitFor(() => { expect(client.lastActivityAt).toBe(now); }); expect(ticks).toHaveBeenCalledOnce();
+    } finally { client.close(); await server.stop(); }
+  });
+  it('keeps the socket open on real Kite frames, including instruments_meta, and decodes them (E1 live finding 2026-11-09)', async () => {
+    const live = JSON.parse(readFileSync(resolve(__dirname, '../src/modules/market-data/infrastructure/kite/kite-live-frames.fixture.json'), 'utf8')) as
+      { framesBySize: Record<string, string[]>; textFrames: string[] };
+    const server = await kiteSocket(); const ticks = vi.fn(); const closed = vi.fn();
+    const client = new KiteWsClient({ apiKey: 'key', accessToken: 'token', root: server.root, warn: logs, clock: () => now,
+      mappings: new Map([['738561', { id: 'NSE:RELIANCE', token: 738561, volume: true }], ['256265', { id: 'NSE:NIFTY', token: 256265, volume: false }]]) });
+    client.onMessage(ticks); client.onClose(closed);
+    try {
+      await client.connect(AbortSignal.timeout(5000)); client.sendSubscribe(['738561', '256265']);
+      for (const text of live.textFrames) server.text(JSON.parse(text) as object);
+      for (const frames of Object.values(live.framesBySize)) for (const hex of frames) server.binary(Uint8Array.from(Buffer.from(hex, 'hex')).buffer);
+      await vi.waitFor(() => { expect(ticks.mock.calls.flat(2).some((t: { instrumentId: string }) => t.instrumentId === 'NSE:RELIANCE')).toBe(true); });
+      expect(ticks.mock.calls.flat(2).some((t: { instrumentId: string }) => t.instrumentId === 'NSE:NIFTY')).toBe(true);
+      expect(closed).not.toHaveBeenCalled();
+    } finally { client.close(); await server.stop(); }
+  });
+  it('stamps index ticks with the exchange timestamp from real full-mode frames (live finding 2026-11-09)', async () => {
+    const live = JSON.parse(readFileSync(resolve(__dirname, '../src/modules/market-data/infrastructure/kite/kite-live-frames.fixture.json'), 'utf8')) as
+      { indexFull: { frames: string[] } };
+    const server = await kiteSocket(); const ticks = vi.fn();
+    const client = new KiteWsClient({ apiKey: 'key', accessToken: 'token', root: server.root, warn: logs, clock: () => now,
+      mappings: new Map([['256265', { id: 'NSE:NIFTY', token: 256265, volume: false }]]) });
+    client.onMessage(ticks);
+    try {
+      await client.connect(AbortSignal.timeout(5000)); client.sendSubscribe(['256265']);
+      await vi.waitFor(() => { expect(server.commands).toContainEqual({ a: 'mode', v: ['full', [256265]] }); });
+      server.binary(Uint8Array.from(Buffer.from(live.indexFull.frames[0] ?? '', 'hex')).buffer);
+      await vi.waitFor(() => { expect(ticks).toHaveBeenCalledOnce(); });
+      expect(ticks.mock.calls[0]?.[0]).toEqual([{ instrumentId: 'NSE:NIFTY', at: 1794210349000, price: 24892.95, cumVolume: null }]);
     } finally { client.close(); await server.stop(); }
   });
   it('reports an HTTP 403 handshake as AUTH_EXPIRED without leaking credentials (E3)', async () => {

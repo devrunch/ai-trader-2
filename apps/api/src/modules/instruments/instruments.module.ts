@@ -35,7 +35,7 @@ import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.g
       useFactory: (scheduler: JobScheduler, refresh: RefreshInstruments, db: Database, readiness: ReadinessRegistry) =>
         new RefreshJob(scheduler, refresh, db, readiness) },
   ],
-  exports: [RefreshInstruments, ResolveInstrument, InstrumentHistory],
+  exports: [RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, CLOCK, InstrumentsRateLimitGuard],
 })
 export class InstrumentsModule implements OnApplicationBootstrap {
   constructor(@Inject(INSTRUMENT_REPOSITORY) private readonly repository: InstrumentRepository,
