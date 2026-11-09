@@ -3,9 +3,10 @@ import { RequireRole } from '../auth/index';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../shared/ui/tabs';
 import { FeedsPanel, InstrumentsPanel, JobsPanel } from './ops-panels';
 import { ZerodhaCard } from './zerodha-card';
+import { AlertsPanel } from './alerts-panel';
 import { noticeMessage } from './zerodha-messages';
 
-const TABS = ['zerodha', 'feeds', 'jobs', 'instruments'] as const;
+const TABS = ['zerodha', 'feeds', 'jobs', 'instruments', 'alerts'] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (value: unknown): value is Tab => typeof value === 'string' && (TABS as readonly string[]).includes(value);
 
@@ -32,6 +33,7 @@ function AdminTabs() {
       <TabsContent value="feeds" className="pt-3"><FeedsPanel /></TabsContent>
       <TabsContent value="jobs" className="pt-3"><JobsPanel /></TabsContent>
       <TabsContent value="instruments" className="pt-3"><InstrumentsPanel /></TabsContent>
+      <TabsContent value="alerts" className="pt-3"><AlertsPanel /></TabsContent>
     </Tabs>
   </main>;
 }

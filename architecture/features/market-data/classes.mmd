@@ -38,11 +38,21 @@ classDiagram
   }
   class CandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +instrumentsWith1m(from: number, to: number, signal?: AbortSignal) Promise<string[]>
     +latest1m(instrumentId: string, signal?: AbortSignal) Promise<number | null>
     +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
     +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
+  }
+  class CheckSessionCoverage {
+    +execute(date: string, signal?: AbortSignal) Promise<InstrumentCoverage[]>
+  }
+  class Coverage {
+    +endsAt: number | null
+    +expected: number
+    +gaps: Array<{ from: number; to: number }>
+    +stored: number
   }
   class DerivFeed {
     +disconnectSocket() void
@@ -62,6 +72,7 @@ classDiagram
   }
   class DrizzleCandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +instrumentsWith1m(from: number, to: number, signal?: AbortSignal) Promise<string[]>
     +latest1m(instrumentId: string, signal?: AbortSignal) Promise<number | null>
     +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
     +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
@@ -109,6 +120,13 @@ classDiagram
   class HistoryInstruments {
     +getMapping(id: string, provider: 'kite' | 'deriv' | 'us-delayed', signal: AbortSignal) Promise<HistoryMapping | undefined>
     +held(signal: AbortSignal) Promise<string[]>
+  }
+  class InstrumentCoverage {
+    +calendarId: string
+    +coverage: Coverage
+    +instrumentId: string
+    +repairedGaps: number
+    +session: SessionWindow
   }
   class InvalidIntervalError {
     +code: "VALIDATION_FAILED"

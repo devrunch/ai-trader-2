@@ -10,6 +10,19 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_alerts = component 'alerts' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_auth = component 'auth' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -99,6 +112,9 @@ model {
     shared_jobs = component 'jobs' {
       description 'generated from code — do not edit'
     }
+    shared_notify = component 'notify' {
+      description 'generated from code — do not edit'
+    }
     shared_observability = component 'observability' {
       description 'generated from code — do not edit'
     }
@@ -155,6 +171,9 @@ model {
   aitrader.api.mod_admin_ops -[calls]-> aitrader.api.mod_market_data 'imports'
   aitrader.api.mod_admin_ops -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_admin_ops.api -[calls]-> aitrader.api.mod_admin_ops.app 'imports'
+  aitrader.api.mod_alerts -[calls]-> aitrader.api.mod_auth 'imports'
+  aitrader.api.mod_alerts -[calls]-> aitrader.api.mod_market_data 'imports'
+  aitrader.api.mod_alerts.infra -[calls]-> aitrader.api.mod_alerts.app 'imports'
   aitrader.api.mod_auth.api -[calls]-> aitrader.api.mod_auth.app 'imports'
   aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.app 'imports'
@@ -183,6 +202,7 @@ model {
   aitrader.api.shared_errors -[calls]-> pkg_contracts 'imports'
   aitrader.api.shared_http -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'
+  aitrader.api.shared_notify -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_redis -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_vendors.shared_vendors_kite -[calls]-> pkg_resilience 'imports'
   aitrader.web.feat_admin -[calls]-> aitrader.web.shared_api 'imports'
@@ -215,6 +235,10 @@ views {
   view module_admin_ops of aitrader.api.mod_admin_ops {
     description 'generated from code — do not edit'
     include aitrader.api.mod_admin_ops.*
+  }
+  view module_alerts of aitrader.api.mod_alerts {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_alerts.*
   }
   view module_auth of aitrader.api.mod_auth {
     description 'generated from code — do not edit'

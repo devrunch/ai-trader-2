@@ -14,6 +14,7 @@ function fixture(minutes = 20) {
     range1d: (_, from, to) => Promise.resolve(daily.filter(b => b.time >= Date.parse(from) && b.time < Date.parse(to))),
     earliest: (_, isDaily) => Promise.resolve((isDaily ? daily : rows)[0]?.time ?? null),
     latest1m: () => Promise.resolve(rows.at(-1)?.time ?? null),
+    instrumentsWith1m: () => Promise.resolve(['NSE:TEST']),
   };
   const redis: FormingBarStore = { get: () => Promise.resolve(forming), set: (_, v) => { forming = v; return Promise.resolve(); }, clear: () => { forming = null; return Promise.resolve(); } };
   const reader = new ReadBars(store, redis, () => start + 3 * 86400000);

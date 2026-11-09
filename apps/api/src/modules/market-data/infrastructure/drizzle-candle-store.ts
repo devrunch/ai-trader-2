@@ -72,6 +72,12 @@ export class DrizzleCandleStore implements CandleStore {
     return value === undefined ? null : daily ? dailyClock(instrumentId).start(String(value)) : new Date(value).getTime();
   }
 
+  async instrumentsWith1m(from: number, to: number, signal?: AbortSignal): Promise<string[]> {
+    const rows = await this.query(() => this.db.selectDistinct({ id: bars1m.instrumentId }).from(bars1m)
+      .where(and(gte(bars1m.ts, new Date(from)), lt(bars1m.ts, new Date(to)))).orderBy(asc(bars1m.instrumentId)), signal);
+    return rows.map(row => row.id);
+  }
+
   async latest1m(instrumentId: string, signal?: AbortSignal): Promise<number | null> {
     const rows = await this.query(() => this.db.select({ time: bars1m.ts }).from(bars1m).where(eq(bars1m.instrumentId, instrumentId)).orderBy(desc(bars1m.ts)).limit(1), signal);
     const value = rows[0]?.time;

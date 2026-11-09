@@ -46,6 +46,13 @@ describe('FR-MD-2 NFR-RB-4 NFR-PF-2 Q5 candle storage', () => {
     await store.upsert1m('NSE:LATEST', [bar('2026-11-09T03:45:00Z'), bar('2026-11-09T07:35:00Z'), bar('2026-11-09T05:00:00Z')], 'test');
     expect(await store.latest1m('NSE:LATEST')).toBe(Date.parse('2026-11-09T07:35:00Z'));
   });
+  it('instrumentsWith1m lists instruments with bars in the window (daily data report)', async () => {
+    await store.upsert1m('NSE:COVA', [bar('2026-11-10T04:00:00Z')], 'test');
+    await store.upsert1m('NSE:COVB', [bar('2026-11-12T04:00:00Z')], 'test');
+    const ids = await store.instrumentsWith1m(Date.parse('2026-11-10T00:00:00Z'), Date.parse('2026-11-11T00:00:00Z'));
+    expect(ids).toContain('NSE:COVA');
+    expect(ids).not.toContain('NSE:COVB');
+  });
   it('a changed vendor bar marks repaired', async () => {
     await store.upsert1m('NSE:TEST', [bar('2026-11-09T03:45:00Z')], 'test');
     expect(await store.upsert1m('NSE:TEST', [bar('2026-11-09T03:45:00Z', 11)], 'test')).toEqual({ written: 1, repaired: 1 });

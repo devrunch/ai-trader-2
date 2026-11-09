@@ -106,3 +106,20 @@ it('run now shows pending then refreshes', async () => {
   release?.();
   await waitFor(() => { expect(screen.queryByText('Running…')).toBeNull(); });
 });
+
+it('alerts tab says when mail is not configured and sends a test email when it is', async () => {
+  server.use(http.get('/api/v1/admin/alerts', () => HttpResponse.json({ configured: false, recipients: [] })));
+  await renderAt('/admin?tab=alerts');
+  expect(await screen.findByText(/Mail is not configured/)).toBeDefined();
+  cleanup();
+  let sent = 0;
+  server.use(
+    http.get('/api/v1/admin/alerts', () => HttpResponse.json({ configured: true, recipients: ['ow***@example.com'] })),
+    http.post('/api/v1/admin/alerts/test', () => { sent++; return HttpResponse.json({ result: 'sent' }, { status: 201 }); }),
+  );
+  await renderAt('/admin?tab=alerts');
+  expect(await screen.findByText('ow***@example.com')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Send test email' }));
+  expect(await screen.findByText('Test email sent.')).toBeDefined();
+  expect(sent).toBe(1);
+});

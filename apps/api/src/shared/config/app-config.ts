@@ -15,6 +15,11 @@ export const AppConfigSchema = z.object({
   ZERODHA_TOTP_SECRET: z.string().optional(),
   KITE_AUTO_LOGIN: z.enum(['true', 'false']).transform(value => value === 'true').default(false),
   KITE_REDIRECT_URL: z.url({ protocol: /^https?$/ }).optional(),
+  // Ops alerts (email only). Unset SMTP_URL disables sending; alerts are then only logged.
+  SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+  ALERT_EMAIL_FROM: z.string().min(3).optional(),
+  ALERT_EMAIL_TO: z.string().transform(value => value.split(',').map(part => part.trim()).filter(Boolean)).pipe(z.array(z.email())).default([]),
+  APP_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),
   MD_PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8001),
