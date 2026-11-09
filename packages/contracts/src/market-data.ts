@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const INTERVALS = ['1', '3', '5', '15', '30', '60', '240', '1D', '1W', '1M'] as const;
+export type Interval = (typeof INTERVALS)[number];
 export const PROVIDER_REASONS = ['NO_DATA', 'MARKET_CLOSED', 'UNSUPPORTED', 'RATE_LIMITED', 'PROVIDER_DOWN', 'AUTH_EXPIRED'] as const;
 export type ProviderReason = (typeof PROVIDER_REASONS)[number];
 
@@ -15,6 +16,7 @@ export const BarSchema = z.strictObject({
   time: z.number().int(), open: z.number(), high: z.number(), low: z.number(), close: z.number(),
   volume: z.number().nullable(), repaired: z.boolean().optional(),
 });
+export type Bar = z.infer<typeof BarSchema>;
 export const BarUpdateSchema = z.strictObject({
   instrumentId: z.string(), seq: z.number().int().positive(), kind: z.enum(['forming', 'closed']), bar: BarSchema, at: z.number().int(),
 });

@@ -37,6 +37,19 @@ describe('LiveGateway handshake (NFR-SC-1)', () => {
     expect(current).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });
+
+  it('answers time with the server clock (E14)', async () => {
+    const server = createServer();
+    gateway = new LiveGateway({ execute: vi.fn().mockResolvedValue({ id: 'user-1', username: 'u', role: 'user' }) }, { now: () => 1_794_210_349_000 });
+    gateway.attach(server);
+    await new Promise<void>(resolve => server.listen(0, resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Missing listening address');
+    client = io(`http://127.0.0.1:${String(address.port)}`, { path: '/api/socket.io', transports: ['websocket'], extraHeaders: { cookie: 'aitrader_session=valid' }, reconnection: false });
+    await new Promise<void>(resolve => client?.once('connect', () => { resolve(); }));
+    const reply: unknown = await client.timeout(2000).emitWithAck('time');
+    expect(reply).toEqual({ now: 1_794_210_349_000 });
+  });
 });
 
 function socketErrorData(error: Error): unknown {

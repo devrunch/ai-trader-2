@@ -1,0 +1,24 @@
+classDiagram
+  class ChartAdapter {
+    +applyColors(colors: ChartColors) void
+    +destroy() void
+    +onNeedOlder(cb: (before: number) => void) void
+    +reset(bars: Bar[]) void
+    +update(bar: Bar) void
+  }
+  class ChartColors {
+    +background: string
+    +down: string
+    +grid: string
+    +text: string
+    +up: string
+  }
+  class ChartLike {
+    +applyColors(colors: ChartColors) void
+    +candles: { setData(points: CandlePoint[]): void; update(point: CandlePoint): void }
+    +onVisibleRange(cb: (from: number | null) => void) () => void
+    +remove() void
+    +volume: { setData(points: VolumePoint[]): void; update(point: VolumePoint): void }
+  }
+  ChartAdapter --> ChartColors
+  ChartAdapter --> ChartLike
