@@ -29,6 +29,9 @@ model {
     mod_market_data = component 'market-data' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
       app = component 'application' {
         description 'generated from code — do not edit'
       }
@@ -49,6 +52,9 @@ model {
       description 'generated from code — do not edit'
     }
     shared_health = component 'health' {
+      description 'generated from code — do not edit'
+    }
+    shared_http = component 'http' {
       description 'generated from code — do not edit'
     }
     shared_jobs = component 'jobs' {
@@ -101,12 +107,15 @@ model {
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.app 'imports'
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.domain 'imports'
   aitrader.api.mod_market_data -[calls]-> aitrader.api.mod_instruments 'imports'
+  aitrader.api.mod_market_data -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_market_data -[calls]-> pkg_resilience 'imports'
+  aitrader.api.mod_market_data.api -[calls]-> aitrader.api.mod_market_data.app 'imports'
   aitrader.api.mod_market_data.app -[calls]-> aitrader.api.mod_market_data.domain 'imports'
   aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.app 'imports'
   aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.domain 'imports'
   aitrader.api.shared_database -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_errors -[calls]-> pkg_contracts 'imports'
+  aitrader.api.shared_http -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_redis -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_vendors.shared_vendors_kite -[calls]-> pkg_resilience 'imports'

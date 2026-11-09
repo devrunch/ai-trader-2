@@ -404,3 +404,43 @@ flowchart TD
 The manager-only `scripts/smoke/kite-history.ts` loads configuration, mints a
 session, uses the shared Redis bucket and prints RELIANCE minute and NIFTY daily
 counts and first/last starts in IST. Automated tests use fake Kite clients.
+
+## REST and honest status (P2-8)
+
+| Endpoint | Returns | Notes |
+|---|---|---|
+| `GET /api/v1/bars?symbol&interval&before\|since&limit` | `BarsResponse` | `limit` 1–5,000 (default 500); at most one cursor; per-IP limit 60 at 20/s |
+| `GET /api/v1/quote/:id` | `QuoteResponse` | forming bar if newer than the last stored bar; change against the previous session (special sessions included) |
+
+| Situation | Response |
+|---|---|
+| read failed for `NO_DATA` or `MARKET_CLOSED`, no bars | 200, `bars: []`, `status: stale` with the reason |
+| read failed for `PROVIDER_DOWN` or `AUTH_EXPIRED`, no bars | 503 `PROVIDER_DOWN`, `details.reason` |
+| read failed for `RATE_LIMITED` | 429 with `Retry-After` |
+| read failed for `UNSUPPORTED` | 422 `VALIDATION_FAILED` |
+| bars served but the fill failed | `status: stale` with the reason (E6) |
+| vendor feed state `stale` | `status: stale` with the feed reason |
+| US instrument | `status: delayed`, `delayMs: 900000` |
+| otherwise | `status: ok` |
+
+Instruments never fall back to another vendor (E3).
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant API as MarketDataController
+  participant S as MarketDataService
+  participant R as ResolveInstrument
+  participant B as ReadBars
+  participant F as FeedStateStore (Redis)
+  C->>API: GET /api/v1/bars
+  API->>S: bars(id, interval, cursor, limit)
+  S->>R: resolve (continuous → dated contract)
+  par
+    S->>B: read resolved id (read-through fill if incomplete)
+  and
+    S->>F: md:feed-state:<vendor>
+  end
+  S-->>API: bars + status (ok | delayed | stale)
+  API-->>C: BarsResponse or typed error
+```

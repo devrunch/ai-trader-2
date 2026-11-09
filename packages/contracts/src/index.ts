@@ -4,3 +4,4 @@ export { ErrorBodySchema } from './error-body.js';
 export type { ErrorBody } from './error-body.js';
 
 export * from './instrument.js';
+export * from './market-data.js';

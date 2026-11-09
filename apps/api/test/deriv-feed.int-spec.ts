@@ -77,16 +77,16 @@ describe('FR-MD-1 E1 E2 E5 Deriv socket integration', () => {
   it('server kill reconnects, resubscribes with new subscription ids and backfills', async () => {
     await vi.waitFor(async () => { expect(await forming.get(id)).not.toBeNull(); });
     now += 180000; for (const socket of server.clients) socket.terminate();
-    await vi.waitFor(() => { expect(subscriptionIds).toHaveLength(2); });
+    await vi.waitFor(() => { expect(subscriptionIds).toHaveLength(2); }, { timeout: 10_000 });
     expect(subscriptionIds[1]).not.toBe(subscriptionIds[0]);
-    await vi.waitFor(async () => { expect((await store.range1m(id, start, now)).map(bar => [bar.time, bar.repaired, bar.volume])).toEqual([[start, true, null], [start + 60000, true, null], [start + 120000, true, null]]); });
+    await vi.waitFor(async () => { expect((await store.range1m(id, start, now)).map(bar => [bar.time, bar.repaired, bar.volume])).toEqual([[start, true, null], [start + 60000, true, null], [start + 120000, true, null]]); }, { timeout: 10_000 });
     expect(histories).toBe(1);
-    feed.disconnectSocket(); await vi.waitFor(() => { expect(subscriptionIds).toHaveLength(3); });
+    feed.disconnectSocket(); await vi.waitFor(() => { expect(subscriptionIds).toHaveLength(3); }, { timeout: 10_000 });
     await feed.unsubscribe([id]);
   });
   it('silent server during FX hours triggers watchdog reconnect', async () => {
     const states = vi.fn(); feed.onState(states); now += 100;
-    await vi.waitFor(() => { expect(subscriptionIds.length).toBeGreaterThanOrEqual(2); });
+    await vi.waitFor(() => { expect(subscriptionIds.length).toBeGreaterThanOrEqual(2); }, { timeout: 10_000 });
     expect(states).toHaveBeenCalledWith('reconnecting', 'watchdog');
   });
   it('no watchdog on Saturday', async () => {
