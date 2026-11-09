@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResilientFeed, type FeedTransport } from './resilient-feed';
 import type { Tick } from '../../application/ports/live-feed';
+import { KiteLoginError } from '../../../../shared/vendors/kite/kite-login';
 
 class Socket implements FeedTransport {
   connect = vi.fn<FeedTransport['connect']>().mockResolvedValue(undefined);
@@ -54,6 +55,14 @@ describe('E1 E2 E3 FR-MD-5 NFR-RB-1 ResilientFeed', () => {
     expect(deps.refreshAuth).not.toHaveBeenCalled(); await vi.advanceTimersByTimeAsync(250); await started;
     expect(deps.refreshAuth).toHaveBeenCalledOnce(); sockets[1]?.closed('AUTH_EXPIRED');
     await vi.advanceTimersByTimeAsync(500); expect(deps.refreshAuth).toHaveBeenCalledTimes(2); await feed.stop();
+  });
+  it('logs the login stage and maps login failure to stale AUTH_EXPIRED (E3, NFR-OB-1)', async () => {
+    const { feed, deps } = fixture(true, socket => { socket.connect.mockRejectedValue(new KiteLoginError('login', 'login failed')); });
+    const states = vi.fn(); feed.onState(states);
+    const started = feed.start(); await vi.advanceTimersByTimeAsync(0);
+    expect(deps.log).toHaveBeenCalledWith('feed connection failed', expect.objectContaining({ stage: 'login', message: 'login failed' }));
+    expect(states).toHaveBeenCalledWith('stale', 'AUTH_EXPIRED');
+    await feed.stop(); await started;
   });
   it('resets backoff after 60 s live', async () => {
     const { feed, sockets } = fixture(false); await feed.start(); sockets[0]?.closed('drop'); await vi.advanceTimersByTimeAsync(250);

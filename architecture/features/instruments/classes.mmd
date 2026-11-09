@@ -112,11 +112,17 @@ classDiagram
     +providerSymbol: string
     +providerToken?: string
   }
+  class RedisRefreshLock {
+    +run(work: () => Promise<RefreshReport>, signal: AbortSignal) Promise<RefreshReport>
+  }
   class RefreshInstruments {
     +execute(signal: AbortSignal) Promise<RefreshReport>
   }
   class RefreshJob {
     +onApplicationBootstrap() void
+  }
+  class RefreshLock {
+    +run(work: () => Promise<RefreshReport>, signal: AbortSignal) Promise<RefreshReport>
   }
   class RefreshReport {
     +sources: Record<string, { status: 'ok' | 'stale'; count: number;
@@ -157,6 +163,7 @@ classDiagram
   RefreshInstruments --> InstrumentRepository
   RefreshInstruments --> SearchIndex
   RefreshJob --> RefreshInstruments
+  RefreshLock <|.. RedisRefreshLock
   ResolveInstrument --> InstrumentRepository
   ResolveInstrument --> SearchIndex
   SearchIndex <|.. MiniSearchIndex

@@ -47,7 +47,11 @@ export class KiteSessionService {
   private mint(signal: AbortSignal): Promise<string> {
     if (this.inFlight) return this.inFlight;
     const credentials = this.requireCredentials();
-    this.inFlight = this.breaker.exec(() => withTimeout(async (signal) => {
+    this.inFlight = this.repository.reserveLoginAttempt(new Date(this.now()), signal).then(reservation => {
+      if (!reservation.allowed) throw new UnavailableError('Kite login attempts exhausted', {
+        reason: 'login attempts exhausted', retryAt: reservation.retryAt.toISOString(),
+      });
+      return this.breaker.exec(() => withTimeout(async (signal) => {
       const { requestToken } = await this.login(credentials, signal);
       const exchange = typeof this.exchange === 'function' ? this.exchange(signal) : this.exchange;
       let accessToken: string;
@@ -58,8 +62,10 @@ export class KiteSessionService {
       await this.repository.save({ accessToken, mintedAt, expiresAt }, signal);
       this.logger.log(`Kite session minted, expires ${expiresAt.toISOString()}`);
       return accessToken;
-    }, 115000, signal)).catch((error: unknown) => {
+      }, 115000, signal));
+    }).catch((error: unknown) => {
       if (error instanceof CircuitOpenError) throw new UnavailableError('Kite provider unavailable', { vendor: 'kite', retryAfterMs: error.retryAfterMs });
+      if (error instanceof UnavailableError && error.details?.reason === 'login attempts exhausted') throw error;
       throw new UnavailableError('Kite session mint failed', { vendor: 'kite', reason: error instanceof KiteLoginError ? `${error.stage} failed` : 'mint failed' });
     }).finally(() => { this.inFlight = undefined; });
     return this.inFlight;

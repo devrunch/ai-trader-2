@@ -8,6 +8,7 @@ import { DrizzleKiteSessionRepository } from '../src/shared/vendors/kite/kite-se
 import { KiteSessionService } from '../src/shared/vendors/kite/kite-session.service';
 import { KiteRegistration } from '../src/shared/vendors/kite/kite.module';
 import { ReadinessRegistry } from '../src/shared/health';
+import { z } from 'zod';
 
 // FR-MD-3, NFR-RB-5: Postgres durability and scheduler registration.
 describe('Kite durable session', () => {
@@ -20,7 +21,28 @@ describe('Kite durable session', () => {
   });
   afterAll(async () => { await pool.end(); await postgres.stop(); });
   const credentials = { apiKey: 'key', apiSecret: 'secret', userId: 'user', password: 'password', totpSecret: 'totp' };
+  it('caps logins at 3 per 15 minutes and 6 per day across restarts', async () => {
+    const repository = new DrizzleKiteSessionRepository(pool);
+    await pool.query("delete from vendor_sessions where vendor = 'kite'");
+    let now = Date.parse('2026-11-09T01:00:00Z');
+    const login = vi.fn(() => Promise.reject(new Error('simulated vendor rejection')));
+    const makeService = () => new KiteSessionService(credentials, repository, login,
+      { generateSession: vi.fn() }, () => now, { log: vi.fn() });
+    const first = makeService();
+    for (let i = 0; i < 3; i++) await expect(first.getAccessToken()).rejects.toMatchObject({ code: 'UNAVAILABLE' });
+    await expect(first.getAccessToken()).rejects.toMatchObject({ details: { reason: 'login attempts exhausted', retryAt: '2026-11-09T01:15:00.000Z' } });
+    now += 16 * 60000;
+    const restarted = makeService();
+    for (let i = 0; i < 3; i++) await expect(restarted.getAccessToken()).rejects.toMatchObject({ code: 'UNAVAILABLE' });
+    await expect(restarted.getAccessToken()).rejects.toMatchObject({ details: { reason: 'login attempts exhausted', retryAt: '2026-11-09T18:30:00.000Z' } });
+    expect(login).toHaveBeenCalledTimes(6);
+    const query = await pool.query("select login_attempts_day, login_attempts from vendor_sessions where vendor = 'kite'");
+    const row = z.object({ login_attempts_day: z.date(), login_attempts: z.number() }).parse(query.rows[0]);
+    expect(row.login_attempts).toBe(6);
+    expect(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(row.login_attempts_day)).toBe('2026-11-09');
+  });
   it('stores and reloads the token across service instances', async () => {
+    await pool.query("delete from vendor_sessions where vendor = 'kite'");
     const repository = new DrizzleKiteSessionRepository(pool);
     const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
     const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'persisted' })) };

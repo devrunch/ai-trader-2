@@ -2,19 +2,22 @@ import { diffMasters, type InstrumentChangeKind } from '../domain/index.js';
 import type { InstrumentRepository } from './ports/instrument-repository.js';
 import type { InstrumentSource } from './ports/instrument-source.js';
 import type { SearchIndex } from './ports/search-index.js';
-
-export interface RefreshReport {
-  sources: Record<string, { status: 'ok' | 'stale'; count: number;
-    changes: Record<InstrumentChangeKind, number>; reason?: string }>;
-}
+import type { RefreshLock } from './ports/refresh-lock.js';
+import type { RefreshReport } from './refresh-report.js';
+export type { RefreshReport } from './refresh-report.js';
 const counts = (): Record<InstrumentChangeKind, number> => ({ listed: 0, renamed: 0, delisted: 0, expired: 0, updated: 0 });
 
 export class RefreshInstruments {
   constructor(private readonly repository: InstrumentRepository, private readonly sources: readonly InstrumentSource[],
     private readonly index: SearchIndex, private readonly clock: () => Date = () => new Date(),
-    private readonly logger: { warn(message: unknown): void } = console) {}
+    private readonly logger: { warn(message: unknown): void } = console, private readonly lock?: RefreshLock) {}
 
   async execute(signal: AbortSignal): Promise<RefreshReport> {
+    if (this.lock) return this.lock.run(() => this.executeUnlocked(signal), signal);
+    return this.executeUnlocked(signal);
+  }
+
+  private async executeUnlocked(signal: AbortSignal): Promise<RefreshReport> {
     const at = this.clock().toISOString();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(at));
     const report: RefreshReport = { sources: {} };

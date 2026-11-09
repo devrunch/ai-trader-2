@@ -19,6 +19,8 @@ import { FeedSupervisor } from './modules/market-data/infrastructure/process/fee
 import { FeedStatePublisher } from './modules/market-data/infrastructure/process/feed-state.publisher';
 import { SubscriptionRequests } from './modules/market-data/infrastructure/process/subscription-requests';
 import { LeaderLock } from './modules/market-data/infrastructure/process/leader-lock';
+import { ResolveInstrument } from './modules/instruments/application/index';
+import { JobScheduler } from './shared/jobs';
 
 export async function startMarketDataProcess(config: AppConfig = loadRuntimeConfig()): Promise<() => Promise<void>> {
   const app = await NestFactory.create(MarketDataAppModule.forRoot(config), { bufferLogs: true });
@@ -37,8 +39,13 @@ export async function startMarketDataProcess(config: AppConfig = loadRuntimeConf
     app.get(Logger).log({ vendor, state, ...(reason === undefined ? {} : { reason }) }, 'Market-data feed state published');
   });
   const requests = new SubscriptionRequests(redis);
+  const resolveInstrument = app.get(ResolveInstrument);
+  const scheduler = app.get(JobScheduler);
   const supervisor = new FeedSupervisor({ feeds: [app.get(KiteTickerFeed), app.get(DerivFeed), app.get(UsDelayedFeed)], liveBars: bars,
     publisher, requests, held: () => app.get(InstrumentHistory).heldForFeeds(AbortSignal.timeout(5000)),
+    resolveContinuous: async id => String((await resolveInstrument.execute(id)).instrument.id),
+    scheduleDaily: run => scheduler.register({ name: 'continuous-instrument-roll', cron: '5 0 * * *', tz: 'Asia/Kolkata',
+      graceMs: 3600000, maxRuntimeMs: 60000, run: async () => run() }),
     log: message => { app.get(Logger).warn(message); } });
   const lock = new LeaderLock(redis, appConfig.MD_INSTANCE_ID);
   const controller = new AbortController();

@@ -4,16 +4,19 @@ import { withTimeout } from '@aitrader/resilience';
 import { UnavailableError } from '../../errors';
 
 export interface KiteSessionRecord { accessToken: string; mintedAt: Date; expiresAt: Date }
+export interface LoginAttemptReservation { allowed: boolean; retryAt: Date }
 export interface KiteSessionRepository {
   load(signal: AbortSignal): Promise<KiteSessionRecord | null>;
   save(record: KiteSessionRecord, signal: AbortSignal): Promise<void>;
+  reserveLoginAttempt(now: Date, signal: AbortSignal): Promise<LoginAttemptReservation>;
 }
 const rowSchema = z.object({ access_token: z.string(), minted_at: z.date(), expires_at: z.date() });
+const attemptRowSchema = z.object({ login_attempts_day: z.union([z.string(), z.date()]).nullable(), login_attempts: z.number(), login_attempts_window: z.array(z.union([z.date(), z.string()])) });
 export class DrizzleKiteSessionRepository implements KiteSessionRepository {
   constructor(private readonly pool: Pool) {}
   async load(signal: AbortSignal): Promise<KiteSessionRecord | null> {
     return this.query(async (client) => {
-      const result = await client.query('select access_token, minted_at, expires_at from vendor_sessions where vendor = $1', ['kite']);
+      const result = await client.query('select access_token, minted_at, expires_at from vendor_sessions where vendor = $1 and access_token is not null', ['kite']);
       if (!result.rows.length) return null;
       const row = rowSchema.parse(result.rows[0]);
       return { accessToken: row.access_token, mintedAt: row.minted_at, expiresAt: row.expires_at };
@@ -26,6 +29,37 @@ export class DrizzleKiteSessionRepository implements KiteSessionRepository {
         on conflict (vendor) do update set access_token = excluded.access_token,
         minted_at = excluded.minted_at, expires_at = excluded.expires_at`,
       ['kite', record.accessToken, record.mintedAt, record.expiresAt]);
+    }, signal);
+  }
+  async reserveLoginAttempt(now: Date, signal: AbortSignal): Promise<LoginAttemptReservation> {
+    return this.query(async client => {
+      await client.query('begin');
+      try {
+        await client.query("select pg_advisory_xact_lock(hashtext('kite-login-attempts'))");
+        const result = await client.query(`select login_attempts_day, login_attempts, login_attempts_window
+          from vendor_sessions where vendor = 'kite' for update`);
+        const row = result.rows[0] === undefined ? undefined : attemptRowSchema.parse(result.rows[0]);
+        const istDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+        const storedDay = row?.login_attempts_day instanceof Date
+          ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(row.login_attempts_day) : row?.login_attempts_day;
+        const dayAttempts = storedDay === istDay ? row?.login_attempts ?? 0 : 0;
+        const window = (row?.login_attempts_window ?? []).map(value => new Date(value)).filter(value => now.getTime() - value.getTime() < 900000);
+        const dailyRetry = new Date(new Date(`${istDay}T00:00:00+05:30`).getTime() + 86400000);
+        const retryAt = dayAttempts >= 6 ? dailyRetry : window.length >= 3
+          ? new Date((window[0]?.getTime() ?? now.getTime()) + 900000) : new Date(now.getTime() + 900000);
+        if (dayAttempts >= 6 || window.length >= 3) {
+          await client.query('commit');
+          return { allowed: false, retryAt };
+        }
+        window.push(now);
+        await client.query(`insert into vendor_sessions (vendor, login_attempts_day, login_attempts, login_attempts_window)
+          values ('kite', $1::date, $2, $3::timestamptz[])
+          on conflict (vendor) do update set login_attempts_day = excluded.login_attempts_day,
+          login_attempts = excluded.login_attempts, login_attempts_window = excluded.login_attempts_window`,
+        [istDay, dayAttempts + 1, window.map(value => value.toISOString())]);
+        await client.query('commit');
+        return { allowed: true, retryAt };
+      } catch (error) { await client.query('rollback'); throw error; }
     }, signal);
   }
   private async query<T>(action: (client: PoolClient) => Promise<T>, parent: AbortSignal): Promise<T> {
