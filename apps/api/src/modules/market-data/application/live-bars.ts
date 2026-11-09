@@ -4,6 +4,7 @@ import type { Bar } from '../domain/bar';
 import type { CandleStore } from './ports/candle-store';
 import type { FormingBarStore } from './ports/forming-bar-store';
 import type { LiveFeed, Tick } from './ports/live-feed';
+import type { BarPublisher } from './ports/bar-publisher';
 
 interface BuilderState {
   builder: BarBuilder;
@@ -21,7 +22,8 @@ interface Options { clock: () => number; log: (reason: string, error: unknown) =
 export class LiveBars {
   private readonly attached = new Set<{ feed: LiveFeed; builders: Map<string, BuilderState> }>();
   private canPersist: (() => Promise<boolean>) | undefined;
-  constructor(private readonly candles: CandleStore, private readonly forming: FormingBarStore, private readonly deps: Options) { this.canPersist = deps.canPersist; }
+  constructor(private readonly candles: CandleStore, private readonly forming: FormingBarStore, private readonly deps: Options,
+    private readonly publisher?: BarPublisher) { this.canPersist = deps.canPersist; }
   setPersistenceFence(check: () => Promise<boolean>): void { this.canPersist = check; }
 
   attach(feed: LiveFeed): () => void {
@@ -86,6 +88,7 @@ export class LiveBars {
     // The store's (instrument, minute) key makes repeated closes and late corrections idempotent.
     await this.candles.upsert1m(id, pending, `${source}-live`);
     state.unwritten.clear();
+    for (const bar of pending) await this.publish(id, 'closed', bar);
     if (pending.some(bar => bar.time === state.latest?.bar.time)) {
       clearTimeout(state.timer); state.timer = undefined; state.latest = undefined;
       await this.forming.clear(id);
@@ -95,5 +98,11 @@ export class LiveBars {
     if (!state.latest) return;
     if (this.canPersist && !(await this.canPersist())) return;
     await this.forming.set(id, state.latest); state.lastWrite = this.deps.clock();
+    await this.publish(id, 'forming', state.latest.bar);
+  }
+  private async publish(id: string, kind: 'forming' | 'closed', bar: Bar): Promise<void> {
+    if (!this.publisher || (this.canPersist && !(await this.canPersist()))) return;
+    try { await this.publisher.publish(id, kind, bar); }
+    catch (error) { this.deps.log('live bar publish failed', error); }
   }
 }

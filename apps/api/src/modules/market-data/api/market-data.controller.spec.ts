@@ -11,6 +11,9 @@ import { GlobalExceptionFilter } from '../../../shared/errors';
 import { MarketDataService, GetQuote } from '../application';
 import { MarketDataController } from './market-data.controller';
 import { IpRateLimitGuard } from '../../../shared/http/ip-rate-limit.guard';
+import { ResolveInstrument } from '../../instruments/application/index';
+import { ReadSeq } from '../application/read-seq';
+import { BarSeqResponseSchema } from '@aitrader/contracts';
 
 // FR-CH-5, FR-UI-7/8, SRD ?11
 let app: INestApplication<Server>;
@@ -23,6 +26,8 @@ beforeEach(async () => {
     { provide: IpRateLimitGuard, useValue: new IpRateLimitGuard(60, 20, () => 0) }, GlobalExceptionFilter,
     { provide: PinoLogger, useValue: new PinoLogger({ pinoHttp: { level: 'silent' } }) },
     { provide: MarketDataService, useValue: { bars } }, { provide: GetQuote, useValue: { execute: quote } },
+    { provide: ResolveInstrument, useValue: { execute: (id: string) => Promise.resolve({ instrument: { id: { toString: () => id } } }) } },
+    { provide: ReadSeq, useValue: { current: () => Promise.resolve(4) } },
   ] }).compile();
   app = module.createNestApplication(); configureApp(app); await app.init();
 });
@@ -49,6 +54,11 @@ it('responses satisfy the contracts', async () => {
   const b = await request(app.getHttpServer()).get('/api/v1/bars?symbol=NSE:X&interval=1&before=2').expect(200);
   const q = await request(app.getHttpServer()).get('/api/v1/quote/NSE%3AX').expect(200);
   expect(BarsResponseSchema.safeParse(b.body).success).toBe(true); expect(QuoteResponseSchema.safeParse(q.body).success).toBe(true);
+});
+it('returns the current canonical instrument sequence (FR-LS-2 E10)', async () => {
+  const response = await request(app.getHttpServer()).get('/api/v1/bars/seq?symbol=NSE%3AX').expect(200);
+  expect(response.body).toEqual({ instrumentId: 'NSE:X', seq: 4 });
+  expect(BarSeqResponseSchema.safeParse(response.body).success).toBe(true);
 });
 it('rate limits with 429', async () => {
   for (let i = 0; i < 60; i++) await request(app.getHttpServer()).get('/api/v1/quote/NSE%3AX').expect(200);
