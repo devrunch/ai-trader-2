@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart } from '../../features/chart';
+import { IntervalPicker, SymbolHeader, Watchlist } from '../../features/terminal';
 import { rootRoute } from './root-route';
 const searchSchema = z.object({
   symbol: z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!\- ]+$/).catch('NSE:NIFTY'),
@@ -18,7 +19,7 @@ function Terminal() {
   const [initial, setInitial] = useState<string | null>(null);
   const open = useCallback((value: string) => { setInitial((current) => current ?? value); }, []);
   useOpenOnType(open);
-  return <><TerminalLayout watchlist={<Placeholder title="Watchlist" />} chart={<div className="flex h-full flex-col gap-3"><div className="flex items-baseline gap-3"><h1 className="text-lg font-semibold"><button onClick={() => { open(''); }}>{symbol}</button></h1><span className="rounded border px-2 py-1 text-sm">{interval}</span><span className="ml-auto"><ConnectionIndicator /></span></div><div className="min-h-0 flex-1"><LiveChart symbol={symbol} interval={interval} /></div></div>} side={{ chat: <Placeholder title="Chat" />, positions: <Placeholder title="Positions" />, news: <Placeholder title="News" />, alerts: <Placeholder title="Alerts" /> }} />
+  return <><TerminalLayout watchlist={<Watchlist />} chart={<div className="flex h-full flex-col gap-3"><div className="flex flex-wrap items-center gap-3"><SymbolHeader symbol={symbol} onSymbolClick={() => { open(''); }} /><IntervalPicker /><span className="ml-auto"><ConnectionIndicator /></span></div><div className="min-h-0 flex-1"><LiveChart symbol={symbol} interval={interval} /></div></div>} side={{ chat: <Placeholder title="Chat" />, positions: <Placeholder title="Positions" />, news: <Placeholder title="News" />, alerts: <Placeholder title="Alerts" /> }} />
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: (prev) => ({ ...prev, symbol: id }) }); }} />}
   </>;
 }
