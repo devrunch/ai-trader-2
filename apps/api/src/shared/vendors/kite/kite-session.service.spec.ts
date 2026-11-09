@@ -74,7 +74,7 @@ describe('Kite session', () => {
     const { service, save, exchange } = setup();
     exchange.generateSession.mockResolvedValue({ access_token: 'foreign-token', user_id: 'other-account' });
     exchange.invalidateAccessToken.mockRejectedValue(new Error('invalid token cleanup failed'));
-    await expect(service.connect('Valid1234')).rejects.toMatchObject({ code: 'VALIDATION', httpStatus: 400, details: { reason: 'ACCOUNT_MISMATCH' } });
+    await expect(service.connect('Valid1234')).rejects.toMatchObject({ code: 'VALIDATION_FAILED', httpStatus: 400, details: { reason: 'ACCOUNT_MISMATCH' } });
     expect(save).not.toHaveBeenCalled();
     expect(exchange.invalidateAccessToken).toHaveBeenCalledWith('foreign-token');
   });

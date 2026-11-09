@@ -12,7 +12,7 @@ export class ValidationError extends DomainError {
 }
 
 export class BadRequestValidationError extends DomainError {
-  readonly code = 'VALIDATION';
+  readonly code = 'VALIDATION_FAILED';
   readonly httpStatus = 400;
 }
 

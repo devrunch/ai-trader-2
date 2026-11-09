@@ -37,7 +37,7 @@ it('manual token paste stores the session', async () => {
 });
 it('malformed request token returns 400', async () => {
   await request(app.getHttpServer()).post('/api/v1/admin/zerodha/token').set('X-Requested-With', 'aitrader').send({ requestToken: 'bad?' }).expect(400)
-    .expect(response => { expect(response.body).toMatchObject({ code: 'VALIDATION', details: { reason: 'INVALID_REQUEST_TOKEN' } }); });
+    .expect(response => { expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED', details: { reason: 'INVALID_REQUEST_TOKEN' } }); });
   expect(connect).not.toHaveBeenCalled();
 });
 it('status never contains the access token', async () => {
