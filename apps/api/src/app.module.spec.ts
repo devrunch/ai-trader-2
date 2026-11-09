@@ -11,8 +11,11 @@ import { RedisModule } from './shared/redis';
 import { isolateInstruments } from '../test/support/isolate-instruments';
 import { DB } from './shared/database';
 import { REDIS } from './shared/redis';
+import { KiteSessionService } from './shared/vendors/kite/kite-session.service';
 
-@Global() @Module({ providers: [{ provide: DB, useValue: {} }, { provide: REDIS, useValue: {} }], exports: [DB, REDIS] })
+@Global() @Module({ providers: [{ provide: DB, useValue: {} }, { provide: REDIS, useValue: {} },
+  { provide: KiteSessionService, useValue: { adminStatus: () => Promise.resolve({ connected: false, attemptsToday: 0 }), connect: () => Promise.resolve({ expiresAt: '' }), autoLoginNow: () => Promise.resolve({ expiresAt: '' }), disconnect: () => Promise.resolve() } },
+], exports: [DB, REDIS, KiteSessionService] })
 class NoInfrastructureModule {}
 
 // SRD §10.1; NFR-QL-1.

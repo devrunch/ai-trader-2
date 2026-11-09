@@ -5,10 +5,15 @@ import { UnavailableError } from '../../errors';
 
 export interface KiteSessionRecord { accessToken: string; mintedAt: Date; expiresAt: Date }
 export interface LoginAttemptReservation { allowed: boolean; retryAt: Date }
+export interface AutoLoginBlock { blockedUntil: Date | null; reason: string | null; attemptsToday: number }
 export interface KiteSessionRepository {
   load(signal: AbortSignal): Promise<KiteSessionRecord | null>;
   save(record: KiteSessionRecord, signal: AbortSignal): Promise<void>;
   reserveLoginAttempt(now: Date, signal: AbortSignal): Promise<LoginAttemptReservation>;
+  autoLoginBlock(signal: AbortSignal): Promise<AutoLoginBlock>;
+  blockAutoLogin(until: Date, reason: string, signal: AbortSignal): Promise<void>;
+  clearAutoLoginBlock(signal: AbortSignal): Promise<void>;
+  disconnect(signal: AbortSignal): Promise<void>;
 }
 const rowSchema = z.object({ access_token: z.string(), minted_at: z.date(), expires_at: z.date() });
 const attemptRowSchema = z.object({ login_attempts_day: z.union([z.string(), z.date()]).nullable(), login_attempts: z.number(), login_attempts_window: z.array(z.union([z.date(), z.string()])) });
@@ -61,6 +66,27 @@ export class DrizzleKiteSessionRepository implements KiteSessionRepository {
         return { allowed: true, retryAt };
       } catch (error) { await client.query('rollback'); throw error; }
     }, signal);
+  }
+  async autoLoginBlock(signal: AbortSignal): Promise<AutoLoginBlock> {
+    return this.query(async client => {
+      const result = await client.query(`select auto_login_blocked_until, auto_login_block_reason,
+        case when login_attempts_day = (now() at time zone 'Asia/Kolkata')::date then login_attempts else 0 end as login_attempts
+        from vendor_sessions where vendor = 'kite'`);
+      const row: unknown = result.rows[0];
+      if (!row) return { blockedUntil: null, reason: null, attemptsToday: 0 };
+      const parsed = z.object({ auto_login_blocked_until: z.date().nullable(), auto_login_block_reason: z.string().nullable(), login_attempts: z.number() }).parse(row);
+      return { blockedUntil: parsed.auto_login_blocked_until, reason: parsed.auto_login_block_reason, attemptsToday: parsed.login_attempts };
+    }, signal);
+  }
+  async blockAutoLogin(until: Date, reason: string, signal: AbortSignal): Promise<void> {
+    await this.query(async client => { await client.query(`insert into vendor_sessions (vendor, auto_login_blocked_until, auto_login_block_reason) values ('kite', $1, $2)
+      on conflict (vendor) do update set auto_login_blocked_until = excluded.auto_login_blocked_until, auto_login_block_reason = excluded.auto_login_block_reason`, [until, reason]); }, signal);
+  }
+  async clearAutoLoginBlock(signal: AbortSignal): Promise<void> {
+    await this.query(async client => { await client.query(`update vendor_sessions set auto_login_blocked_until = null, auto_login_block_reason = null where vendor = 'kite'`, []); }, signal);
+  }
+  async disconnect(signal: AbortSignal): Promise<void> {
+    await this.query(async client => { await client.query(`update vendor_sessions set access_token = null, minted_at = null, expires_at = null where vendor = 'kite'`, []); }, signal);
   }
   private async query<T>(action: (client: PoolClient) => Promise<T>, parent: AbortSignal): Promise<T> {
     try {

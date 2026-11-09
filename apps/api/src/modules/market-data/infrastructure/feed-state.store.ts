@@ -6,6 +6,7 @@ import type { FeedStateRecord, FeedStateStore, FeedVendor } from '../application
 const recordSchema = z.object({
   state: z.enum(['connecting', 'live', 'reconnecting', 'stale', 'stopped']),
   reason: z.enum(PROVIDER_REASONS).optional(),
+  detail: z.string().max(80).optional(),
   at: z.number().int(),
 });
 
@@ -21,8 +22,8 @@ export class RedisFeedStateStore implements FeedStateStore {
       if (raw === null) return { state: 'unknown' };
       const parsed = recordSchema.safeParse(JSON.parse(raw));
       if (!parsed.success) return { state: 'unknown' };
-      const { state, reason, at } = parsed.data;
-      return reason === undefined ? { state, at } : { state, reason, at };
+      const { state, reason, detail, at } = parsed.data;
+      return { state, at, ...(reason === undefined ? {} : { reason }), ...(detail === undefined ? {} : { detail }) };
     } catch {
       return { state: 'unknown' };
     }

@@ -1,0 +1,23 @@
+classDiagram
+  class AdminOpsModule {
+  }
+  class ZerodhaConnect {
+    +autoLogin() Promise<{ connected: true; expiresAt: string }>
+    +connect(requestToken: string) Promise<{ connected: true; expiresAt: string }>
+    +disconnect() Promise<{ connected: false }>
+    +status() Promise<ZerodhaStatus>
+  }
+  class ZerodhaController {
+    +autoLogin() Promise<{ connected: true; expiresAt: string; }>
+    +disconnect() Promise<{ connected: false; }>
+    +status() Promise<import("../application/zerodha-connect.js").ZerodhaStatus>
+    +token(body: unknown) Promise<{ connected: true; expiresAt: string; }>
+  }
+  class ZerodhaStatus {
+    +autoLogin: { enabled: boolean; blockedUntil?: string; reason?: string; attemptsToday: number; cap: 6 }
+    +connected: boolean
+    +expiresAt?: string
+    +loginUrl: string
+    +redirectUrl: string | null
+  }
+  ZerodhaController --> ZerodhaConnect

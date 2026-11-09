@@ -11,13 +11,14 @@ import { KiteSessionService } from './kite-session.service';
 
 export class KiteRegistration implements OnModuleInit {
   constructor(private readonly credentials: KiteCredentials | null, private readonly service: KiteSessionService,
-    private readonly scheduler: Pick<JobScheduler, 'register'>, private readonly readiness: ReadinessRegistry) {}
+    private readonly scheduler: Pick<JobScheduler, 'register'>, private readonly readiness: ReadinessRegistry,
+    private readonly autoLoginEnabled = false) {}
   async onModuleInit(): Promise<void> {
     this.readiness.register('kite', async () => {
       const status = await this.service.status();
       return status.valid ? { status: 'up' } : { status: 'down', reason: status.reason ?? 'no valid token' };
     });
-    if (!this.credentials) return;
+    if (!this.credentials || !this.autoLoginEnabled) return;
     await this.scheduler.register({ name: 'kite-session-refresh', cron: '20 6 * * *', tz: 'Asia/Kolkata',
       graceMs: 6 * 3600000, maxRuntimeMs: 120000,
       run: (signal) => retry((_attempt, signal) => this.service.refresh(signal), {
@@ -33,11 +34,11 @@ export class KiteRegistration implements OnModuleInit {
       const credentials = kiteCredentials(config);
       return new KiteSessionService(credentials, new DrizzleKiteSessionRepository(database.$client),
         (creds, signal) => loginToKite(creds, createKiteHttp(), signal),
-        (signal) => createKiteTokenExchange(credentials?.apiKey ?? '', signal));
+        (signal) => createKiteTokenExchange(credentials?.apiKey ?? '', signal), Date.now, undefined, config.KITE_AUTO_LOGIN);
     } },
     { provide: KiteRegistration, inject: [APP_CONFIG, KiteSessionService, JobScheduler, ReadinessRegistry],
       useFactory: (config: AppConfig, service: KiteSessionService, scheduler: JobScheduler, readiness: ReadinessRegistry) =>
-        new KiteRegistration(kiteCredentials(config), service, scheduler, readiness) },
+        new KiteRegistration(kiteCredentials(config), service, scheduler, readiness, config.KITE_AUTO_LOGIN) },
   ],
   exports: [KiteSessionService],
 })

@@ -16,8 +16,9 @@ module.exports = {
     rule('infrastructure-no-api', { path: `${apiRoot}/modules/[^/]+/infrastructure/` }, {
       path: `${apiRoot}/modules/[^/]+/api/`,
     }),
+    // Cross-module imports: an application index, the auth guards (shared HTTP plumbing) and Nest module files.
     rule('module-public-api-only', { path: `^(${apiRoot}/modules/)([^/]+)/` }, {
-      path: '^$1', pathNot: ['^$1$2/', '^$1[^/]+/application/index\\.ts$'],
+      path: '^$1', pathNot: ['^$1$2/', '^$1[^/]+/application/index\\.ts$', '^$1auth/api/index\\.ts$', '^$1[^/]+/[^/]+\\.module\\.ts$'],
     }),
     rule('shared-no-modules', { path: `${apiRoot}/shared/` }, { path: `${apiRoot}/modules/` }),
     rule('no-circular', {}, { circular: true }),

@@ -36,6 +36,12 @@ describe('Kite login', () => {
   it('fails at the login stage when request_id is missing', async () => {
     await expect(loginToKite(creds, script([response()]), signal, now)).rejects.toMatchObject({ stage: 'login' });
   });
+  it('detects a captcha response and marks it for a 24 hour auto-login block', async () => {
+    const http = script([response(400, { error_type: 'InputException', message: 'Invalid CAPTCHA values.', data: { captcha: 'required' } })]);
+    const error: unknown = await loginToKite(creds, http, signal, now).catch((value: unknown) => value);
+    expect(error).toMatchObject({ stage: 'login', message: 'captcha required', captcha: true });
+    expect(http.request).toHaveBeenCalledTimes(1);
+  });
   it('fails at the twofa stage with a typed error and no secrets in the message', async () => {
     const http = script([response(200, { data: { request_id: 'request-id' } }), response(403, { message: Object.values(creds).join(' ') })]);
     const error: unknown = await loginToKite(creds, http, signal, now).catch((error: unknown) => error);

@@ -64,7 +64,7 @@ classDiagram
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
   class FeedStatePublisher {
-    +publish(vendor: FeedVendor, state: FeedState, reason?: ProviderReason) Promise<void>
+    +publish(vendor: FeedVendor, state: FeedState, reason?: ProviderReason, detail?: string) Promise<void>
   }
   class FeedStateStore {
     +get(vendor: FeedVendor, signal?: AbortSignal) Promise<FeedStateRecord>
@@ -154,7 +154,7 @@ classDiagram
   class LiveFeed {
     +delayMs?: number
     +name: 'kite' | 'deriv' | 'us-delayed'
-    +onState(listener: (s: FeedState, reason?: string) => void) () => void
+    +onState(listener: (s: FeedState, reason?: string, detail?: string) => void) () => void
     +onTick(listener: (t: Tick) => void) () => void
     +start() Promise<void>
     +stop() Promise<void>
@@ -222,7 +222,7 @@ classDiagram
   }
   class ResilientFeed {
     +name: 'kite' | 'deriv'
-    +onState(listener: (s: FeedState, reason?: string) => void) () => void
+    +onState(listener: (s: FeedState, reason?: string, detail?: string) => void) () => void
     +onTick(listener: (t: Tick) => void) () => void
     +retryBackfills(signal: AbortSignal) Promise<void>
     +start() Promise<void>

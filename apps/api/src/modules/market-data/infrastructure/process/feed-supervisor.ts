@@ -12,7 +12,7 @@ export class FeedSupervisor {
   private readonly counts = new Map<string, number>();
   private readonly heldIds = new Set<string>();
   private readonly subscribed = new Set<string>();
-  private readonly states = new Map<FeedVendor, { state: FeedState; reason?: string }>();
+  private readonly states = new Map<FeedVendor, { state: FeedState; reason?: string; detail?: string }>();
   private started = false;
   private refresh: ReturnType<typeof setInterval> | undefined;
   constructor(private readonly deps: { feeds: LiveFeed[]; liveBars: Pick<LiveBars, 'attach' | 'closeDue'>; publisher: Pick<FeedStatePublisher, 'publish'>;
@@ -25,9 +25,9 @@ export class FeedSupervisor {
     this.started = true;
     for (const feed of this.deps.feeds) {
       this.detach.push(this.deps.liveBars.attach(feed));
-      this.detach.push(feed.onState((state, reason) => {
-        this.states.set(feed.name, reason === undefined ? { state } : { state, reason });
-        void this.publish(feed.name, state, reason);
+      this.detach.push(feed.onState((state, reason, detail) => {
+        this.states.set(feed.name, { state, ...(reason === undefined ? {} : { reason }), ...(detail === undefined ? {} : { detail }) });
+        void this.publish(feed.name, state, reason, detail);
       }));
     }
     this.detach.push(this.deps.requests.onChange((id, count) => { void this.applyRequest(id, count); }));
@@ -48,7 +48,7 @@ export class FeedSupervisor {
     this.refresh = setInterval(() => {
       for (const feed of this.deps.feeds) {
         const current = this.states.get(feed.name) ?? { state: 'connecting' as const };
-        void this.publish(feed.name, current.state, current.reason);
+        void this.publish(feed.name, current.state, current.reason, current.detail);
       }
     }, 20000);
   }
@@ -98,11 +98,14 @@ export class FeedSupervisor {
       }
     }
   }
-  private async publish(vendor: FeedVendor, state: FeedState, reason?: string): Promise<void> {
+  private async publish(vendor: FeedVendor, state: FeedState, reason?: string, detail?: string): Promise<void> {
     const reasonSchema = z.enum(['NO_DATA', 'MARKET_CLOSED', 'UNSUPPORTED', 'RATE_LIMITED', 'PROVIDER_DOWN', 'AUTH_EXPIRED']);
     const parsed = reasonSchema.safeParse(reason);
     const typedReason: ProviderReason | undefined = parsed.success ? parsed.data : undefined;
-    try { await this.deps.publisher.publish(vendor, state, typedReason); }
+    try {
+      if (detail === undefined) await this.deps.publisher.publish(vendor, state, typedReason);
+      else await this.deps.publisher.publish(vendor, state, typedReason, detail);
+    }
     catch (error) { this.deps.log?.(`Feed state publish failed for ${vendor}: ${error instanceof Error ? error.message : 'unknown error'}`); }
   }
 }
