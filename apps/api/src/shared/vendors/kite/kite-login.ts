@@ -7,7 +7,7 @@ import type { KiteCredentials } from './kite-credentials';
 
 export type KiteLoginStage = 'login' | 'twofa' | 'redirect' | 'session';
 export class KiteLoginError extends Error {
-  constructor(readonly stage: KiteLoginStage, message: string) { super(message); this.name = 'KiteLoginError'; }
+  constructor(readonly stage: KiteLoginStage, message: string, readonly captcha = false) { super(message); this.name = 'KiteLoginError'; }
 }
 export interface KiteHttp {
   request(url: string, init: { method: 'GET' | 'POST'; form?: Record<string, string>; signal: AbortSignal }): Promise<{
@@ -15,7 +15,8 @@ export interface KiteHttp {
   }>;
 }
 export interface KiteTokenExchange {
-  generateSession(requestToken: string, apiSecret: string): Promise<{ access_token: string; user_name?: string }>;
+  generateSession(requestToken: string, apiSecret: string): Promise<{ access_token: string; user_id: string; user_name?: string }>;
+  invalidateAccessToken?(accessToken: string): Promise<boolean>;
 }
 
 export function createKiteHttp(): KiteHttp {
@@ -42,10 +43,14 @@ export function createKiteHttp(): KiteHttp {
   }, 15000, init.signal) };
 }
 
-const loginResponse = z.object({ data: z.object({ request_id: z.string().min(1) }) });
+const loginReply = z.object({ error_type: z.string().optional(), message: z.string().optional(), data: z.unknown().optional() });
+const loginData = z.object({ request_id: z.string().min(1), captcha: z.unknown().optional() });
 async function stage<T>(name: KiteLoginStage, action: () => Promise<T>): Promise<T> {
   try { return await action(); }
-  catch { throw new KiteLoginError(name, name === 'redirect' ? 'no request_token' : `${name} failed`); }
+  catch (error) {
+    if (error instanceof KiteLoginError) throw error;
+    throw new KiteLoginError(name, name === 'redirect' ? 'no request_token' : `${name} failed`);
+  }
 }
 export async function loginToKite(
   creds: KiteCredentials, http: KiteHttp, signal: AbortSignal, now: () => number = Date.now,
@@ -54,8 +59,14 @@ export async function loginToKite(
     const response = await http.request('https://kite.zerodha.com/api/login', {
       method: 'POST', signal, form: { user_id: creds.userId, password: creds.password },
     });
-    if (response.status !== 200) throw new KiteLoginError('login', 'login failed');
-    return loginResponse.parse(await response.json()).data.request_id;
+    const raw = await response.json();
+    const reply = loginReply.safeParse(raw);
+    const data = reply.success ? loginData.safeParse(reply.data.data) : undefined;
+    const captchaReply = reply.success && ((typeof reply.data.data === 'object' && reply.data.data !== null && 'captcha' in reply.data.data) ||
+      (reply.data.error_type === 'InputException' && /captcha/i.test(reply.data.message ?? '')));
+    if (captchaReply) throw new KiteLoginError('login', 'captcha required', true);
+    if (response.status !== 200 || !data?.success) throw new KiteLoginError('login', 'login failed');
+    return data.data.request_id;
   });
   await stage('twofa', async () => {
     const response = await http.request('https://kite.zerodha.com/api/twofa', {
@@ -82,12 +93,15 @@ async function walkRedirects(apiKey: string, http: KiteHttp, signal: AbortSignal
   throw new KiteLoginError('redirect', 'no request_token');
 }
 
-const sessionResponse = z.object({ access_token: z.string().min(1), user_name: z.string().optional() });
+const sessionResponse = z.object({ access_token: z.string().min(1), user_id: z.string().min(1), user_name: z.string().optional() });
 export function createKiteTokenExchange(apiKey: string, signal: AbortSignal): KiteTokenExchange {
   const client = new KiteConnect({ api_key: apiKey, timeout: 15000, debug: false });
-  return { generateSession: (requestToken, apiSecret) => stage('session', () =>
-    withTimeout(async () => {
+  return {
+    generateSession: (requestToken, apiSecret) => stage('session', () => withTimeout(async () => {
       const session = sessionResponse.parse(await client.generateSession(requestToken, apiSecret));
-      return { access_token: session.access_token, ...(session.user_name === undefined ? {} : { user_name: session.user_name }) };
-    }, 15000, signal)) };
+      return { access_token: session.access_token, user_id: session.user_id,
+        ...(session.user_name === undefined ? {} : { user_name: session.user_name }) };
+    }, 15000, signal)),
+    invalidateAccessToken: accessToken => withTimeout(() => client.invalidateAccessToken(accessToken), 15000, signal),
+  };
 }

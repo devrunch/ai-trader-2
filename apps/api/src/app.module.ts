@@ -36,6 +36,7 @@ function isHttpServer(value: unknown): value is HttpServer {
   return typeof value === 'object' && value !== null && 'listen' in value && typeof value.listen === 'function'
     && 'on' in value && typeof value.on === 'function';
 }
+import { AdminOpsModule } from './modules/admin-ops/admin-ops.module';
 
 @Module({})
 export class AppModule {
@@ -52,7 +53,7 @@ export class AppModule {
         { provide: LiveGatewayLifecycle, inject: [HttpAdapterHost, LiveGateway], useFactory: (host: HttpAdapterHost, gateway: LiveGateway) => new LiveGatewayLifecycle(host, gateway) },
       ],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule, AuthModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule],
     };
   }
 }

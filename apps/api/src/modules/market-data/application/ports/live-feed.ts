@@ -6,7 +6,7 @@ export interface LiveFeed {
   subscribe(instrumentIds: readonly string[]): Promise<void>;
   unsubscribe(instrumentIds: readonly string[]): Promise<void>;
   onTick(listener: (t: Tick) => void): () => void;
-  onState(listener: (s: FeedState, reason?: string) => void): () => void;
+  onState(listener: (s: FeedState, reason?: string, detail?: string) => void): () => void;
   start(): Promise<void>;
   stop(): Promise<void>;
 }

@@ -5,10 +5,10 @@ subgraph 1["api"]
 subgraph 2["src"]
 3["apps/api/src/app"]
 subgraph 4["modules"]
-5["apps/api/src/modules/auth"]
-6["apps/api/src/modules/health"]
-7["apps/api/src/modules/instruments"]
-8["apps/api/src/modules/live"]
+5["apps/api/src/modules/admin-ops"]
+6["apps/api/src/modules/auth"]
+7["apps/api/src/modules/health"]
+8["apps/api/src/modules/instruments"]
 9["apps/api/src/modules/market-data"]
 end
 subgraph A["shared"]
@@ -57,23 +57,21 @@ end
 3-->I
 3-->J
 5-->B
-5-->C
-5-->E
-5-->I
-5-->F
+5-->J
+5-->6
+5-->D
+6-->B
+6-->C
 6-->E
-7-->D
-7-->C
+6-->I
+6-->F
 7-->E
-7-->G
-7-->I
-7-->F
-8-->5
+8-->C
+8-->E
+8-->G
+8-->I
+8-->F
 8-->D
-8-->7
-8-->9
-9-->D
-9-->7
 9-->B
 9-->C
 9-->E
@@ -81,6 +79,8 @@ end
 9-->G
 9-->I
 9-->J
+9-->8
+9-->D
 C-->B
 C-->E
 C-->D

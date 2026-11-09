@@ -1,5 +1,15 @@
 model {
   extend aitrader.api {
+    mod_admin_ops = component 'admin-ops' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_auth = component 'auth' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -131,6 +141,8 @@ model {
   pkg_resilience = component 'resilience' {
     description 'generated from code — do not edit'
   }
+  aitrader.api.mod_admin_ops -[calls]-> aitrader.api.mod_auth 'imports'
+  aitrader.api.mod_admin_ops.api -[calls]-> aitrader.api.mod_admin_ops.app 'imports'
   aitrader.api.mod_auth.api -[calls]-> aitrader.api.mod_auth.app 'imports'
   aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.app 'imports'
@@ -176,6 +188,10 @@ views {
   view web_code of aitrader.web {
     description 'generated from code — do not edit'
     include aitrader.web.*
+  }
+  view module_admin_ops of aitrader.api.mod_admin_ops {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_admin_ops.*
   }
   view module_auth of aitrader.api.mod_auth {
     description 'generated from code — do not edit'
