@@ -122,6 +122,9 @@ importers:
       socket.io:
         specifier: 4.8.4
         version: 4.8.4
+      trading-signals:
+        specifier: 8.3.0
+        version: 8.3.0
       undici:
         specifier: 8.12.4
         version: 8.12.4
@@ -174,6 +177,9 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+      pinets:
+        specifier: 0.13.1
+        version: 0.13.1
       socket.io-client:
         specifier: 4.8.4
         version: 4.8.4
@@ -3203,6 +3209,10 @@ packages:
   ast-v8-to-istanbul@1.0.8:
     resolution: {integrity: sha512-lPdpagk13ANXV+HClJEpCZM7kUsl5XcvgqKzZhaj6Ve1ZFICcY2sGhAN1n1vT0tML6EclT7bfVgTxqL57Gkpow==}
 
+  astring@1.9.0:
+    resolution: {integrity: sha512-LElXdjswlqjWrPpJFg1Fx4wpkOCxj1TDHlSV4PlaRxHGWko024xICaa97ZkMfs6DRKlCguiAI+rbXv5GWwXIkg==}
+    hasBin: true
+
   async-limiter@1.0.1:
     resolution: {integrity: sha512-csOlWGAcRFJaI6m+F2WKdnMKr4HhdhFVBk0H/QbJFMCr+uO2kwohwXQPxw/9OCxp05r5ghVBFSyioixx3gfkNQ==}
 
@@ -5020,6 +5030,9 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  pinets@0.13.1:
+    resolution: {integrity: sha512-iBIWiuapykqPHHg0EFByRFpuwHX17etDoFN8HNsG7Idqd5fwjawkl7Fxb3Y2dAJSiXniluJHrD+NFLrAdDj2Ow==}
+
   pino-abstract-transport@3.0.0:
     resolution: {integrity: sha512-wlfUczU+n7Hy/Ha5j9a/gZNy7We5+cXp8YL+X+PG8S0KXxw7n/JXA3c46Y0zQznIJ83URJiwy7Lh56WLokNuxg==}
 
@@ -5624,6 +5637,9 @@ packages:
   tr46@7.0.0:
     resolution: {integrity: sha512-BcDSDW+SIGWVOns1Zm6Yg91q9AEj7eaID0QDY9oIqJD1A8dscNwMcl9Sms2DeuWCNov1X0/oXanHGYQBSLwZsg==}
     engines: {node: ^22.14.0 || >=24.0.0}
+
+  trading-signals@8.3.0:
+    resolution: {integrity: sha512-C2DigYcuaBmTfLJ4KkCgM6TPZwKoFYz9Tyj2BWnTgMVMb3u21udF80oGPhqGyyd57RPJnrst3pc0ShA09XVUAw==}
 
   ts-api-utils@2.5.0:
     resolution: {integrity: sha512-OJ/ibxhPlqrMM0UiNHJ/0CKQkoKF243/AEmplt3qpRgkW8VG7IfOS41h7V8TjITqdByHzrjcS/2si+y4lIh8NA==}
@@ -8755,6 +8771,8 @@ snapshots:
       estree-walker: 3.0.3
       js-tokens: 10.0.0
 
+  astring@1.9.0: {}
+
   async-limiter@1.0.1: {}
 
   async-lock@1.4.1: {}
@@ -10590,6 +10608,12 @@ snapshots:
 
   picomatch@4.0.7: {}
 
+  pinets@0.13.1:
+    dependencies:
+      acorn: 8.19.0
+      acorn-walk: 8.3.5
+      astring: 1.9.0
+
   pino-abstract-transport@3.0.0:
     dependencies:
       split2: 4.2.0
@@ -11351,6 +11375,8 @@ snapshots:
   tr46@7.0.0:
     dependencies:
       punycode: 2.3.1
+
+  trading-signals@8.3.0: {}
 
   ts-api-utils@2.5.0(typescript@6.0.3):
     dependencies:
