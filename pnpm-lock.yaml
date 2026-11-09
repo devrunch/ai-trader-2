@@ -183,6 +183,9 @@ importers:
       '@aitrader/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@aitrader/resilience':
+        specifier: workspace:*
+        version: link:../../packages/resilience
       '@tanstack/react-query':
         specifier: 5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
@@ -213,6 +216,9 @@ importers:
       react-resizable-panels:
         specifier: 4.19.1
         version: 4.19.1(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      socket.io-client:
+        specifier: 4.8.4
+        version: 4.8.4
       tailwind-merge:
         specifier: 3.7.0
         version: 3.7.0

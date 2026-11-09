@@ -4,7 +4,7 @@ import type { CurrentUser } from '../../auth/application/index';
 import type { LiveSubscriptions } from '../application/live-subscriptions';
 import { LiveAckSchema } from '@aitrader/contracts';
 
-interface GatewayOptions { sessionCheckMs?: number; warn?: (message: string) => void }
+interface GatewayOptions { sessionCheckMs?: number; warn?: (message: string) => void; now?: () => number }
 interface SocketData { userId?: string; sessionId?: string }
 type AuthenticatedSocket = Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>;
 
@@ -14,9 +14,11 @@ export class LiveGateway {
   private readonly users = new Map<string, Set<string>>();
   private readonly sessionCheckMs: number;
   private readonly warn: (message: string) => void;
+  private readonly now: () => number;
   constructor(private readonly currentUser: Pick<CurrentUser, 'execute'>, options: GatewayOptions = {}, private readonly streams?: LiveSubscriptions) {
     this.sessionCheckMs = options.sessionCheckMs ?? 5 * 60_000;
     this.warn = options.warn ?? (message => { process.emitWarning(message); });
+    this.now = options.now ?? Date.now;
   }
 
   attach(server: HttpServer): void {
@@ -64,6 +66,8 @@ export class LiveGateway {
         ack(LiveAckSchema.parse({ ok: false, code: 'INVALID', message: 'Subscription failed' }));
       });
     });
+    // E14: clients measure their clock offset from this; bar boundaries stay server-side.
+    socket.on('time', (ack: unknown) => { if (typeof ack === 'function') (ack as (reply: { now: number }) => void)({ now: this.now() }); });
     socket.on('unsubscribe', (value: unknown) => { if (this.streams) void this.streams.unsubscribe(socket.id, value).catch((error: unknown) => { this.warn(`Live unsubscribe failed: ${errorName(error)}`); }); });
     const timer = setInterval(() => { void this.checkSession(socket).catch((error: unknown) => { this.warn(`Socket session check failed: ${errorName(error)}`); }); }, this.sessionCheckMs);
     this.sessions.set(socket.id, timer);

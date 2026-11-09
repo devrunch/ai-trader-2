@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const INTERVALS = ['1', '3', '5', '15', '30', '60', '240', '1D', '1W', '1M'] as const;
+export type Interval = (typeof INTERVALS)[number];
 export const PROVIDER_REASONS = ['NO_DATA', 'MARKET_CLOSED', 'UNSUPPORTED', 'RATE_LIMITED', 'PROVIDER_DOWN', 'AUTH_EXPIRED'] as const;
 export type ProviderReason = (typeof PROVIDER_REASONS)[number];
 
