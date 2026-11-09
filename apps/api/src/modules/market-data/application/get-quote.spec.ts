@@ -32,3 +32,26 @@ it('a previous session with no stored bars falls back to the one before it', asy
     from <= quoteBar.time && to > quoteBar.time ? [quoteBar] : from <= friday.time && to > friday.time ? [friday] : []));
   expect(await f.quote.execute('NSE:TEST')).toMatchObject({ price: 110, change: 10, changePct: 10 });
 });
+
+function official(stored: { close: number; forDate: string } | null, fetched: number | null = null) {
+  const prev = { get: vi.fn().mockResolvedValue(stored), set: vi.fn().mockResolvedValue(undefined) };
+  const source = { fetch: vi.fn().mockResolvedValue(fetched) };
+  const f = fixture();
+  const quote = new GetQuote(new MarketDataService(f.resolve, f.read, f.feeds), f.store, f.forming, { store: prev, source }, () => quoteBar.time);
+  return { ...f, prev, source, quote };
+}
+it('uses Zerodha’s official previous close for the quote’s session', async () => {
+  const f = official({ close: 105, forDate: '2026-11-09' });
+  expect(await f.quote.execute('NSE:TEST')).toMatchObject({ price: 110, change: 5 });
+  expect(f.source.fetch).not.toHaveBeenCalled();
+});
+it('fetches the official close when none is stored for today and saves it', async () => {
+  const f = official(null, 100);
+  expect(await f.quote.execute('NSE:TEST')).toMatchObject({ change: 10, changePct: 10 });
+  expect(f.prev.set).toHaveBeenCalledWith('NSE:TEST', 100, '2026-11-09', expect.any(AbortSignal));
+});
+it('a close saved for another session is not used', async () => {
+  const f = official({ close: 50, forDate: '2026-11-06' }, null);
+  f.store.range1m.mockImplementation((_id, from, to) => Promise.resolve(from <= quoteBar.time && to > quoteBar.time ? [quoteBar] : [{ ...quoteBar, time: Date.parse('2026-11-06T09:59:00Z'), close: 100 }]));
+  expect(await f.quote.execute('NSE:TEST')).toMatchObject({ change: 10 });
+});
