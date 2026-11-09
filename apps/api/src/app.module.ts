@@ -11,6 +11,8 @@ import { InstrumentsApiModule } from './modules/instruments/instruments.module';
 import { MarketDataApiModule } from './modules/market-data/market-data.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LiveModule } from './modules/live/live.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
+import { NotifyModule } from './shared/notify';
 import { AdminOpsModule } from './modules/admin-ops/admin-ops.module';
 
 @Module({})
@@ -20,7 +22,7 @@ export class AppModule {
       module: AppModule,
       providers: [GlobalExceptionFilter],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule, NotifyModule, AlertsModule],
     };
   }
 }

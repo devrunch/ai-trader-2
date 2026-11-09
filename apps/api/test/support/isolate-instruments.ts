@@ -4,6 +4,7 @@ import { InstrumentsApiModule, InstrumentsModule } from '../../src/modules/instr
 import { MarketDataApiModule, MarketDataModule } from '../../src/modules/market-data/market-data.module';
 import { LiveModule } from '../../src/modules/live/live.module';
 import { AdminOpsModule } from '../../src/modules/admin-ops/admin-ops.module';
+import { AlertsModule } from '../../src/modules/alerts/alerts.module';
 
 @Module({})
 class NoInstrumentsModule {}
@@ -14,5 +15,6 @@ export function isolateInstruments(builder: TestingModuleBuilder): TestingModule
     .overrideModule(InstrumentsApiModule).useModule(NoInstrumentsModule)
     .overrideModule(MarketDataApiModule).useModule(NoInstrumentsModule)
     .overrideModule(LiveModule).useModule(NoInstrumentsModule)
-    .overrideModule(AdminOpsModule).useModule(NoInstrumentsModule);
+    .overrideModule(AdminOpsModule).useModule(NoInstrumentsModule)
+    .overrideModule(AlertsModule).useModule(NoInstrumentsModule);
 }
