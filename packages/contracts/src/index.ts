@@ -7,3 +7,4 @@ export * from './instrument.js';
 export * from './market-data.js';
 export * from './admin.js';
 export * from './live.js';
+export * from './indicator.js';
