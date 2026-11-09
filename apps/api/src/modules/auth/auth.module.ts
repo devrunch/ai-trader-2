@@ -30,5 +30,5 @@ export class AuthPersistenceModule {}
   { provide: CurrentUser, inject: [USER_REPOSITORY, SESSION_STORE], useFactory: (users: ConstructorParameters<typeof CurrentUser>[0], sessions: ConstructorParameters<typeof CurrentUser>[1]) => new CurrentUser(users, sessions) },
   { provide: 'AUTH_PRODUCTION', inject: [APP_CONFIG], useFactory: (config: AppConfig) => config.NODE_ENV === 'production' },
   { provide: AUTH_CLOCK, useValue: Date.now }, AuthRateLimitGuard, SessionGuard, RolesGuard, CsrfHeaderGuard,
-], exports: [AuthPersistenceModule, CsrfHeaderGuard] })
+], exports: [AuthPersistenceModule, CsrfHeaderGuard, CurrentUser, SessionGuard, RolesGuard] })
 export class AuthModule {}
