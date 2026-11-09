@@ -17,12 +17,16 @@ interface BuilderState {
   lastTickAt: number;
   lastCumVolume: number | null;
 }
-interface Options { clock: () => number; log: (reason: string, error: unknown) => void }
+interface Options { clock: () => number; log: (reason: string, error: unknown) => void; canPersist?: () => Promise<boolean> }
 export class LiveBars {
-  constructor(private readonly candles: CandleStore, private readonly forming: FormingBarStore, private readonly deps: Options) {}
+  private readonly attached = new Set<{ feed: LiveFeed; builders: Map<string, BuilderState> }>();
+  private canPersist: (() => Promise<boolean>) | undefined;
+  constructor(private readonly candles: CandleStore, private readonly forming: FormingBarStore, private readonly deps: Options) { this.canPersist = deps.canPersist; }
+  setPersistenceFence(check: () => Promise<boolean>): void { this.canPersist = check; }
 
   attach(feed: LiveFeed): () => void {
     const builders = new Map<string, BuilderState>();
+    const attachment = { feed, builders }; this.attached.add(attachment);
     const off = feed.onTick(tick => {
       let state = builders.get(tick.instrumentId);
       if (!state) {
@@ -38,7 +42,16 @@ export class LiveBars {
         await this.closed(id, state.builder.closeDue(this.deps.clock()), state, feed.name);
       });
     }, 5000);
-    return () => { off(); clearInterval(sweep); for (const state of builders.values()) clearTimeout(state.timer); };
+    return () => { off(); clearInterval(sweep); this.attached.delete(attachment); for (const state of builders.values()) clearTimeout(state.timer); };
+  }
+  async closeDue(now: number): Promise<void> {
+    for (const { feed, builders } of this.attached) {
+      for (const [id, state] of builders) this.enqueue(state, async () => {
+        await this.closed(id, state.builder.closeDue(now), state, feed.name);
+        await this.write(id, state);
+      });
+    }
+    await Promise.all([...this.attached].flatMap(({ builders }) => [...builders.values()].map(state => state.pending)));
   }
   private enqueue(state: BuilderState, action: () => Promise<void>): void {
     state.pending = state.pending.then(action).catch((error: unknown) => { this.deps.log('live bar persistence failed', error); });
@@ -66,6 +79,7 @@ export class LiveBars {
     }, delay);
   }
   private async closed(id: string, bars: Bar[], state: BuilderState, source: string): Promise<void> {
+    if (this.canPersist && !(await this.canPersist())) return;
     for (const bar of bars) state.unwritten.set(bar.time, bar);
     if (!state.unwritten.size) return;
     const pending = [...state.unwritten.values()];
@@ -79,6 +93,7 @@ export class LiveBars {
   }
   private async write(id: string, state: BuilderState): Promise<void> {
     if (!state.latest) return;
+    if (this.canPersist && !(await this.canPersist())) return;
     await this.forming.set(id, state.latest); state.lastWrite = this.deps.clock();
   }
 }

@@ -17,7 +17,6 @@ import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.g
 
 @Global()
 @Module({
-  controllers: [InstrumentsController],
   providers: [
     { provide: InstrumentHistory, inject: [INSTRUMENT_REPOSITORY],
       useFactory: (repo: InstrumentRepository) => new InstrumentHistory(repo, POPULAR_INSTRUMENTS) },
@@ -47,3 +46,5 @@ export class InstrumentsModule implements OnApplicationBootstrap {
     catch { new Logger('InstrumentsIndex').warn('Unable to load persisted instrument search index'); }
   }
 }
+@Module({ imports: [InstrumentsModule], controllers: [InstrumentsController] })
+export class InstrumentsApiModule {}

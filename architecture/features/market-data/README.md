@@ -444,3 +444,54 @@ sequenceDiagram
   S-->>API: bars + status (ok | delayed | stale)
   API-->>C: BarsResponse or typed error
 ```
+
+## Dedicated market-data process (P2-9)
+
+Requirements: SRD §10.5, FR-MD-5, NFR-RB-7, NFR-RB-8, E16, E25. The API
+publishes ref-counted subscription intents to Redis; only the process holding
+`md:leader` opens vendor feeds. Redis feed-state records expire after one minute
+and refresh every 20 seconds. The Redis leader key is renewed every three
+seconds with a ten-second lease. Every LiveBars persistence path checks the
+leader value with a one-second cache. On shutdown the leader flushes due and
+forming bars, stops feeds, publishes stopped states, releases its lease and
+then closes the app.
+
+```mermaid
+stateDiagram-v2
+    [*] --> standby
+    standby --> acquiring: SET NX PX succeeds
+    standby --> standby: another instance owns lease
+    acquiring --> leader: feeds started
+    leader --> leader: compare-and-PEXPIRE succeeds
+    leader --> lost: renewal fails or ownership changes
+    lost --> standby: feeds stopped; retry after renew interval
+    leader --> [*]: graceful shutdown and release
+```
+
+```mermaid
+flowchart LR
+    API[API process] <--> Redis[(Redis)]
+    Redis <--> MD[Market-data process]
+    MD --> Kite[Kite]
+    MD --> Deriv[Deriv]
+    MD --> US[US delayed]
+    MD --> Bars[Bar pipeline and stores]
+```
+
+```mermaid
+sequenceDiagram
+    participant API as API RequestSubscription
+    participant Redis
+    participant MD as Leader FeedSupervisor
+    participant Feed as Vendor feed
+    API->>Redis: HINCRBY md:subs instrument +1
+    API->>Redis: PUBLISH md:subs:changed {instrumentId,count}
+    MD->>Redis: HGETALL md:subs at startup
+    Redis-->>MD: current reference counts
+    Redis-->>MD: subscription change event
+    MD->>MD: vendorFor(canonical instrument ID)
+    MD->>Feed: subscribe on 0 → positive count
+    API->>Redis: decrement, floor at zero, delete at zero
+    Redis-->>MD: count becomes zero
+    MD->>Feed: unsubscribe (feed applies 60-second grace)
+```
