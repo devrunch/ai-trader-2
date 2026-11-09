@@ -9,6 +9,7 @@ export class FeedStatePublisher {
   async publish(vendor: FeedVendor, state: FeedState, reason?: ProviderReason): Promise<void> {
     const record = { state, ...(reason === undefined ? {} : { reason }), at: this.clock() };
     await this.redis.set(feedStateKey(vendor), JSON.stringify(record), 'PX', 60000);
+    await this.redis.publish('md:feed-state:changed', JSON.stringify({ vendor, ...record }));
     this.log?.(vendor, state, reason);
   }
 }

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { LeaderLock } from '../src/modules/market-data/infrastructure/process/leader-lock';
 import { FeedStatePublisher } from '../src/modules/market-data/infrastructure/process/feed-state.publisher';
 import { RequestSubscription } from '../src/modules/market-data/application/request-subscription';
+import { RedisSubscriptionLeases } from '../src/modules/market-data/infrastructure/redis-subscription-leases';
 import { SubscriptionRequests } from '../src/modules/market-data/infrastructure/process/subscription-requests';
 import { RedisFeedStateStore } from '../src/modules/market-data/infrastructure/feed-state.store';
 import { startRedis } from './support/containers';
@@ -54,10 +55,31 @@ describe('market-data process (SRD §10.5, FR-MD-5, NFR-RB-7, NFR-RB-8, E16, E25
       requests.onChange((id, count) => { if (id === 'NSE:TEST') resolve(count); });
     });
     await requests.current();
-    await new RequestSubscription(redis).acquire('NSE:TEST');
+    const leases = new RedisSubscriptionLeases(redis, 'test-api');
+    await new RequestSubscription(leases).acquire('NSE:TEST');
     await expect(received).resolves.toBe(1);
     expect((await requests.current()).get('NSE:TEST')).toBe(1);
-    requests.close();
+    requests.close(); await leases.onModuleDestroy();
+  });
+
+  it("api instance crash releases interest after the lease", async () => {
+    if (!redis) throw new Error('Redis not started');
+    const dead = new RedisSubscriptionLeases(redis, 'dead-api', { leaseMs: 80, refreshMs: 10_000 });
+    await dead.add('NSE:TEST');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await redis.zremrangebyscore('md:subs', '-inf', Date.now());
+    await expect(redis.zrangebyscore('md:subs', Date.now(), '+inf')).resolves.toEqual([]);
+    await dead.onModuleDestroy();
+  });
+
+  it('two instances keep the instrument while either holds it', async () => {
+    if (!redis) throw new Error('Redis not started');
+    const first = new RedisSubscriptionLeases(redis, 'api-first');
+    const second = new RedisSubscriptionLeases(redis, 'api-second');
+    await first.add('NSE:TEST'); await second.add('NSE:TEST');
+    await first.remove('NSE:TEST');
+    expect(await redis.zrangebyscore('md:subs', Date.now(), '+inf')).toEqual(['api-second|NSE:TEST']);
+    await second.onModuleDestroy(); await first.onModuleDestroy();
   });
 
   it('a deposed leader stops writing bars (E16)', async () => {
