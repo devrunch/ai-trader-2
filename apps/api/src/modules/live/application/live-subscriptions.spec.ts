@@ -10,6 +10,7 @@ function update(seq: number, time = start, close = 10, high = 10): BarUpdate { r
 
 function harness(options: { seq?: number; replay?: BarUpdate[] | null; read?: (interval: string, limit: number) => LiveBar[]; emit?: (event: string, payload: unknown) => boolean } = {}) {
   const listeners = new Set<(change: LiveChange) => void>();
+  const release = vi.fn().mockResolvedValue(undefined);
   const events: Array<{ event: string; payload: unknown }> = [];
   const data: LiveData = {
     resolve: () => Promise.resolve('NSE:TEST'),
@@ -17,13 +18,13 @@ function harness(options: { seq?: number; replay?: BarUpdate[] | null; read?: (i
     current: () => Promise.resolve(options.seq ?? 0),
     replay: () => Promise.resolve(options.replay === undefined ? [] : options.replay),
     watch: (_id, listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined),
+    acquire: vi.fn().mockResolvedValue(undefined), release,
     aggregate: (bars, interval, id) => new AggregateLiveBars().execute(bars, interval, id),
   };
   const service = new LiveSubscriptions(data);
   const send = options.emit ?? ((event: string, payload: unknown) => { events.push({ event, payload }); return true; });
   service.connect('socket-1', 'user-1', send);
-  return { service, data, events, listeners, send, fire: (change: LiveChange) => { for (const listener of listeners) listener(change); } };
+  return { service, data, release, events, listeners, send, fire: (change: LiveChange) => { for (const listener of listeners) listener(change); } };
 }
 
 describe('LiveSubscriptions (FR-LS-1, FR-LS-2, E10, E11, E16, E24, NFR-RB-1)', () => {
@@ -65,7 +66,7 @@ describe('LiveSubscriptions (FR-LS-1, FR-LS-2, E10, E11, E16, E24, NFR-RB-1)', (
       await Promise.resolve();
     }
     expect(h.listeners.size).toBe(0);
-    expect(h.data.release).toHaveBeenCalledTimes(3);
+    expect(h.release).toHaveBeenCalledTimes(3);
     h.fire({ type: 'bar', update: update(1000) });
     expect(h.events.filter(event => event.event === 'resync')).toHaveLength(3);
   });

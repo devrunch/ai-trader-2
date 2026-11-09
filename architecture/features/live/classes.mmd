@@ -23,6 +23,8 @@ classDiagram
     +attach(server: HttpServer) void
     +close() Promise<void>
   }
+  class LiveModule {
+  }
   class LiveSubscriptions {
     +connect(socketId: string, userId: string, emit: Emit) boolean
     +disconnect(socketId: string) Promise<void>
