@@ -10,6 +10,7 @@ import { JobSchedulerModule } from './shared/jobs';
 import { InstrumentsApiModule } from './modules/instruments/instruments.module';
 import { MarketDataApiModule } from './modules/market-data/market-data.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { LiveModule } from './modules/live/live.module';
 import { AdminOpsModule } from './modules/admin-ops/admin-ops.module';
 
 @Module({})
@@ -19,7 +20,7 @@ export class AppModule {
       module: AppModule,
       providers: [GlobalExceptionFilter],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule],
     };
   }
 }

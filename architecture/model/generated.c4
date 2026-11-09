@@ -52,6 +52,19 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_live = component 'live' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_market_data = component 'market-data' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -141,6 +154,12 @@ model {
   aitrader.api.mod_instruments.app -[calls]-> aitrader.api.mod_instruments.domain 'imports'
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.app 'imports'
   aitrader.api.mod_instruments.infra -[calls]-> aitrader.api.mod_instruments.domain 'imports'
+  aitrader.api.mod_live -[calls]-> aitrader.api.mod_auth 'imports'
+  aitrader.api.mod_live -[calls]-> aitrader.api.mod_instruments 'imports'
+  aitrader.api.mod_live -[calls]-> aitrader.api.mod_market_data 'imports'
+  aitrader.api.mod_live -[calls]-> pkg_contracts 'imports'
+  aitrader.api.mod_live.api -[calls]-> aitrader.api.mod_live.app 'imports'
+  aitrader.api.mod_live.infra -[calls]-> aitrader.api.mod_live.app 'imports'
   aitrader.api.mod_market_data -[calls]-> aitrader.api.mod_instruments 'imports'
   aitrader.api.mod_market_data -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_market_data -[calls]-> pkg_resilience 'imports'
@@ -185,6 +204,10 @@ views {
   view module_instruments of aitrader.api.mod_instruments {
     description 'generated from code — do not edit'
     include aitrader.api.mod_instruments.*
+  }
+  view module_live of aitrader.api.mod_live {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_live.*
   }
   view module_market_data of aitrader.api.mod_market_data {
     description 'generated from code — do not edit'

@@ -1,4 +1,7 @@
 classDiagram
+  class AggregateLiveBars {
+    +execute(bars: readonly AggregateInput[], interval: Interval, instrumentId: string) Bar[]
+  }
   class BackfillHeld {
     +execute(signal: AbortSignal) Promise<Record<string, ProviderResult<Counts>>>
   }
@@ -199,7 +202,7 @@ classDiagram
   }
   class ReadSeq {
     +current(instrumentId: string) Promise<number>
-    +replay(instrumentId: string, afterSeq: number) Promise<BarUpdate[]>
+    +replay(instrumentId: string, afterSeq: number) Promise<BarUpdate[] | null>
   }
   class RedisBarPublisher {
     +publish(instrumentId: string, kind: 'forming' | 'closed', bar: Bar, signal?: AbortSignal) Promise<number>
@@ -215,6 +218,12 @@ classDiagram
     +clear(instrumentId: string, signal?: AbortSignal) Promise<void>
     +get(instrumentId: string, signal?: AbortSignal) ReturnType<FormingBarStore['get']>
     +set(instrumentId: string, v: Parameters<FormingBarStore['set']>[1], signal?: AbortSignal) Promise<void>
+  }
+  class RedisSubscriptionLeases {
+    +add(instrumentId: string) Promise<void>
+    +onModuleDestroy() Promise<void>
+    +remove(instrumentId: string) Promise<void>
+    +removeAll() Promise<void>
   }
   class RequestSubscription {
     +acquire(instrumentId: string) Promise<void>
@@ -245,6 +254,11 @@ classDiagram
   class SessionWindow {
     +close: number
     +open: number
+  }
+  class SubscriptionLeases {
+    +add(instrumentId: string) Promise<void>
+    +remove(instrumentId: string) Promise<void>
+    +removeAll() Promise<void>
   }
   class SubscriptionManager {
     +add(token: string) number
@@ -312,5 +326,7 @@ classDiagram
   ReadBars --> CandleStore
   ReadBars --> FormingBarStore
   ReadSeq --> BarSequenceStore
+  RequestSubscription --> SubscriptionLeases
   ResilientFeed <|-- DerivFeed
   ResilientFeed <|-- KiteTickerFeed
+  SubscriptionLeases <|.. RedisSubscriptionLeases
