@@ -14,7 +14,8 @@ interface Options {
   clock?: () => number;
   warn: (reason: string) => void;
 }
-const envelope = z.object({ type: z.enum(['error', 'order', 'message']), data: z.unknown().optional() });
+// Kite sends other text types too (e.g. instruments_meta on connect); only 'error' needs handling.
+const envelope = z.object({ type: z.string(), data: z.unknown().optional() });
 const errorShape = z.object({ error_type: z.string().optional(), message: z.string().optional(), code: z.union([z.string(), z.number()]).optional(), data: z.unknown().optional() });
 function authError(value: unknown): boolean {
   if (typeof value === 'string') return /auth|token|session|401|403/i.test(value);
@@ -54,7 +55,7 @@ export class KiteWsClient implements FeedTransport {
     this.send({ a: 'subscribe', v: mappings.map(mapping => mapping.token) });
     for (const volume of [true, false]) {
       const tokens = mappings.filter(mapping => mapping.volume === volume).map(mapping => mapping.token);
-      if (tokens.length) this.send({ a: 'mode', v: [volume ? 'full' : 'ltp', tokens] });
+      if (tokens.length) this.send({ a: 'mode', v: ['full', tokens] }); // full mode carries exchange timestamps, indices included
     }
   }
   sendUnsubscribe(keys: readonly string[]): void {
