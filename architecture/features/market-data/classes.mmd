@@ -135,6 +135,9 @@ classDiagram
     +history(m: { providerSymbol: string; providerToken?: string; volumeType?: 'real' | 'tick' | 'none' }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal) Promise<ProviderResult<Bar[]>>
     +name: "kite"
   }
+  class KitePreviousCloseSource {
+    +fetch(instrumentId: string, signal: AbortSignal) Promise<number | null>
+  }
   class KiteRawTick {
     +average_traded_price?: number
     +change?: number
@@ -226,6 +229,13 @@ classDiagram
     +onApplicationBootstrap() void
     +run(signal?: AbortSignal) Promise<void>
   }
+  class PreviousCloseSource {
+    +fetch(instrumentId: string, signal: AbortSignal) Promise<number | null>
+  }
+  class PreviousCloseStore {
+    +get(instrumentId: string, signal?: AbortSignal) Promise<{ close: number; forDate: string } | null>
+    +set(instrumentId: string, close: number, forDate: string, signal?: AbortSignal) Promise<void>
+  }
   class ReadBars {
     +execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number, signal?: AbortSignal) Promise<BarsPage | Extract<ProviderResult<never>, { ok: false }>>
   }
@@ -251,6 +261,10 @@ classDiagram
     +clear(instrumentId: string, signal?: AbortSignal) Promise<void>
     +get(instrumentId: string, signal?: AbortSignal) ReturnType<FormingBarStore['get']>
     +set(instrumentId: string, v: Parameters<FormingBarStore['set']>[1], signal?: AbortSignal) Promise<void>
+  }
+  class RedisPreviousCloseStore {
+    +get(instrumentId: string) Promise<{ close: number; forDate: string } | null>
+    +set(instrumentId: string, close: number, forDate: string) Promise<void>
   }
   class RedisSubscriptionLeases {
     +add(instrumentId: string) Promise<void>
@@ -307,6 +321,7 @@ classDiagram
     +at: number
     +cumVolume: number | null
     +instrumentId: string
+    +prevClose?: number
     +price: number
     +seq?: number
   }
@@ -359,6 +374,8 @@ classDiagram
   MarketDataProvider <|.. KiteHistoryProvider
   MarketDataProvider <|.. UsDelayedProvider
   MarketDataService --> FeedStateStore
+  PreviousCloseSource <|.. KitePreviousCloseSource
+  PreviousCloseStore <|.. RedisPreviousCloseStore
   ReadBars --> CandleStore
   ReadBars --> FormingBarStore
   ReadSeq --> BarSequenceStore
