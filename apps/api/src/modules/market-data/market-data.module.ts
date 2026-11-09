@@ -29,6 +29,12 @@ import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
 import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 import { RequestSubscription } from './application/request-subscription';
 import { z } from 'zod';
+import { RedisBarPublisher } from './infrastructure/redis-bar-publisher';
+import { RedisBarSequenceStore } from './infrastructure/redis-bar-sequence-store';
+import { ReadSeq } from './application/read-seq';
+import type { BarPublisher } from './application/ports/bar-publisher';
+
+const BarPublisherToken = 'BAR_PUBLISHER';
 
 @Module({
   imports: [KiteModule],
@@ -59,11 +65,6 @@ import { z } from 'zod';
             logger.warn(summary.success ? { reason, ...summary.data } : { reason, code: error instanceof Error ? error.name : 'UNKNOWN' });
           } });
       } },
-    { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore],
-      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore) => {
-        const logger = new Logger('LiveBars');
-        return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); } });
-      } },
     { provide: RedisTokenBucket, inject: [REDIS], useFactory: (redis: Redis) => new RedisTokenBucket(redis, 'rl:kite:history', 3, 3) },
     { provide: KiteHistoryProvider, inject: [KiteSessionService, RedisTokenBucket, APP_CONFIG],
       useFactory: (session: KiteSessionService, bucket: RedisTokenBucket, config: AppConfig) =>
@@ -83,13 +84,22 @@ import { z } from 'zod';
         new BackfillJob(scheduler, backfill, async signal => { await Promise.all([kite.retryBackfills(signal), deriv.retryBackfills(signal)]); }) },
     { provide: DrizzleCandleStore, inject: [DB], useFactory: (db: Database) => new DrizzleCandleStore(db) },
     { provide: RedisFormingBarStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFormingBarStore(redis) },
+    { provide: RedisBarPublisher, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarPublisher(redis) },
+    { provide: RedisBarSequenceStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarSequenceStore(redis) },
+    { provide: ReadSeq, inject: [RedisBarSequenceStore], useFactory: (store: RedisBarSequenceStore) => new ReadSeq(store) },
+    { provide: BarPublisherToken, useExisting: RedisBarPublisher },
+    { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore, BarPublisherToken],
+      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, publisher: BarPublisher) => {
+        const logger = new Logger('LiveBars');
+        return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); } }, publisher);
+      } },
     { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, fill: FillHistory) => new ReadBars(store, forming, Date.now, fill) },
     { provide: PartitionJob, inject: [DB, JobScheduler, ReadinessRegistry],
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard],
+  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;

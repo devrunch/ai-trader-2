@@ -3,13 +3,14 @@ import { LiveBars } from './live-bars';
 import type { Tick, LiveFeed } from './ports/live-feed';
 import { historyFixture, historyBar } from './history.spec-helper';
 import type { FormingBarStore } from './ports/forming-bar-store';
+import type { BarPublisher } from './ports/bar-publisher';
 
-function fixture() {
+function fixture(publisher?: BarPublisher, leader = true) {
   const { store } = historyFixture();
   const forming = { get: vi.fn<FormingBarStore['get']>().mockResolvedValue(null), set: vi.fn<FormingBarStore['set']>().mockResolvedValue(undefined), clear: vi.fn<FormingBarStore['clear']>().mockResolvedValue(undefined) };
   let listener: (tick: Tick) => void = () => {};
   const feed: LiveFeed = { name: 'kite', subscribe: async () => {}, unsubscribe: async () => {}, start: async () => {}, stop: async () => {}, onState: () => () => {}, onTick: cb => { listener = cb; return () => {}; } };
-  const bars = new LiveBars(store, forming, { clock: Date.now, log: vi.fn() }); const detach = bars.attach(feed);
+  const bars = new LiveBars(store, forming, { clock: Date.now, log: vi.fn(), canPersist: () => Promise.resolve(leader) }, publisher); const detach = bars.attach(feed);
   const tick = (offset: number, price = 10, seq?: number) => { listener({ instrumentId: 'NSE:TEST', at: historyBar.time + offset, price, cumVolume: 100 + offset, ...(seq === undefined ? {} : { seq }) }); };
   return { store, forming, tick, detach };
 }
@@ -46,5 +47,37 @@ describe('FR-MD-2 E16 LiveBars', () => {
     expect(f.store.upsert1m.mock.calls.at(-1)?.[1][0]).toMatchObject({ time: historyBar.time, open: 10, close: 15 });
     expect(f.forming.set.mock.calls.at(-1)?.[1].bar).toMatchObject({ time: historyBar.time + 60000, open: 20, close: 20 }); f.detach();
     expect(f.forming.set.mock.calls.at(-1)?.[1].lastCumVolume).toBe(60100);
+  });
+  it('publishes closed bars only after they persist (FR-LS-2 FR-LS-4)', async () => {
+    const publisher = { publish: vi.fn<BarPublisher['publish']>().mockResolvedValue(1) };
+    const f = fixture(publisher); f.tick(0); await vi.advanceTimersByTimeAsync(0);
+    f.store.upsert1m.mockImplementationOnce(() => Promise.reject(new Error('database unavailable')));
+    f.tick(60000, 12); await vi.advanceTimersByTimeAsync(0);
+    expect(publisher.publish).toHaveBeenCalledTimes(1);
+    expect(publisher.publish).toHaveBeenCalledWith('NSE:TEST', 'forming', expect.anything());
+    f.detach();
+  });
+  it('publishes closed bars only after their upsert succeeds (FR-LS-2 FR-LS-4)', async () => {
+    const publisher = { publish: vi.fn<BarPublisher['publish']>().mockResolvedValue(1) };
+    const f = fixture(publisher); f.tick(0); await vi.advanceTimersByTimeAsync(0); publisher.publish.mockClear();
+    f.tick(60000, 12); await vi.advanceTimersByTimeAsync(0);
+    expect(f.store.upsert1m).toHaveBeenCalled();
+    expect(publisher.publish).toHaveBeenCalledWith('NSE:TEST', 'closed', expect.objectContaining({ time: historyBar.time })); f.detach();
+  });
+  it('publishes throttled forming updates (FR-LS-2)', async () => {
+    const publisher = { publish: vi.fn<BarPublisher['publish']>().mockResolvedValue(1) };
+    const f = fixture(publisher); f.tick(0); await vi.advanceTimersByTimeAsync(0);
+    f.tick(1, 11); await vi.advanceTimersByTimeAsync(250);
+    expect(publisher.publish).toHaveBeenCalledWith('NSE:TEST', 'forming', expect.objectContaining({ close: 11 })); f.detach();
+  });
+  it('does not publish when not leader (E16)', async () => {
+    const publisher = { publish: vi.fn().mockResolvedValue(undefined) };
+    const f = fixture(publisher, false); f.tick(0); await vi.advanceTimersByTimeAsync(0);
+    expect(publisher.publish).not.toHaveBeenCalled(); f.detach();
+  });
+  it('a publish failure does not break persistence (E10)', async () => {
+    const publisher = { publish: vi.fn<BarPublisher['publish']>().mockRejectedValue(new Error('redis unavailable')) };
+    const f = fixture(publisher); f.tick(0); await vi.advanceTimersByTimeAsync(0);
+    expect(f.forming.set).toHaveBeenCalled(); f.detach();
   });
 });

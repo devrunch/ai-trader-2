@@ -521,3 +521,26 @@ sequenceDiagram
     Redis-->>MD: count becomes zero
     MD->>Feed: unsubscribe (feed applies 60-second grace)
 ```
+
+## Fan-out (P3-1)
+
+FR-LS-2 assigns each persisted forming or closed bar a Redis sequence per canonical
+instrument ID. FR-LS-4 keeps bar-time merge semantics; E10 lets clients detect
+gaps, and E16 keeps sequence allocation durable across process restarts. Redis
+atomically increments `md:seq:<id>`, publishes to `md:bars:<id>`, and retains the
+last 300 messages for replay. A replay older than the retained window is empty,
+so the client reloads `/api/v1/bars`.
+
+```mermaid
+sequenceDiagram
+    participant Tick as Vendor tick
+    participant LiveBars
+    participant Store as Postgres / forming Redis
+    participant Redis as Redis Lua fan-out
+    participant APIs as API subscribers
+    Tick->>LiveBars: update canonical instrument bar
+    LiveBars->>Store: persist closed bar or throttled forming bar
+    Store-->>LiveBars: write succeeded
+    LiveBars->>Redis: INCR + PUBLISH + LPUSH/LTRIM atomically
+    Redis-->>APIs: md:bars:<instrumentId> with seq
+```
