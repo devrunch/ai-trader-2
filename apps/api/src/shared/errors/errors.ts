@@ -11,6 +11,11 @@ export class ValidationError extends DomainError {
   readonly httpStatus = 422;
 }
 
+export class BadRequestValidationError extends DomainError {
+  readonly code = 'VALIDATION';
+  readonly httpStatus = 400;
+}
+
 export class SymbolNotFoundError extends NotFoundError {
   override readonly code = 'SYMBOL_NOT_FOUND';
 }

@@ -1,6 +1,7 @@
 import { backoffDelay, sleep, withTimeout } from '@aitrader/resilience';
 import type { FeedState, LiveFeed, Tick } from '../../application/ports/live-feed';
 import { KiteLoginError } from '../../../../shared/vendors/kite/kite-login';
+import { UnavailableError } from '../../../../shared/errors/index.js';
 
 export interface FeedTransport {
   connect(signal: AbortSignal): Promise<void>;
@@ -29,7 +30,7 @@ interface Subscription { key: string; count: number; lastTickAt?: number; grace?
 export class ResilientFeed implements LiveFeed {
   private readonly subscriptions = new Map<string, Subscription>();
   private readonly ticks = new Set<(t: Tick) => void>();
-  private readonly states = new Set<(s: FeedState, reason?: string) => void>();
+  private readonly states = new Set<(s: FeedState, reason?: string, detail?: string) => void>();
   private controller?: AbortController;
   private transport: FeedTransport | undefined;
   private running: Promise<void> | undefined;
@@ -69,7 +70,7 @@ export class ResilientFeed implements LiveFeed {
     return Promise.resolve();
   }
   onTick(listener: (t: Tick) => void): () => void { this.ticks.add(listener); return () => { this.ticks.delete(listener); }; }
-  onState(listener: (s: FeedState, reason?: string) => void): () => void { this.states.add(listener); return () => { this.states.delete(listener); }; }
+  onState(listener: (s: FeedState, reason?: string, detail?: string) => void): () => void { this.states.add(listener); return () => { this.states.delete(listener); }; }
   async retryBackfills(signal: AbortSignal): Promise<void> {
     for (const [id, window] of this.failedBackfills) {
       signal.throwIfAborted();
@@ -99,16 +100,20 @@ export class ResilientFeed implements LiveFeed {
     await this.running; this.running = undefined; this.transport = undefined;
     this.opened?.(); this.opened = undefined; this.emit('stopped');
   }
-  private emit(state: FeedState, reason?: string): void {
+  private emit(state: FeedState, reason?: string, detail?: string): void {
     this.state = state;
-    for (const listener of this.states) listener(state, reason);
+    for (const listener of this.states) {
+      if (reason === undefined && detail === undefined) listener(state);
+      else if (detail === undefined) listener(state, reason);
+      else listener(state, reason, detail);
+    }
   }
   // One recovery owner serializes opens, auth refresh and jittered retries until cancellation.
   private async recover(signal: AbortSignal): Promise<void> {
-    let attempt = 0; let outage: number | undefined; let reason: string | undefined;
+    let attempt = 0; let outage: number | undefined; let reason: string | undefined; let detail: string | undefined;
     while (!signal.aborted) {
       if (reason !== undefined) {
-        if (reason === 'AUTH_EXPIRED') this.emit('stale', reason);
+        if (reason === 'AUTH_EXPIRED') this.emit('stale', reason, detail);
         else this.emit('reconnecting', reason);
         await sleep(backoffDelay(attempt++, this.deps.backoff ?? { baseMs: 500, maxMs: 30000 }), signal);
       } else this.emit('connecting');
@@ -130,7 +135,9 @@ export class ResilientFeed implements LiveFeed {
         reason = await closed;
       } catch (error) {
         if (this.cancelled(signal)) break;
-        reason = error instanceof KiteLoginError ? 'AUTH_EXPIRED' : error instanceof Error ? error.message : 'PROVIDER_DOWN';
+        const authReason = error instanceof UnavailableError ? error.details?.reason : undefined;
+        detail = authReason === 'CAPTCHA_REQUIRED' || authReason === 'NOT_CONNECTED' ? authReason : undefined;
+        reason = error instanceof KiteLoginError || detail ? 'AUTH_EXPIRED' : error instanceof Error ? error.message : 'PROVIDER_DOWN';
         const summary = error instanceof KiteLoginError
           ? { name: error.name, stage: error.stage, message: error.message }
           : { name: error instanceof Error ? error.name : 'UNKNOWN' };

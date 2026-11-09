@@ -27,7 +27,7 @@ describe('Kite durable session', () => {
     let now = Date.parse('2026-11-09T01:00:00Z');
     const login = vi.fn(() => Promise.reject(new Error('simulated vendor rejection')));
     const makeService = () => new KiteSessionService(credentials, repository, login,
-      { generateSession: vi.fn() }, () => now, { log: vi.fn() });
+      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn() }, true);
     const first = makeService();
     for (let i = 0; i < 3; i++) await expect(first.getAccessToken()).rejects.toMatchObject({ code: 'UNAVAILABLE' });
     await expect(first.getAccessToken()).rejects.toMatchObject({ details: { reason: 'login attempts exhausted', retryAt: '2026-11-09T01:15:00.000Z' } });
@@ -45,23 +45,37 @@ describe('Kite durable session', () => {
     await pool.query("delete from vendor_sessions where vendor = 'kite'");
     const repository = new DrizzleKiteSessionRepository(pool);
     const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
-    const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'persisted' })) };
+    const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'persisted', user_id: 'user' })) };
     const now = () => Date.parse('2026-11-08T01:00:00Z');
     const logger = { log: vi.fn() };
-    const first = new KiteSessionService(credentials, repository, login, exchange, now, logger);
+    const first = new KiteSessionService(credentials, repository, login, exchange, now, logger, true);
     await expect(first.getAccessToken()).resolves.toBe('persisted');
-    const second = new KiteSessionService(credentials, repository, login, exchange, now, logger);
+    const second = new KiteSessionService(credentials, repository, login, exchange, now, logger, true);
     await expect(second.getAccessToken()).resolves.toBe('persisted');
     expect(login).toHaveBeenCalledTimes(1);
     expect((await second.status()).expiresAt).toBe('2026-11-09T00:30:00.000Z');
   });
+  it('persists CAPTCHA lock for 24 hours and prevents scripted login after restart', async () => {
+    await pool.query("delete from vendor_sessions where vendor = 'kite'");
+    const repository = new DrizzleKiteSessionRepository(pool);
+    const now = Date.parse('2026-11-09T01:00:00Z');
+    await repository.blockAutoLogin(new Date(now + 86400000), 'CAPTCHA_REQUIRED', AbortSignal.timeout(3000));
+    const login = vi.fn(() => Promise.resolve({ requestToken: 'should-not-run' }));
+    const service = new KiteSessionService(credentials, repository, login,
+      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn() }, true);
+    await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'CAPTCHA_REQUIRED', action: 'connect_zerodha' } });
+    expect(login).not.toHaveBeenCalled();
+  });
   it('registers the refresh job only when credentials exist', async () => {
     const scheduler = { register: vi.fn(() => Promise.resolve()) };
-    const service = new KiteSessionService(credentials, new DrizzleKiteSessionRepository(pool), vi.fn(), { generateSession: vi.fn() });
+    const service = new KiteSessionService(credentials, new DrizzleKiteSessionRepository(pool), vi.fn(),
+      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) });
     const readiness = new ReadinessRegistry();
-    await new KiteRegistration(null, service, scheduler, readiness).onModuleInit();
+    await new KiteRegistration(null, service, scheduler, readiness, true).onModuleInit();
     expect(scheduler.register).not.toHaveBeenCalled();
-    await new KiteRegistration(credentials, service, scheduler, new ReadinessRegistry()).onModuleInit();
+    await new KiteRegistration(credentials, service, scheduler, new ReadinessRegistry(), false).onModuleInit();
+    expect(scheduler.register).not.toHaveBeenCalled();
+    await new KiteRegistration(credentials, service, scheduler, new ReadinessRegistry(), true).onModuleInit();
     expect(scheduler.register).toHaveBeenCalledWith(expect.objectContaining({ name: 'kite-session-refresh', cron: '20 6 * * *', tz: 'Asia/Kolkata', graceMs: 21600000, maxRuntimeMs: 120000 }));
   });
 });

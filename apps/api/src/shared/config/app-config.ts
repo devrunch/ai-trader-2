@@ -13,6 +13,8 @@ export const AppConfigSchema = z.object({
   ZERODHA_USER_ID: z.string().optional(),
   ZERODHA_PASSWORD: z.string().optional(),
   ZERODHA_TOTP_SECRET: z.string().optional(),
+  KITE_AUTO_LOGIN: z.enum(['true', 'false']).transform(value => value === 'true').default(false),
+  KITE_REDIRECT_URL: z.url({ protocol: /^https?$/ }).optional(),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),
   MD_PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8001),
