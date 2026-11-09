@@ -1,3 +1,5 @@
+import { InstrumentId } from '../../instruments/application/index';
+import { calendarFor } from '../domain/calendar';
 import type { BarsResponse, DataStatus, ProviderReason } from '@aitrader/contracts';
 import { ProviderDownError, RateLimitedError, ValidationError } from '../../../shared/errors';
 import type { ResolveInstrument } from '../../instruments/application/index';
@@ -13,7 +15,7 @@ type ReadFailure = Exclude<Awaited<ReturnType<ReadBars['execute']>>, BarsPage>;
 // Every instrument reads only from its own vendor (E3); status is always reported, never guessed.
 export class MarketDataService {
   constructor(private readonly resolve: Pick<ResolveInstrument, 'execute'>, private readonly read: Pick<ReadBars, 'execute'>,
-    private readonly feeds: FeedStateStore) {}
+    private readonly feeds: FeedStateStore, private readonly clock: () => number = Date.now) {}
 
   async bars(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number): Promise<BarsResponse> {
     const { instrument } = await this.resolve.execute(instrumentId);
@@ -34,6 +36,7 @@ export class MarketDataService {
     let status: DataStatus;
     if (!page.status.ok) status = stale(page.status.reason, page.status.detail);
     else if (feed.state === 'stale') status = stale(feed.reason ?? 'PROVIDER_DOWN');
+    else if (!marketOpen(resolvedId, this.clock())) status = stale('MARKET_CLOSED');
     else if (vendor === 'us-delayed') status = { state: 'delayed', delayMs: US_DELAY_MS };
     else status = { state: 'ok' };
     return { ...base, bars: page.bars, nextBefore: page.nextBefore, status };
@@ -51,4 +54,8 @@ function failure(result: ReadFailure): Error {
     case 'UNSUPPORTED': return new ValidationError('Market data is not available for this instrument', details);
     default: return new ProviderDownError('Market data provider unavailable', details);
   }
+}
+
+function marketOpen(instrumentId: string, now: number): boolean {
+  try { return calendarFor(InstrumentId.parse(instrumentId).exchange).isOpen(now); } catch { return true; } // unknown calendar: don't claim closed
 }

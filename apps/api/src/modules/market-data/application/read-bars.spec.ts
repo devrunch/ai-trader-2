@@ -13,6 +13,7 @@ function fixture(minutes = 20) {
     range1m: (_, from, to) => Promise.resolve(rows.filter(b => b.time >= from && b.time < to)),
     range1d: (_, from, to) => Promise.resolve(daily.filter(b => b.time >= Date.parse(from) && b.time < Date.parse(to))),
     earliest: (_, isDaily) => Promise.resolve((isDaily ? daily : rows)[0]?.time ?? null),
+    latest1m: () => Promise.resolve(rows.at(-1)?.time ?? null),
   };
   const redis: FormingBarStore = { get: () => Promise.resolve(forming), set: (_, v) => { forming = v; return Promise.resolve(); }, clear: () => { forming = null; return Promise.resolve(); } };
   const reader = new ReadBars(store, redis, () => start + 3 * 86400000);
@@ -35,6 +36,43 @@ describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
     expect(page).toMatchObject({ bars: [bar(start)], status: { ok: true } });
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute.mock.calls[0]?.slice(0, 4)).toEqual(['NSE:TEST', '1m', start, start + 60001]);
+  });
+  it('latest reads fill the missing tail once per minute (E7, E8)', async () => {
+    const f = fixture(20); // 09:15–09:34 IST stored; the clock is after the 15:30 close
+    let now = Date.parse('2026-11-09T18:00:00+05:30');
+    const execute = vi.fn().mockResolvedValue({ ok: true, data: { written: 5, repaired: 0 } });
+    const read = new ReadBars(f.store, f.redis, () => now, { execute });
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    const tail = execute.mock.calls.find(call => call[2] === start + 20 * 60000);
+    expect(tail?.slice(0, 4)).toEqual(['NSE:TEST', '1m', start + 20 * 60000, Date.parse('2026-11-09T15:30:00+05:30')]);
+    const calls = execute.mock.calls.length;
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    expect(execute.mock.calls.length).toBe(calls);
+    now += 61_000;
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    expect(execute.mock.calls.length).toBe(calls + 1);
+  });
+  it('a tail the vendor cannot fill is not asked again until new minutes are due (closing auction)', async () => {
+    const f = fixture(20);
+    let now = Date.parse('2026-11-09T18:00:00+05:30');
+    const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'NO_DATA' });
+    const read = new ReadBars(f.store, f.redis, () => now, { execute });
+    const tailCalls = () => execute.mock.calls.filter(call => call[2] === start + 20 * 60000).length;
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    expect(tailCalls()).toBe(1);
+    now += 10 * 60_000;
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    expect(tailCalls()).toBe(1);
+    now = Date.parse('2026-11-11T10:00:00+05:30'); // next session (10 Nov is a holiday): new minutes are due
+    await read.execute('NSE:TEST', '5', { latest: true }, 2);
+    expect(tailCalls()).toBe(2);
+  });
+  it('before pages never fill the tail', async () => {
+    const f = fixture(20);
+    const execute = vi.fn().mockResolvedValue({ ok: true, data: { written: 0, repaired: 0 } });
+    const read = new ReadBars(f.store, f.redis, () => Date.parse('2026-11-09T18:00:00+05:30'), { execute });
+    await read.execute('NSE:TEST', '5', { before: start + 20 * 60000 }, 2);
+    expect(execute.mock.calls.some(call => call[2] === start + 20 * 60000)).toBe(false);
   });
   it('failed fill with existing bars returns stale with reason', async () => {
     const f = fixture(1); const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'AUTH_EXPIRED' });

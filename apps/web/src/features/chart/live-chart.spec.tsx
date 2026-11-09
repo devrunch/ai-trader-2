@@ -61,12 +61,18 @@ it('streams the series into the chart without React state', () => {
   expect(candleUpdates[0]).toHaveBeenCalled();
 });
 
+it('paints the latest page over HTTP even if the socket never delivers (robust first paint)', async () => {
+  render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
+  await vi.waitFor(() => { expect(mergeHistory).toHaveBeenCalledWith('NSE:A', '1', [bar(-2), bar(-1)]); });
+  expect(requested[0]).not.toContain('before=');
+});
+
 it('scrolling left loads the older page and merges it', async () => {
   render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
   act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(1)]); });
   act(() => { scroll?.(2); });
   await vi.waitFor(() => { expect(mergeHistory).toHaveBeenCalledWith('NSE:A', '1', [bar(-2), bar(-1)]); });
-  expect(requested[0]).toContain(`before=${String(t0)}`);
+  expect(requested.some(search => search.includes(`before=${String(t0)}`))).toBe(true);
 });
 
 it('switching symbol during a slow load drops the old answer (E15)', async () => {
@@ -78,7 +84,7 @@ it('switching symbol during a slow load drops the old answer (E15)', async () =>
   expect(subscriptions[0]?.off).toHaveBeenCalled();
   expect(subscriptions[1]?.symbol).toBe('NSE:B');
   await new Promise(resolve => setTimeout(resolve, 300));
-  expect(mergeHistory).not.toHaveBeenCalled();
+  expect(mergeHistory.mock.calls.filter(call => call[0] === 'NSE:A')).toEqual([]);
 });
 
 it('market closed or provider down says why instead of an empty canvas (FR-UI-7)', () => {

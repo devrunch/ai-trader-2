@@ -12,6 +12,7 @@ export function historyFixture() {
     range1m: vi.fn<CandleStore['range1m']>().mockResolvedValue([]),
     range1d: vi.fn<CandleStore['range1d']>().mockResolvedValue([]),
     earliest: vi.fn<CandleStore['earliest']>().mockResolvedValue(null),
+    latest1m: vi.fn<CandleStore['latest1m']>().mockResolvedValue(null),
   };
   const instruments = {
     getMapping: vi.fn<HistoryInstruments['getMapping']>().mockResolvedValue({ providerSymbol: 'TEST', providerToken: '1/256', volumeType: 'real' }),

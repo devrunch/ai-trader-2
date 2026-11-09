@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lt, sql } from 'drizzle-orm';
 import { withTimeout } from '@aitrader/resilience';
 import { z } from 'zod';
 import type { Database } from '../../../shared/database';
@@ -70,6 +70,12 @@ export class DrizzleCandleStore implements CandleStore {
     const rows = await this.query(() => this.db.select({ time }).from(table).where(eq(table.instrumentId, instrumentId)).orderBy(asc(time)).limit(1), signal);
     const value = rows[0]?.time;
     return value === undefined ? null : daily ? dailyClock(instrumentId).start(String(value)) : new Date(value).getTime();
+  }
+
+  async latest1m(instrumentId: string, signal?: AbortSignal): Promise<number | null> {
+    const rows = await this.query(() => this.db.select({ time: bars1m.ts }).from(bars1m).where(eq(bars1m.instrumentId, instrumentId)).orderBy(desc(bars1m.ts)).limit(1), signal);
+    const value = rows[0]?.time;
+    return value === undefined ? null : new Date(value).getTime();
   }
 
   private async write(bars: readonly Bar[], insert: (batch: readonly Bar[]) => PromiseLike<unknown[]>, signal?: AbortSignal): Promise<{ written: number; repaired: number }> {

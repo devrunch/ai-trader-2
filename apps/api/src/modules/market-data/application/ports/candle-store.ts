@@ -6,4 +6,6 @@ export interface CandleStore {
   range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal): Promise<Bar[]>;
   range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal): Promise<Bar[]>;
   earliest(instrumentId: string, daily: boolean, signal?: AbortSignal): Promise<number | null>;
+  /** Start time of the newest stored 1-minute bar. */
+  latest1m(instrumentId: string, signal?: AbortSignal): Promise<number | null>;
 }

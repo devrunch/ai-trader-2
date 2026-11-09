@@ -33,9 +33,19 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
       onUpdate: bar => { adapter.update(bar); },
       onStatus: setStatus,
     });
+    const loadPage = (before?: number) => {
+      const query = new URLSearchParams({ symbol, interval, limit: String(PAGE), ...(before === undefined ? {} : { before: String(before) }) });
+      return apiFetch(`/v1/bars?${query.toString()}`, { schema: BarsResponseSchema, signal: controller.signal });
+    };
+    // The latest page comes over HTTP too: first paint never waits on the socket, and a dead socket still shows history.
+    loadPage().then(page => {
+      if (controller.signal.aborted) return;
+      client.mergeHistory(symbol, interval, page.bars);
+      setStatus(current => current ?? page.status);
+      if (page.bars.length === 0) { setLoaded(true); setEmpty(true); }
+    }).catch(() => undefined);
     adapter.onNeedOlder(before => {
-      const query = new URLSearchParams({ symbol, interval, before: String(before), limit: String(PAGE) });
-      apiFetch(`/v1/bars?${query.toString()}`, { schema: BarsResponseSchema, signal: controller.signal })
+      loadPage(before)
         .then(page => { if (!controller.signal.aborted) client.mergeHistory(symbol, interval, page.bars); })
         .catch(() => undefined); // scrolling left again retries; a failed page never blanks the chart
     });
