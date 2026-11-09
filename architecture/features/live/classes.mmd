@@ -13,7 +13,7 @@ classDiagram
     +acquire(instrumentId: string) Promise<void>
     +aggregate(bars: Parameters<LiveData['aggregate']>[0], interval: Interval, instrumentId: string) import("../../market-data/domain/bar").Bar[]
     +current(instrumentId: string) Promise<number>
-    +read(instrumentId: string, interval: Interval, limit: number) Promise<{ bars: { time: number; open: number; high: number; low: number; close: number; volume: number | null; repaired?: boolean | undefined; }[]; status: { state: "ok"; } | { state: "delayed"; delayMs: number; } | { state: "stale"; reason: "RATE_LIMITED" | "MARKET_CLOSED" | "PROVIDER_DOWN" | "UNSUPPORTED" | "NO_DATA" | "AUTH_EXPIRED"; detail?: string | undefined; }; }>
+    +read(instrumentId: string, interval: Interval, limit: number) Promise<{ bars: { time: number; open: number; high: number; low: number; close: number; volume: number | null; repaired?: boolean | undefined; }[]; status: { state: "ok"; } | { state: "delayed"; delayMs: number; } | { state: "stale"; reason: "NO_DATA" | "MARKET_CLOSED" | "UNSUPPORTED" | "RATE_LIMITED" | "PROVIDER_DOWN" | "AUTH_EXPIRED"; detail?: string | undefined; }; }>
     +release(instrumentId: string) Promise<void>
     +replay(instrumentId: string, afterSeq: number) Promise<{ instrumentId: string; seq: number; kind: "forming" | "closed"; bar: { time: number; open: number; high: number; low: number; close: number; volume: number | null; repaired?: boolean | undefined; }; at: number; }[] | null>
     +resolve(symbol: string) Promise<string | null>

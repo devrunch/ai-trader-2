@@ -28,6 +28,11 @@ export function missedRunDecision(
   return now.getTime() - previousFireAt.getTime() <= graceMs ? 'run' : 'skip';
 }
 
+export function nextFire(cron: string, tz: string, now: Date): string | null {
+  try { return CronExpressionParser.parse(cron, { tz, currentDate: now }).next().toDate().toISOString(); }
+  catch { return null; }
+}
+
 export class JobScheduler implements OnModuleDestroy {
   private readonly logger = new Logger('JobScheduler');
   private readonly jobs = new Map<string, RegisteredJob>();
@@ -71,6 +76,13 @@ export class JobScheduler implements OnModuleDestroy {
     }
     if (decision === 'skip') await this.record(spec.name, 'skipped', previous.getTime());
     void worker.run().catch((error: unknown) => { this.logger.error(error); });
+  }
+
+  has(name: string): boolean { return this.jobs.has(name); }
+
+  /** Jobs registered in this process, for the admin view. */
+  list(now = new Date()): Array<{ name: string; cron: string; tz: string; next: string | null }> {
+    return [...this.jobs.values()].map(({ spec }) => ({ name: spec.name, cron: spec.cron, tz: spec.tz, next: nextFire(spec.cron, spec.tz, now) }));
   }
 
   async runNow(name: string): Promise<void> {

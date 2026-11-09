@@ -13,6 +13,7 @@ classDiagram
     +getMapping(id: string, provider: ProviderMapping['provider'], signal?: AbortSignal) Promise<ProviderMapping | undefined>
     +listContinuousCandidates(root: string, exchange: string, signal?: AbortSignal) Promise<Instrument[]>
     +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
+    +listSourceStatus(signal?: AbortSignal) Promise<SourceStatusRow[]>
     +loadSource(source: string, signal?: AbortSignal) Promise<SourceSnapshot>
     +purgeExpired(before: string, signal?: AbortSignal) Promise<number>
     +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }, signal?: AbortSignal) Promise<void>
@@ -67,6 +68,7 @@ classDiagram
     +getMapping(id: string, provider: ProviderMapping['provider'], signal?: AbortSignal) Promise<ProviderMapping | undefined>
     +listContinuousCandidates(underlyingOrRoot: string, exchange: string) Promise<Instrument[]>
     +listForIndex(signal?: AbortSignal) Promise<Instrument[]>
+    +listSourceStatus(signal?: AbortSignal) Promise<SourceStatusRow[]>
     +loadSource(source: string) Promise<{ instruments: Instrument[]; mappings: ProviderMapping[] }>
     +purgeExpired(before: string) Promise<number>
     +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }) Promise<void>
@@ -96,6 +98,9 @@ classDiagram
     +fetch(signal: AbortSignal) Promise<SourceSnapshot>
     +identity(mappings: readonly ProviderMapping[]) (instrument: Instrument) => string | undefined
     +name: "kite"
+  }
+  class ListInstrumentSources {
+    +execute(signal?: AbortSignal) Promise<SourceStatusRow[]>
   }
   class MiniSearchIndex {
     +rebuild(instruments: readonly Instrument[]) void
@@ -151,6 +156,13 @@ classDiagram
     +instruments: Instrument[]
     +mappings: ProviderMapping[]
   }
+  class SourceStatusRow {
+    +count: number
+    +lastSuccessAt: string | null
+    +reason: string | null
+    +source: string
+    +status: string
+  }
   InstrumentHistory --> InstrumentRepository
   InstrumentRepository <|.. DrizzleInstrumentRepository
   InstrumentSource <|.. DerivSource
@@ -160,6 +172,7 @@ classDiagram
   InstrumentsController --> SearchInstruments
   InstrumentsModule --> InstrumentRepository
   InstrumentsModule --> SearchIndex
+  ListInstrumentSources --> InstrumentRepository
   RefreshInstruments --> InstrumentRepository
   RefreshInstruments --> SearchIndex
   RefreshJob --> RefreshInstruments

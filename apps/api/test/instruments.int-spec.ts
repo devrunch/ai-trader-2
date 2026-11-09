@@ -45,6 +45,15 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     await run(); expect(await repo.loadSource('kite')).toEqual(snapshot);
     expect(await db.select().from(schema.instrumentSourceStatus)).toMatchObject([{ source: 'kite', status: 'ok', instrumentCount: 1 }]);
   });
+  it('lists source status rows for the admin view (FR-AC-2)', async () => {
+    await repo.setSourceStatus('kite', { status: 'ok', count: 7, at: '2026-11-09T01:00:00.000Z' });
+    await repo.setSourceStatus('deriv', { status: 'stale', reason: 'source down', at: '2026-11-09T01:05:00.000Z' });
+    const rows = await repo.listSourceStatus();
+    expect(rows).toEqual([
+      { source: 'deriv', status: 'stale', reason: 'source down', count: 0, lastSuccessAt: null },
+      { source: 'kite', status: 'ok', reason: null, count: 7, lastSuccessAt: expect.stringMatching(/^2026-11-09T01:00:00(\.000)?(Z|\+00:00)$/) as string },
+    ]);
+  });
   it('concurrent refreshes run once and both callers get the report (NFR-RB-4/5)', async () => {
     let finishFetch: (() => void) | undefined;
     let fetchStarted: (() => void) | undefined;

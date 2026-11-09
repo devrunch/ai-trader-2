@@ -3,3 +3,4 @@ export { ResolveInstrument, type ResolvedInstrument } from './resolve-instrument
 export { SearchInstruments } from './search-instruments.js';
 export { InstrumentId } from '../domain/instrument-id.js';
 export { InstrumentHistory } from './instrument-history';
+export { ListInstrumentSources } from './list-instrument-sources';

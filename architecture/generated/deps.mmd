@@ -29,8 +29,8 @@ subgraph L["web"]
 subgraph M["src"]
 N["apps/web/src/app"]
 subgraph O["features"]
-P["apps/web/src/features/auth"]
-Q["apps/web/src/features/chart"]
+P["apps/web/src/features/admin"]
+Q["apps/web/src/features/auth"]
 R["apps/web/src/features/symbol-search"]
 end
 subgraph S["shared"]
@@ -60,8 +60,11 @@ end
 3-->J
 3-->K
 5-->C
+5-->H
 5-->K
 5-->6
+5-->8
+5-->A
 5-->E
 6-->C
 6-->D
@@ -69,12 +72,12 @@ end
 6-->J
 6-->G
 7-->F
+8-->E
 8-->D
 8-->F
 8-->H
 8-->J
 8-->G
-8-->E
 9-->J
 9-->6
 9-->8
@@ -105,15 +108,14 @@ K-->F
 K-->H
 N-->W
 N-->T
-N-->V
 N-->P
+N-->V
 N-->Q
 N-->R
+P-->W
+P-->Q
 P-->T
-Q-->U
 Q-->T
-Q-->V
-Q-->W
 R-->W
 R-->T
 R-->V
