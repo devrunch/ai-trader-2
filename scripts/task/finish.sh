@@ -8,6 +8,8 @@ branch="$(git branch --show-current)"
 case "$branch" in task/${id}-*) ;; *) echo "not on task/${id}-* branch (on $branch)" >&2; exit 1;; esac
 rm -f "docs/tasks/${id}.result.md.last-message.txt"
 if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.check ? 0 : 1)"; then
+  # The manager owns architecture/: regenerate from the branch's code, then run every gate.
+  pnpm run build:packages && pnpm run diagrams
   pnpm run check
 elif [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
   echo "no check script yet; running tests"; pnpm test
