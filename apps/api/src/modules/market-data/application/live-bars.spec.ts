@@ -12,7 +12,8 @@ function fixture(publisher?: BarPublisher, leader = true) {
   const feed: LiveFeed = { name: 'kite', subscribe: async () => {}, unsubscribe: async () => {}, start: async () => {}, stop: async () => {}, onState: () => () => {}, onTick: cb => { listener = cb; return () => {}; } };
   const bars = new LiveBars(store, forming, { clock: Date.now, log: vi.fn(), canPersist: () => Promise.resolve(leader) }, publisher); const detach = bars.attach(feed);
   const tick = (offset: number, price = 10, seq?: number) => { listener({ instrumentId: 'NSE:TEST', at: historyBar.time + offset, price, cumVolume: 100 + offset, ...(seq === undefined ? {} : { seq }) }); };
-  return { store, forming, tick, detach };
+  const tickAt = (instrumentId: string, at: number, price = 10) => { listener({ instrumentId, at, price, cumVolume: 100 }); };
+  return { store, forming, tick, tickAt, detach };
 }
 describe('FR-MD-2 E16 LiveBars', () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(historyBar.time); });
@@ -79,5 +80,16 @@ describe('FR-MD-2 E16 LiveBars', () => {
     const publisher = { publish: vi.fn<BarPublisher['publish']>().mockRejectedValue(new Error('redis unavailable')) };
     const f = fixture(publisher); f.tick(0); await vi.advanceTimersByTimeAsync(0);
     expect(f.forming.set).toHaveBeenCalled(); f.detach();
+  });
+  it('keeps NSE futures ticks after 15:30 and drops stock ticks then (derivatives close 15:40, from data)', async () => {
+    const at = Date.parse('2026-11-09T15:35:20+05:30');
+    vi.setSystemTime(at);
+    const f = fixture();
+    f.tickAt('NSE:NIFTYX2026', at, 25_100); f.tickAt('NSE:RELIANCE', at, 1_325);
+    await vi.advanceTimersByTimeAsync(250);
+    const written = f.forming.set.mock.calls.map(call => call[0]);
+    expect(written).toContain('NSE:NIFTYX2026');
+    expect(written).not.toContain('NSE:RELIANCE');
+    f.detach();
   });
 });

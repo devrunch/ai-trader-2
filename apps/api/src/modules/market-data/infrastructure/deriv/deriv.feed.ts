@@ -2,7 +2,7 @@ import { CircuitBreaker, withTimeout } from '@aitrader/resilience';
 import type { HistoryInstruments } from '../../application/ports/history-instruments';
 import type { FillHistory } from '../../application/fill-history';
 import type { CandleStore } from '../../application/ports/candle-store';
-import { calendarFor } from '../../domain/calendar';
+import { calendarForInstrument } from '../../domain/calendar';
 import { ResilientFeed } from '../feed/resilient-feed';
 import { gapBackfill } from '../feed/gap-backfill';
 import { DerivWsClient } from './deriv-ws.client';
@@ -34,7 +34,7 @@ export class DerivFeed extends ResilientFeed {
     }, {
       clock, log: deps.log, ...(deps.watchdogMs === undefined ? {} : { watchdogMs: deps.watchdogMs }),
       watchdogQuiet: isDerivWatchdogQuietWindow,
-      isOpen: (id, at) => calendarFor(id.split(':')[0] ?? '').isOpen(at),
+      isOpen: (id, at) => calendarForInstrument(id).isOpen(at),
       resolveKey: async id => {
         const mapping = await withTimeout(signal => deps.instruments.getMapping(id, 'deriv', signal), 5000);
         if (!mapping || !/^frx[A-Z]{6}$/.test(mapping.providerSymbol)) return null;

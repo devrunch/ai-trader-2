@@ -22,8 +22,8 @@ it('change is against the previous session close (FR-UI-7)', async () => {
   const f = fixture();
   f.store.range1m.mockImplementation((_id, from, to) => Promise.resolve(from <= quoteBar.time && to > quoteBar.time ? [quoteBar] : [{ ...quoteBar, time: Date.parse('2026-11-06T09:59:00Z'), close: 100 }]));
   expect(await f.quote.execute('NSE:TEST')).toMatchObject({ price: 110, change: 10, changePct: 10 });
-  // The session before Monday 9 Nov 2026 is the Muhurat special session on Sunday 8 Nov (18:00-19:00 IST).
-  expect(f.store.range1m).toHaveBeenCalledWith('NSE:TEST', Date.parse('2026-11-08T12:30:00Z'), Date.parse('2026-11-08T13:30:00Z'), expect.any(AbortSignal));
+  // The session before Monday 9 Nov 2026 is the Muhurat special session on Sunday 8 Nov (14:20-15:30 IST, from data).
+  expect(f.store.range1m).toHaveBeenCalledWith('NSE:TEST', Date.parse('2026-11-08T08:50:00Z'), Date.parse('2026-11-08T10:00:00Z'), expect.any(AbortSignal));
 });
 it('a previous session with no stored bars falls back to the one before it', async () => {
   const f = fixture();

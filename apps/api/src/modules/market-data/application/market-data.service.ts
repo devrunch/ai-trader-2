@@ -1,5 +1,4 @@
-import { InstrumentId } from '../../instruments/application/index';
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import type { BarsResponse, DataStatus, ProviderReason } from '@aitrader/contracts';
 import { ProviderDownError, RateLimitedError, ValidationError } from '../../../shared/errors';
 import type { ResolveInstrument } from '../../instruments/application/index';
@@ -57,5 +56,5 @@ function failure(result: ReadFailure): Error {
 }
 
 function marketOpen(instrumentId: string, now: number): boolean {
-  try { return calendarFor(InstrumentId.parse(instrumentId).exchange).isOpen(now); } catch { return true; } // unknown calendar: don't claim closed
+  try { return calendarForInstrument(instrumentId).isOpen(now); } catch { return true; } // unknown calendar: don't claim closed
 }

@@ -1,7 +1,7 @@
 import { ValidationError } from '../../../shared/errors';
 import { InstrumentId } from '../../instruments/application/index';
 import { aggregate } from '../domain/aggregate';
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import { bucketStart } from '../domain/grid';
 import { tailGap } from '../domain/tail-gap';
 import { dateAt, periodStart } from '../domain/calendars/time';
@@ -58,7 +58,7 @@ export class ReadBars {
     const id = InstrumentId.tryParse(instrumentId);
     if (!id) return null;
     let cal;
-    try { cal = calendarFor(id.exchange); } catch { return null; }
+    try { cal = calendarForInstrument(instrumentId); } catch { return null; }
     const now = this.clock();
     if (now - (this.tailCheckedAt.get(instrumentId) ?? -Infinity) < TAIL_COOLDOWN_MS) return null;
     this.tailCheckedAt.set(instrumentId, now);
@@ -77,7 +77,7 @@ export class ReadBars {
     const id = InstrumentId.tryParse(instrumentId);
     if (!id) throw new ValidationError('Invalid instrument ID');
     let cal;
-    try { cal = sessionCache(calendarFor(id.exchange)); } catch { throw new ValidationError('Unsupported exchange'); }
+    try { cal = sessionCache(calendarForInstrument(instrumentId)); } catch { throw new ValidationError('Unsupported exchange'); }
     const minutes = intervalMinutes(interval);
     const daily = minutes === null;
     const end = 'before' in cursor ? cursor.before : this.clock() + 1;

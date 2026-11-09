@@ -4,7 +4,7 @@ import type { KiteSessionService } from '../../../../shared/vendors/kite';
 import type { HistoryInstruments } from '../../application/ports/history-instruments';
 import type { CandleStore } from '../../application/ports/candle-store';
 import type { FillHistory } from '../../application/fill-history';
-import { calendarFor } from '../../domain/calendar';
+import { calendarForInstrument } from '../../domain/calendar';
 import { ResilientFeed } from '../feed/resilient-feed';
 import { gapBackfill } from '../feed/gap-backfill';
 import { KiteTickerClient } from './kite-ticker.client';
@@ -42,7 +42,7 @@ export class KiteTickerFeed extends ResilientFeed {
     }, {
       // A first session mint can take 120 seconds; the socket itself remains bounded to 15 seconds.
       clock, log: deps.log, connectTimeoutMs: 135000, ...(deps.watchdogMs === undefined ? {} : { watchdogMs: deps.watchdogMs }),
-      isOpen: (id, at) => calendarFor(id.split(':')[0] ?? '').isOpen(at),
+      isOpen: (id, at) => calendarForInstrument(id).isOpen(at),
       releaseKey: key => { manager.remove(key); mappings.delete(key); },
       resolveKey: async id => {
         const mapping = await withTimeout(signal => deps.instruments.getMapping(id, 'kite', signal), 5000);

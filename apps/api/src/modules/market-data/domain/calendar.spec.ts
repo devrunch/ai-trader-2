@@ -40,8 +40,8 @@ describe('market calendars', () => {
   it('nextOpen skips weekends and holidays', () => {
     expect(calendarFor('NSE').nextOpen(at('2026-01-23T16:00:00+05:30'))).toBe(at('2026-01-27T09:15:00+05:30'));
   });
-  it('honours the Muhurat special session on a Sunday', () => {
-    expect(calendarFor('NSE').sessionsOn('2026-11-08')).toEqual([{ open: at('2026-11-08T18:00:00+05:30'), close: at('2026-11-08T19:00:00+05:30') }]);
+  it('honours the Muhurat special session on a Sunday (window from Kite data)', () => {
+    expect(calendarFor('NSE').sessionsOn('2026-11-08')).toEqual([{ open: at('2026-11-08T14:20:00+05:30'), close: at('2026-11-08T15:30:00+05:30') }]);
   });
   it('opens only the curated MCX evening session on Holi', () => {
     expect(calendarFor('MCX').sessionsOn('2026-03-03')).toEqual([{ open: at('2026-03-03T17:00:00+05:30'), close: at('2026-03-03T23:30:00+05:30') }]);
@@ -49,6 +49,6 @@ describe('market calendars', () => {
   });
   it('maps all supported exchange aliases', () => {
     for (const exchange of ['NSE', 'BSE', 'NFO', 'MCX', 'FX', 'OANDA', 'NASDAQ', 'NYSE', 'NYSEARCA', 'AMEX', 'CBOE', 'IEX']) expect(calendarFor(exchange).isOpen(at('2026-11-09T15:00:00Z'))).toBeTypeOf('boolean');
-    expect(calendarFor('NFO').id).toBe('NSE');
+    expect(calendarFor('NFO').id).toBe('NFO'); // derivatives keep their own, longer session
   });
 });
