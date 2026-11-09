@@ -22,7 +22,7 @@
 - **Exact pins** in `pyproject.toml` and `package.json`; releases at least 14 days old (`[tool.uv] exclude-newer`).
 - **Wire format is camelCase** (Pydantic alias generator), matching `@aitrader/contracts`. Bar `time` is epoch milliseconds, as in `BarSchema`.
 - **Error bodies** are `{ code, message, details?, requestId }` with codes from `ERROR_CODES`.
-- **Bounded work:** request body ≤ 16 MiB, ≤ 100 000 bars, ≤ 32 series, condition tree ≤ 64 nodes and depth ≤ 8, a wall-clock limit per request (default 10 s) checked cooperatively inside the engine.
+- **Bounded work:** request body ≤ 32 MiB (100 000 bars with a few series is about 20 MB), ≤ 100 000 bars, ≤ 32 series, condition tree ≤ 64 nodes and depth ≤ 8, a wall-clock limit per request (default 10 s) checked cooperatively inside the engine.
 
 ## Backtest rules (FR-BT-2; the manager reviews these)
 1. **Decisions at bar close, fills at the next bar's open.** A condition true at the close of bar *i* fills at the open of bar *i+1*. A signal on the last bar is ignored.
@@ -39,7 +39,7 @@
 | Metric | Definition |
 |---|---|
 | `totalReturnPct` | `(finalEquity / initialCapital − 1) × 100` |
-| `cagrPct` | `((finalEquity / initialCapital)^(1 / years) − 1) × 100`; `years` = (last bar time − first bar time) / 365.25 days; `null` if `years` = 0 |
+| `cagrPct` | `((finalEquity / initialCapital)^(1 / years) − 1) × 100`; `years` = (last bar time − first bar time) / 365.25 days; `null` if `years` = 0 or the span is too short to annualise (exponent over 700) |
 | `maxDrawdownPct` | largest peak-to-trough fall of the close-marked equity curve, as a positive percent of the peak |
 | `sharpe` | annualised, risk-free rate 0: `mean(r) / std(r, ddof=1) × √(barsPerYear)`, `r` = per-bar simple returns of the equity curve, `barsPerYear` = (bars − 1) / `years`; `null` if fewer than 3 bars or `std` = 0 |
 | `winRatePct` | trades with net P&L > 0 ÷ trades × 100; `null` with no trades |

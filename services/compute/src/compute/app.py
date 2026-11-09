@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from compute import health
+from compute.backtest.router import router as backtest_router
 from compute.errors import install_error_handlers
 from compute.limits import Limits
 from compute.middleware import RequestContextMiddleware
@@ -14,4 +15,5 @@ def create_app(limits: Limits | None = None) -> FastAPI:
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware, max_body_bytes=limits.max_body_bytes)
     app.include_router(health.router)
+    app.include_router(backtest_router)
     return app
