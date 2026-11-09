@@ -36,17 +36,17 @@ describe('bar fan-out (FR-LS-2 FR-LS-4 E10 E16)', () => {
     await viWait(() => received.length === 2);
     expect(received).toEqual([1, 2]); await subscriber.quit();
   });
-  it('replay returns updates after a seq and is empty when too old', async () => {
+  it('replay returns updates after a seq and null when too old', async () => {
     const { publisher, sequence } = stores();
     for (let i = 0; i < 305; i++) await publisher.publish('NSE:TEST', 'forming', bar);
-    expect((await sequence.replay('NSE:TEST', 302)).map(update => update.seq)).toEqual([303, 304, 305]);
-    expect(await sequence.replay('NSE:TEST', 1)).toEqual([]);
+    expect((await sequence.replay('NSE:TEST', 302))?.map(update => update.seq)).toEqual([303, 304, 305]);
+    expect(await sequence.replay('NSE:TEST', 1)).toBeNull();
   });
   it('concurrent publishers never duplicate a seq', async () => {
     const { publisher, sequence } = stores();
     await Promise.all(Array.from({ length: 50 }, () => publisher.publish('NSE:TEST', 'forming', bar)));
     const updates = await sequence.replay('NSE:TEST', 0);
-    expect(updates.map(update => update.seq)).toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
+    expect(updates?.map(update => update.seq)).toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
   });
   it('GET /bars/seq returns the current seq', async () => {
     if (!redis) throw new Error('Redis not started');

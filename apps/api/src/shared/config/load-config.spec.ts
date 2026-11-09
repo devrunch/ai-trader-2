@@ -23,6 +23,8 @@ describe('loadConfig', () => {
     expect(config.LOG_LEVEL).toBe('silent');
     expect(config.CORS_ORIGINS).toEqual([]);
     expect(config.DATABASE_POOL_MAX).toBe(10);
+    expect(config.API_INSTANCE_ID).toMatch(/^api-.+-\d+$/);
+    expect(loadConfig({ ...required, API_INSTANCE_ID: 'api-test' }).API_INSTANCE_ID).toBe('api-test');
   });
 
   it('accepts pool sizes from 1 to 100 (NFR-RB-3)', () => {

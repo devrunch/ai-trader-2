@@ -19,6 +19,7 @@ export const AppConfigSchema = z.object({
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),
   MD_PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8001),
   MD_INSTANCE_ID: z.string().min(1).default(`${hostname()}-${String(process.pid)}`),
+  API_INSTANCE_ID: z.string().min(1).default(`api-${hostname()}-${String(process.pid)}`),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   DATABASE_POOL_MAX: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).default(10),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),

@@ -28,10 +28,12 @@ import { DerivHistoryProvider } from './infrastructure/deriv/deriv-history.provi
 import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
 import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 import { RequestSubscription } from './application/request-subscription';
+import { RedisSubscriptionLeases } from './infrastructure/redis-subscription-leases';
 import { z } from 'zod';
 import { RedisBarPublisher } from './infrastructure/redis-bar-publisher';
 import { RedisBarSequenceStore } from './infrastructure/redis-bar-sequence-store';
 import { ReadSeq } from './application/read-seq';
+import { AggregateLiveBars } from './application/aggregate-live-bars';
 import type { BarPublisher } from './application/ports/bar-publisher';
 
 const BarPublisherToken = 'BAR_PUBLISHER';
@@ -41,7 +43,8 @@ const BarPublisherToken = 'BAR_PUBLISHER';
   providers: [
     { provide: IpRateLimitGuard, useFactory: () => new IpRateLimitGuard(60, 20) },
     { provide: RedisFeedStateStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFeedStateStore(redis) },
-    { provide: RequestSubscription, inject: [REDIS], useFactory: (redis: Redis) => new RequestSubscription(redis) },
+    { provide: RedisSubscriptionLeases, inject: [REDIS, APP_CONFIG], useFactory: (redis: Redis, config: AppConfig) => new RedisSubscriptionLeases(redis, config.API_INSTANCE_ID) },
+    { provide: RequestSubscription, inject: [RedisSubscriptionLeases], useFactory: (leases: RedisSubscriptionLeases) => new RequestSubscription(leases) },
     { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
       useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
     { provide: GetQuote, inject: [MarketDataService, DrizzleCandleStore, RedisFormingBarStore],
@@ -87,6 +90,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     { provide: RedisBarPublisher, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarPublisher(redis) },
     { provide: RedisBarSequenceStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarSequenceStore(redis) },
     { provide: ReadSeq, inject: [RedisBarSequenceStore], useFactory: (store: RedisBarSequenceStore) => new ReadSeq(store) },
+    AggregateLiveBars,
     { provide: BarPublisherToken, useExisting: RedisBarPublisher },
     { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore, BarPublisherToken],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, publisher: BarPublisher) => {
@@ -99,7 +103,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq],
+  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;
@@ -120,5 +124,5 @@ export class MarketDataModule {
   }
   async onModuleDestroy(): Promise<void> { await this.kite.stop(); this.detach?.(); this.detach = undefined; }
 }
-@Module({ imports: [MarketDataModule], controllers: [MarketDataController] })
+@Module({ imports: [MarketDataModule], controllers: [MarketDataController], exports: [MarketDataModule] })
 export class MarketDataApiModule {}

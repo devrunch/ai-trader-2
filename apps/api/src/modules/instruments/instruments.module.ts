@@ -49,5 +49,5 @@ export class InstrumentsModule implements OnApplicationBootstrap {
     catch { new Logger('InstrumentsIndex').warn('Unable to load persisted instrument search index'); }
   }
 }
-@Module({ imports: [InstrumentsModule], controllers: [InstrumentsController] })
+@Module({ imports: [InstrumentsModule], controllers: [InstrumentsController], exports: [InstrumentsModule] })
 export class InstrumentsApiModule {}
