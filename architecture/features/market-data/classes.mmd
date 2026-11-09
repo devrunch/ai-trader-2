@@ -206,7 +206,7 @@ classDiagram
   }
   class RedisBarSequenceStore {
     +current(instrumentId: string) Promise<number>
-    +updates(instrumentId: string) Promise<{ instrumentId: string; seq: number; kind: "forming" | "closed"; bar: { time: number; open: number; high: number; low: number; close: number; volume: number | null; repaired?: boolean | undefined; }; at: number; }[]>
+    +updates(instrumentId: string) Promise<BarUpdate[]>
   }
   class RedisFeedStateStore {
     +get(vendor: FeedVendor) Promise<FeedStateRecord>

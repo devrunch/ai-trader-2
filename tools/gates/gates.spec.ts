@@ -43,4 +43,4 @@ it('rejects any and process.env', async () => {
   });
   expect(results.flatMap((result) => result.messages.map((message) => message.ruleId)))
     .toEqual(expect.arrayContaining(['@typescript-eslint/no-explicit-any', 'no-restricted-properties']));
-}, 30_000);
+}, 120_000); // type-aware lint of the whole project is slow under a full parallel run

@@ -1,5 +1,21 @@
 model {
   extend aitrader.api {
+    mod_auth = component 'auth' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_health = component 'health' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -86,6 +102,9 @@ model {
     shared_ui = component 'ui' {
       description 'generated from code — do not edit'
     }
+    feat_auth = component 'auth' {
+      description 'generated from code — do not edit'
+    }
     feat_symbol_search = component 'symbol-search' {
       description 'generated from code — do not edit'
     }
@@ -99,6 +118,10 @@ model {
   pkg_resilience = component 'resilience' {
     description 'generated from code — do not edit'
   }
+  aitrader.api.mod_auth.api -[calls]-> aitrader.api.mod_auth.app 'imports'
+  aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
+  aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.app 'imports'
+  aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.domain 'imports'
   aitrader.api.mod_health.api -[calls]-> aitrader.api.mod_health.app 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_resilience 'imports'
@@ -119,6 +142,7 @@ model {
   aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_redis -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_vendors.shared_vendors_kite -[calls]-> pkg_resilience 'imports'
+  aitrader.web.feat_auth -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_state 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_ui 'imports'
@@ -133,6 +157,10 @@ views {
   view web_code of aitrader.web {
     description 'generated from code — do not edit'
     include aitrader.web.*
+  }
+  view module_auth of aitrader.api.mod_auth {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_auth.*
   }
   view module_health of aitrader.api.mod_health {
     description 'generated from code — do not edit'

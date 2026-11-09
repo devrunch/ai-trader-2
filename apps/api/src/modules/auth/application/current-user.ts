@@ -1,0 +1,3 @@
+import type { UserRepository, UserRecord } from './ports/user.repository.js';
+import type { SessionStore } from './ports/session.store.js';
+export class CurrentUser { constructor(private readonly users: UserRepository, private readonly sessions: SessionStore) {} async execute(sessionId: string | undefined, signal?: AbortSignal): Promise<UserRecord | null> { if (!sessionId) return null; const session = await this.sessions.get(sessionId, signal); if (!session) return null; const user = await this.users.findById(session.userId, signal); return user && !user.disabled ? { id: user.id, username: user.username, role: user.role } : null; } }

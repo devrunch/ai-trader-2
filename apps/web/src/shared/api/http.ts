@@ -26,7 +26,7 @@ export async function apiFetch<T>(path: string, opts: Options<T>): Promise<T> {
   try {
     response = await fetch(base.replace(/\/$/, '') + '/' + path.replace(/^\//, ''), {
       method: opts.method ?? 'GET', credentials: 'include', signal,
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'aitrader' },
       ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { GlobalExceptionFilter } from './shared/errors';
+import cookieParser from 'cookie-parser';
 
 function isExpress(instance: unknown): instance is { disable(name: string): void } {
   return (typeof instance === 'object' || typeof instance === 'function')
@@ -10,6 +11,7 @@ export function configureApp(app: INestApplication): void {
   const instance: unknown = app.getHttpAdapter().getInstance();
   if (!isExpress(instance)) throw new Error('Application setup requires an Express adapter');
   instance.disable('x-powered-by');
+  app.use(cookieParser());
   app.setGlobalPrefix('api', { exclude: [{ path: 'health', method: RequestMethod.ALL }, { path: 'ready', method: RequestMethod.ALL }] });
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
 }

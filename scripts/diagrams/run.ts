@@ -43,10 +43,11 @@ if (import.meta.main) {
     if (!directory || !tsconfig || !existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const output = `architecture/features/${entry.name}/classes.mmd`;
+      const outputPrefix = directory.endsWith('/modules') && entry.name === 'auth' ? 'api-' : '';
+      const output = `architecture/features/${outputPrefix}${entry.name}/classes.mmd`;
       if (expected.has(output)) throw new Error(`Duplicate API/web feature name: ${entry.name}`);
       expected.add(output);
-      mkdirSync(`architecture/features/${entry.name}`, { recursive: true });
+      mkdirSync(`architecture/features/${outputPrefix}${entry.name}`, { recursive: true });
       writeFileSync(output, generateClassDiagram(tsconfig, `${directory}/${entry.name}`));
     }
   }
