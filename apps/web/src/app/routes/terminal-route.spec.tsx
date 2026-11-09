@@ -1,10 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Providers } from '../providers';
 import { createAppRouter } from '../router';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
+// Routing tests: no canvas in jsdom and no real socket, so the chart and the connection are stand-ins.
+vi.mock('../../features/chart/lwc-chart', () => ({ createLwcChart: () => ({
+  candles: { setData: () => undefined, update: () => undefined }, volume: { setData: () => undefined, update: () => undefined },
+  onVisibleRange: () => () => undefined, applyColors: () => undefined, remove: () => undefined,
+}) }));
+vi.mock('../../shared/live/live-connection', () => ({ liveClient: () => ({ subscribe: () => () => undefined, mergeHistory: () => undefined }) }));
 // FR-UI-3, FR-UI-5: canonical symbol and interval survive navigation.
 afterEach(cleanup);
 async function visit(url: string) {

@@ -30,20 +30,21 @@ subgraph M["src"]
 N["apps/web/src/app"]
 subgraph O["features"]
 P["apps/web/src/features/auth"]
-Q["apps/web/src/features/symbol-search"]
+Q["apps/web/src/features/chart"]
+R["apps/web/src/features/symbol-search"]
 end
-subgraph R["shared"]
-S["apps/web/src/shared/api"]
-T["apps/web/src/shared/live"]
-U["apps/web/src/shared/state"]
-V["apps/web/src/shared/ui"]
+subgraph S["shared"]
+T["apps/web/src/shared/api"]
+U["apps/web/src/shared/live"]
+V["apps/web/src/shared/state"]
+W["apps/web/src/shared/ui"]
 end
 end
 end
 end
-subgraph W["packages"]
-X["packages/contracts"]
-Y["packages/resilience"]
+subgraph X["packages"]
+Y["packages/contracts"]
+Z["packages/resilience"]
 end
 3-->5
 3-->6
@@ -102,12 +103,17 @@ K-->C
 K-->D
 K-->F
 K-->H
+N-->W
+N-->T
 N-->V
-N-->S
-N-->U
 N-->P
 N-->Q
-P-->S
-Q-->V
-Q-->S
+N-->R
+P-->T
 Q-->U
+Q-->T
+Q-->V
+Q-->W
+R-->W
+R-->T
+R-->V
