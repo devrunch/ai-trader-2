@@ -14,6 +14,9 @@ import { DerivSource, KiteSource, NasdaqSource } from './infrastructure/sources/
 import { MiniSearchIndex } from './infrastructure/minisearch-index.js';
 import { InstrumentsController } from './api/instruments.controller.js';
 import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.guard.js';
+import { REDIS } from '../../shared/redis/index.js';
+import type { Redis } from 'ioredis';
+import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
 
 @Global()
 @Module({
@@ -26,9 +29,9 @@ import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.g
     { provide: INSTRUMENT_REPOSITORY, inject: [DB], useFactory: (db: Database) => new DrizzleInstrumentRepository(db) },
     { provide: INSTRUMENT_SOURCES, useFactory: (): InstrumentSource[] => [new KiteSource(), new DerivSource(), new NasdaqSource()] },
     { provide: SEARCH_INDEX, useClass: MiniSearchIndex },
-    { provide: RefreshInstruments, inject: [INSTRUMENT_REPOSITORY, INSTRUMENT_SOURCES, SEARCH_INDEX],
-      useFactory: (repo: InstrumentRepository, sources: InstrumentSource[], index: SearchIndex) =>
-        new RefreshInstruments(repo, sources, index, () => new Date(), new Logger('RefreshInstruments')) },
+    { provide: RefreshInstruments, inject: [INSTRUMENT_REPOSITORY, INSTRUMENT_SOURCES, SEARCH_INDEX, REDIS],
+      useFactory: (repo: InstrumentRepository, sources: InstrumentSource[], index: SearchIndex, redis: Redis) =>
+        new RefreshInstruments(repo, sources, index, () => new Date(), new Logger('RefreshInstruments'), new RedisRefreshLock(redis)) },
     { provide: ResolveInstrument, inject: [INSTRUMENT_REPOSITORY, SEARCH_INDEX],
       useFactory: (repo: InstrumentRepository, index: SearchIndex) => new ResolveInstrument(repo, index) },
     { provide: RefreshJob, inject: [JobScheduler, RefreshInstruments, DB, ReadinessRegistry],

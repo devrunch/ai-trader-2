@@ -28,6 +28,7 @@ import { DerivHistoryProvider } from './infrastructure/deriv/deriv-history.provi
 import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
 import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 import { RequestSubscription } from './application/request-subscription';
+import { z } from 'zod';
 
 @Module({
   imports: [KiteModule],
@@ -53,7 +54,10 @@ import { RequestSubscription } from './application/request-subscription';
       useFactory: (session: KiteSessionService, instruments: InstrumentHistory, fill: FillHistory, store: DrizzleCandleStore, config: AppConfig) => {
         const logger = new Logger('KiteTicker');
         return new KiteTickerFeed({ session, instruments, fill, store, apiKey: config.ZERODHA_API_KEY ?? '',
-          log: (reason, error) => { logger.warn({ reason, code: error instanceof Error ? error.name : 'UNKNOWN' }); } });
+          log: (reason, error) => {
+            const summary = z.object({ name: z.string(), stage: z.enum(['login', 'twofa', 'redirect', 'session']).optional(), message: z.string().optional() }).safeParse(error);
+            logger.warn(summary.success ? { reason, ...summary.data } : { reason, code: error instanceof Error ? error.name : 'UNKNOWN' });
+          } });
       } },
     { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore) => {

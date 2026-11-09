@@ -4,15 +4,16 @@ import type { KiteSessionRecord, KiteSessionRepository } from './kite-session.re
 import { UnavailableError } from '../../errors';
 
 const credentials = { apiKey: 'key', apiSecret: 'secret', userId: 'user', password: 'password', totpSecret: 'totp' };
-function setup(record: KiteSessionRecord | null = null, configured = true) {
+function setup(record: KiteSessionRecord | null = null, configured = true, sharedRepository?: KiteSessionRepository) {
   const save = vi.fn<KiteSessionRepository['save']>((value) => { record = value; return Promise.resolve(); });
-  const repository: KiteSessionRepository = { load: vi.fn(() => Promise.resolve(record)), save };
+  const repository: KiteSessionRepository = sharedRepository ?? { load: vi.fn(() => Promise.resolve(record)), save,
+    reserveLoginAttempt: vi.fn(() => Promise.resolve({ allowed: true, retryAt: new Date('2026-11-09T18:30:00.000Z') })) };
   const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
   const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'minted' })) };
   let time = Date.parse('2026-11-08T01:00:00Z');
   const logger = { log: vi.fn() };
   const service = new KiteSessionService(configured ? credentials : null, repository, login, exchange, () => time, logger);
-  return { service, save, login, exchange, logger, advance: (ms: number) => { time += ms; } };
+  return { service, save, login, exchange, logger, repository, advance: (ms: number) => { time += ms; } };
 }
 const stored = (expiresAt: string): KiteSessionRecord => ({ accessToken: 'stored', mintedAt: new Date('2026-11-07T01:00:00Z'), expiresAt: new Date(expiresAt) });
 // FR-MD-3, E3, NFR-RB-2, NFR-SC-1.
@@ -33,6 +34,12 @@ describe('Kite session', () => {
     expect(await Promise.all(Array.from({ length: 10 }, () => service.getAccessToken()))).toEqual(Array(10).fill('minted'));
     expect(login).toHaveBeenCalledTimes(1);
     expect(exchange.generateSession).toHaveBeenCalledTimes(1);
+  });
+  it('exhausted logins make no network call', async () => {
+    const { service, login } = setup();
+    vi.spyOn(service['repository'], 'reserveLoginAttempt').mockResolvedValue({ allowed: false, retryAt: new Date('2026-11-09T18:30:00.000Z') });
+    await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'login attempts exhausted', retryAt: '2026-11-09T18:30:00.000Z' } });
+    expect(login).not.toHaveBeenCalled();
   });
   it('expiry is the next 06:00 IST', () => {
     expect(nextKiteExpiry(new Date('2026-11-08T05:59:00+05:30')).toISOString()).toBe('2026-11-08T00:30:00.000Z');

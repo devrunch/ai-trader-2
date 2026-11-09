@@ -105,6 +105,30 @@ flowchart TD
 
 ## Persistence and daily refresh (FR-SY-2/3/4, NFR-RB-4/5)
 
+`RefreshInstruments.execute` holds the Redis `lock:instruments-refresh` key with
+`SET NX PX` for up to 15 minutes. The owner releases it with compare-and-delete
+and publishes its report under an owner-scoped result key. Concurrent callers
+wait up to 60 seconds and receive that same report; a local in-flight promise
+also coalesces callers in one process (NFR-RB-4/5).
+
+```mermaid
+sequenceDiagram
+    participant CallerA
+    participant CallerB
+    participant Refresh as RefreshInstruments
+    participant Redis
+    CallerA->>Refresh: execute(signal)
+    Refresh->>Redis: SET lock:instruments-refresh NX PX 900000
+    Redis-->>Refresh: acquired
+    CallerB->>Refresh: execute(signal)
+    Refresh->>Redis: SET lock:instruments-refresh NX PX 900000
+    Redis-->>Refresh: busy
+    Refresh->>Refresh: fetch, diff and persist once
+    Refresh->>Redis: store owner report, compare-and-delete lock
+    Redis-->>CallerB: shared report
+    Redis-->>CallerA: report
+```
+
 `instruments-refresh` runs at 07:00 Asia/Kolkata with six hours of catch-up grace and a ten-minute runtime limit. Bootstrap registers the job in the background and requests an immediate run when the instrument table is empty. Source status is exposed through independent readiness checks; liveness stays available. Application use cases depend on repository and search ports. The Drizzle adapter owns SQL and transaction boundaries; the Kite adapter supplies an identity factory using exchange-scoped exchange tokens, while the other sources supply no identity.
 
 Only active and suspended source rows enter the previous master, so removal changes are recorded once. Incoming listed rows become active. Instrument upserts skip identical values (including preserving updated_at), mappings are replaced within the same source transaction, and change history remains append-only. Each insertion batch contains at most 1,000 rows. Expired dated derivatives older than 30 days are purged with cascading mappings; history remains. The search port receives active, suspended and recently expired rows after the purge. MiniSearch receives a complete snapshot after each refresh and loads persisted rows on application bootstrap.

@@ -42,6 +42,22 @@ describe('FeedSupervisor (FR-MD-5, NFR-RB-7, E16)', () => {
     h.requestChange('NSE:TEST', 0); await Promise.resolve();
     expect(kite.calls.unsubscribe.mock.calls).toContainEqual([['NSE:TEST']]); await h.supervisor.stop();
   });
+  it('held continuous ids subscribe their dated contract and roll at the date change (FR-SY-5, FR-MD-5)', async () => {
+    const kite = feed('kite');
+    let contract = 'NSE:NIFTY26NOVFUT';
+    let daily: (() => Promise<void>) | undefined;
+    const supervisor = new FeedSupervisor({ feeds: [kite.value], liveBars: { attach: vi.fn(() => vi.fn()), closeDue: vi.fn(() => Promise.resolve()) },
+      publisher: { publish: vi.fn(() => Promise.resolve()) },
+      requests: { current: () => Promise.resolve(new Map()), onChange: () => () => {} },
+      held: () => Promise.resolve(['NSE:NIFTY1!']), resolveContinuous: () => Promise.resolve(contract),
+      scheduleDaily: run => { daily = run; return Promise.resolve(); } });
+    await supervisor.start();
+    expect(kite.calls.subscribe).toHaveBeenCalledWith(['NSE:NIFTY26NOVFUT']);
+    contract = 'NSE:NIFTY26DECFUT'; await daily?.();
+    expect(kite.calls.unsubscribe).toHaveBeenCalledWith(['NSE:NIFTY26NOVFUT']);
+    expect(kite.calls.subscribe).toHaveBeenCalledWith(['NSE:NIFTY26DECFUT']);
+    await supervisor.stop();
+  });
   it('flushes forming bars then publishes stopped', async () => {
     const kite = feed('kite'); const h = harness([kite.value]); await h.supervisor.start(); h.publish.mockClear();
     await h.supervisor.stop();

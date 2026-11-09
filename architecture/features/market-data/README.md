@@ -122,6 +122,32 @@ market-aware watchdog still detects tick silence. Text error frames produce
 sanitized warnings; auth errors and HTTP 401/403 close with `AUTH_EXPIRED`.
 The adapter maps tokens back to canonical IDs. Authentication rejection explicitly
 refreshes the session before obtaining its new access token; no fallback vendor.
+`KiteSessionService` reserves each login in Postgres before contacting Kite. The
+vendor session row tracks a maximum of three attempts in a rolling 15-minute
+window and six per IST day, including after process restarts. Exhaustion reports
+`login attempts exhausted` and the next eligible time without making a vendor call.
+`KiteLoginError` connection failures log only the error class, stage and safe
+message and publish stale `AUTH_EXPIRED` (E3, NFR-OB-1).
+
+The market-data supervisor resolves held continuous IDs such as `NSE:NIFTY1!`
+through `ResolveInstrument` before subscribing. It registers `continuous-instrument-roll`
+at `5 0 * * *` Asia/Kolkata and switches subscriptions when the dated contract changes
+(FR-SY-5, FR-MD-5).
+
+```mermaid
+sequenceDiagram
+    participant Supervisor
+    participant Resolver as ResolveInstrument
+    participant Scheduler as JobScheduler
+    participant Feed
+    Supervisor->>Resolver: resolve held continuous ID
+    Resolver-->>Supervisor: dated contract
+    Supervisor->>Feed: subscribe dated contract
+    Supervisor->>Scheduler: register daily IST re-resolution
+    Scheduler->>Resolver: resolve continuous ID
+    Resolver-->>Scheduler: new dated contract
+    Scheduler->>Feed: unsubscribe old, subscribe new
+```
 Kite's SDK is used only for history and session, never for streaming.
 
 ```mermaid

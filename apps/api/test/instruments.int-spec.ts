@@ -8,23 +8,30 @@ import * as schema from '../src/shared/database/schema';
 import { DrizzleInstrumentRepository } from '../src/modules/instruments/infrastructure/drizzle-instrument.repository';
 import { RefreshInstruments, ResolveInstrument, type RefreshReport, type ResolvedInstrument } from '../src/modules/instruments/application';
 import type { SourceSnapshot } from '../src/modules/instruments/application/ports/instrument-source';
+import type { InstrumentSource } from '../src/modules/instruments/application/ports/instrument-source';
 import { instrument, index } from '../src/modules/instruments/application/instruments.spec-helper';
 import { startPostgres } from './support/containers';
 import { KiteSource } from '../src/modules/instruments/infrastructure/sources/kite/kite.source';
 import { RefreshJob } from '../src/modules/instruments/infrastructure/refresh.job';
 import { ReadinessRegistry } from '../src/shared/health';
 import type { JobSpec } from '../src/shared/jobs';
+import { Redis } from 'ioredis';
+import { RedisRefreshLock } from '../src/modules/instruments/infrastructure/redis-refresh-lock';
+import { startRedis } from './support/containers';
 
 describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
   let container: Awaited<ReturnType<typeof startPostgres>>;
   let pool: Pool;
   let db: ReturnType<typeof drizzle<typeof schema>>;
   let repo: DrizzleInstrumentRepository;
+  let redisContainer: Awaited<ReturnType<typeof startRedis>>;
+  let redis: Redis;
   let snapshot: SourceSnapshot;
   const clock = () => new Date('2026-11-09T01:00:00Z');
   const run = (): Promise<RefreshReport> => new RefreshInstruments(repo, [{ name: 'kite', identity: mappings => new KiteSource().identity(mappings), fetch: () => Promise.resolve(snapshot) }], index(), clock).execute(new AbortController().signal);
   beforeAll(async () => {
     container = await startPostgres();
+    redisContainer = await startRedis(); redis = new Redis(redisContainer.url, { maxRetriesPerRequest: 1, commandTimeout: 1500 });
     pool = new Pool({ connectionString: container.url, connectionTimeoutMillis: 3000, options: '-c statement_timeout=10000' });
     db = drizzle(pool, { schema }); repo = new DrizzleInstrumentRepository(db, clock);
     await migrate(db, { migrationsFolder: './drizzle' });
@@ -33,10 +40,27 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     await db.execute(sql`truncate instrument_mappings, instruments, instrument_changes, instrument_source_status restart identity cascade`);
     snapshot = { instruments: [instrument()], mappings: [{ id: 'NSE:OLD', provider: 'kite', providerSymbol: 'OLD', providerToken: '1/2' }] };
   });
-  afterAll(async () => { await pool.end(); await container.stop(); });
+  afterAll(async () => { await redis.quit(); await redisContainer.stop(); await pool.end(); await container.stop(); });
   it('refresh stores instruments and mappings', async () => {
     await run(); expect(await repo.loadSource('kite')).toEqual(snapshot);
     expect(await db.select().from(schema.instrumentSourceStatus)).toMatchObject([{ source: 'kite', status: 'ok', instrumentCount: 1 }]);
+  });
+  it('concurrent refreshes run once and both callers get the report (NFR-RB-4/5)', async () => {
+    let finishFetch: (() => void) | undefined;
+    let fetchStarted: (() => void) | undefined;
+    const started = new Promise<void>(resolve => { fetchStarted = resolve; });
+    const gate = new Promise<void>(resolve => { finishFetch = resolve; });
+    const fetchSource = vi.fn(async () => { fetchStarted?.(); await gate; return { instruments: [instrument()], mappings: [] }; });
+    const source: InstrumentSource = { name: 'kite', fetch: fetchSource };
+    const refresh = new RefreshInstruments(repo, [source], index(), clock, console, new RedisRefreshLock(redis));
+    const first = refresh.execute(new AbortController().signal);
+    await started;
+    const second = refresh.execute(new AbortController().signal);
+    await new Promise(resolve => setTimeout(resolve, 50));
+    finishFetch?.();
+    const [left, right] = await Promise.all([first, second]);
+    expect(fetchSource).toHaveBeenCalledTimes(1);
+    expect(left).toEqual(right);
   });
   it('registers the daily durable job and requests bootstrap refresh without blocking boot', async () => {
     const scheduler = { register: vi.fn<(spec: JobSpec) => Promise<void>>().mockResolvedValue(undefined),

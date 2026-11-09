@@ -17,7 +17,9 @@ export class FeedSupervisor {
   private refresh: ReturnType<typeof setInterval> | undefined;
   constructor(private readonly deps: { feeds: LiveFeed[]; liveBars: Pick<LiveBars, 'attach' | 'closeDue'>; publisher: Pick<FeedStatePublisher, 'publish'>;
     requests: Pick<SubscriptionRequests, 'current' | 'onChange'>;
-    held?: () => Promise<readonly string[]>; clock?: () => number; log?: (message: string) => void }) {}
+    held?: () => Promise<readonly string[]>; clock?: () => number; log?: (message: string) => void;
+    resolveContinuous?: (id: string) => Promise<string>;
+    scheduleDaily?: (run: () => Promise<void>) => Promise<void> }) {}
   async start(): Promise<void> {
     if (this.started) return;
     this.started = true;
@@ -36,6 +38,11 @@ export class FeedSupervisor {
     try { held = await this.deps.held?.() ?? []; }
     catch { this.deps.log?.('Popular instruments unavailable; continuing without held subscriptions'); }
     for (const id of held) this.heldIds.add(id);
+    const continuousIds = held.filter(id => id.endsWith('!'));
+    if (continuousIds.length && this.deps.resolveContinuous) {
+      await this.resolveHeldContinuous(continuousIds, false);
+      if (this.deps.scheduleDaily) await this.deps.scheduleDaily(() => this.resolveHeldContinuous(continuousIds, true));
+    }
     for (const [id, count] of await this.deps.requests.current()) this.counts.set(id, count);
     for (const id of new Set([...this.heldIds, ...this.counts.keys()])) await this.updateSubscription(id);
     this.refresh = setInterval(() => {
@@ -59,15 +66,36 @@ export class FeedSupervisor {
   }
   private async updateSubscription(id: string): Promise<void> {
     const shouldSubscribe = this.heldIds.has(id) || (this.counts.get(id) ?? 0) > 0;
+    if (shouldSubscribe && id.endsWith('!') && !this.continuousTargets.has(id)) return;
     const isSubscribed = this.subscribed.has(id);
     if (shouldSubscribe === isSubscribed) return;
-    const vendor = vendorFor(id); const feed = this.deps.feeds.find(value => value.name === vendor);
+    const actualId = this.continuousTargets.get(id) ?? id;
+    const vendor = vendorFor(actualId); const feed = this.deps.feeds.find(value => value.name === vendor);
     if (!feed) return;
     try {
-      if (shouldSubscribe) { await feed.subscribe([id]); this.subscribed.add(id); }
-      else { await feed.unsubscribe([id]); this.subscribed.delete(id); }
+      if (shouldSubscribe) { await feed.subscribe([actualId]); this.subscribed.add(id); }
+      else { await feed.unsubscribe([actualId]); this.subscribed.delete(id); }
     } catch (error) {
       this.deps.log?.(`Subscription update failed for ${id}: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+  }
+  private readonly continuousTargets = new Map<string, string>();
+  private async resolveHeldContinuous(ids: readonly string[], roll: boolean): Promise<void> {
+    for (const id of ids) {
+      try {
+        const next = await this.deps.resolveContinuous?.(id);
+        if (!next) continue;
+        const previous = this.continuousTargets.get(id);
+        if (previous === next) continue;
+        if (previous && roll) {
+          const feed = this.deps.feeds.find(value => value.name === vendorFor(previous));
+          await feed?.unsubscribe([previous]);
+          this.continuousTargets.set(id, next);
+          await feed?.subscribe([next]);
+        } else this.continuousTargets.set(id, next);
+      } catch (error) {
+        this.deps.log?.(`Continuous instrument resolution failed for ${id}: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
     }
   }
   private async publish(vendor: FeedVendor, state: FeedState, reason?: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { backoffDelay, sleep, withTimeout } from '@aitrader/resilience';
 import type { FeedState, LiveFeed, Tick } from '../../application/ports/live-feed';
+import { KiteLoginError } from '../../../../shared/vendors/kite/kite-login';
 
 export interface FeedTransport {
   connect(signal: AbortSignal): Promise<void>;
@@ -111,25 +112,30 @@ export class ResilientFeed implements LiveFeed {
         else this.emit('reconnecting', reason);
         await sleep(backoffDelay(attempt++, this.deps.backoff ?? { baseMs: 500, maxMs: 30000 }), signal);
       } else this.emit('connecting');
-      const transport = this.factory(); this.transport = transport;
+      let transport: FeedTransport | undefined;
       let liveAt: number | undefined;
-      const closed = new Promise<string>(resolve => { this.disconnected = resolve; });
-      transport.onClose(value => { if (this.transport === transport) this.disconnected?.(value); });
-      transport.onMessage(values => { if (this.transport === transport && this.state === 'live') this.receive(values); });
+      let closed: Promise<string> | undefined;
       try {
+        const activeTransport = this.factory(); transport = activeTransport; this.transport = activeTransport;
+        closed = new Promise<string>(resolve => { this.disconnected = resolve; });
+        activeTransport.onClose(value => { if (this.transport === activeTransport) this.disconnected?.(value); });
+        activeTransport.onMessage(values => { if (this.transport === activeTransport && this.state === 'live') this.receive(values); });
         if (reason === 'AUTH_EXPIRED') await withTimeout(s => this.deps.refreshAuth?.(s) ?? Promise.resolve(), 120000, signal);
-        await withTimeout(s => transport.connect(s), this.deps.connectTimeoutMs ?? 15000, signal);
+        await withTimeout(s => activeTransport.connect(s), this.deps.connectTimeoutMs ?? 15000, signal);
         signal.throwIfAborted();
-        transport.sendSubscribe([...this.subscriptions.values()].map(sub => sub.key));
+        activeTransport.sendSubscribe([...this.subscriptions.values()].map(sub => sub.key));
         liveAt = this.deps.clock(); this.lastMessage = liveAt; this.quietSince = undefined;
         this.emit('live'); this.opened?.(); this.opened = undefined;
         if (outage !== undefined) this.repair(outage, liveAt, signal);
         reason = await closed;
       } catch (error) {
         if (this.cancelled(signal)) break;
-        reason = error instanceof Error ? error.message : 'PROVIDER_DOWN';
-        this.deps.log('feed connection failed', error);
-      } finally { this.transport = undefined; transport.close(); }
+        reason = error instanceof KiteLoginError ? 'AUTH_EXPIRED' : error instanceof Error ? error.message : 'PROVIDER_DOWN';
+        const summary = error instanceof KiteLoginError
+          ? { name: error.name, stage: error.stage, message: error.message }
+          : { name: error instanceof Error ? error.name : 'UNKNOWN' };
+        this.deps.log('feed connection failed', summary);
+      } finally { this.transport = undefined; transport?.close(); }
       if (this.cancelled(signal)) break;
       if (liveAt !== undefined && this.deps.clock() - liveAt >= 60000) attempt = 0;
       outage = liveAt === undefined ? outage ?? this.deps.clock() : this.deps.clock();
