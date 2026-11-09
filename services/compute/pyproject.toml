@@ -1,0 +1,56 @@
+[project]
+name = "aitrader-compute"
+version = "0.0.0"
+description = "Stateless compute APIs for AI Trader (SRD 10.2)."
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi==0.162.0",
+  "pydantic==2.14.1",
+  "numpy==2.5.4",
+  "uvicorn==0.54.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "httpx2==2.16.0",
+  "ruff==0.17.2",
+  "mypy==2.4.0",
+]
+
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/compute"]
+
+[tool.uv]
+# Releases at least 14 days old when this lock was made.
+exclude-newer = "2026-10-26T00:00:00Z"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF", "PL", "PT", "ANN", "S", "C4", "RET"]
+ignore = ["PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "ANN"]
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
