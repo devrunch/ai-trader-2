@@ -1,0 +1,22 @@
+classDiagram
+  class AlertJobsRegistration {
+    +onApplicationBootstrap() Promise<void>
+  }
+  class AlertsController {
+    +status() { configured: boolean; recipients: string[] }
+    +test() Promise<{ result: SendResult }>
+  }
+  class AlertsModule {
+  }
+  class DailyDataReport {
+    +run(signal?: AbortSignal) Promise<void>
+  }
+  class OpsWatch {
+    +run() Promise<void>
+  }
+  class ZerodhaReminder {
+    +run() Promise<void>
+  }
+  AlertJobsRegistration --> DailyDataReport
+  AlertJobsRegistration --> OpsWatch
+  AlertJobsRegistration --> ZerodhaReminder
