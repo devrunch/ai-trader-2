@@ -38,6 +38,7 @@ classDiagram
   }
   class CandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +latest1m(instrumentId: string, signal?: AbortSignal) Promise<number | null>
     +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
     +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
@@ -61,6 +62,7 @@ classDiagram
   }
   class DrizzleCandleStore {
     +earliest(instrumentId: string, daily: boolean, signal?: AbortSignal) Promise<number | null>
+    +latest1m(instrumentId: string, signal?: AbortSignal) Promise<number | null>
     +range1d(instrumentId: string, from: string, to: string, signal?: AbortSignal) Promise<Bar[]>
     +range1m(instrumentId: string, from: number, to: number, signal?: AbortSignal) Promise<Bar[]>
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
