@@ -7,7 +7,7 @@ const connectedSchema = z.object({ connected: z.literal(true), expiresAt: z.stri
 const disconnectedSchema = z.object({ connected: z.literal(false) });
 const nothing = z.unknown();
 
-export const adminKeys = {
+const adminKeys = {
   zerodha: ['admin', 'zerodha'] as const,
   feeds: ['admin', 'feeds'] as const,
   jobs: ['admin', 'jobs'] as const,

@@ -125,6 +125,9 @@ model {
     shared_ui = component 'ui' {
       description 'generated from code — do not edit'
     }
+    feat_admin = component 'admin' {
+      description 'generated from code — do not edit'
+    }
     feat_auth = component 'auth' {
       description 'generated from code — do not edit'
     }
@@ -142,6 +145,9 @@ model {
     description 'generated from code — do not edit'
   }
   aitrader.api.mod_admin_ops -[calls]-> aitrader.api.mod_auth 'imports'
+  aitrader.api.mod_admin_ops -[calls]-> aitrader.api.mod_instruments 'imports'
+  aitrader.api.mod_admin_ops -[calls]-> aitrader.api.mod_market_data 'imports'
+  aitrader.api.mod_admin_ops -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_admin_ops.api -[calls]-> aitrader.api.mod_admin_ops.app 'imports'
   aitrader.api.mod_auth.api -[calls]-> aitrader.api.mod_auth.app 'imports'
   aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
@@ -173,6 +179,8 @@ model {
   aitrader.api.shared_jobs -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_redis -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_vendors.shared_vendors_kite -[calls]-> pkg_resilience 'imports'
+  aitrader.web.feat_admin -[calls]-> aitrader.web.shared_api 'imports'
+  aitrader.web.feat_admin -[calls]-> aitrader.web.shared_ui 'imports'
   aitrader.web.feat_auth -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_state 'imports'

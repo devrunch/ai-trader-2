@@ -1,6 +1,36 @@
 classDiagram
   class AdminOpsModule {
   }
+  class OpsController {
+    +feeds() Promise<OpsFeeds>
+    +instruments() Promise<OpsInstruments>
+    +jobs() Promise<OpsJobs>
+    +refreshInstruments() Promise<void>
+    +runJob(name: string) Promise<void>
+  }
+  class OpsOverview {
+    +feeds() Promise<OpsFeeds>
+    +instruments() Promise<OpsInstruments>
+    +jobs() Promise<OpsJobs>
+    +refreshInstruments() Promise<void>
+    +runJob(name: string) Promise<boolean>
+  }
+  class OpsPorts {
+    +feedStates: { get(vendor: FeedVendor): Promise<Omit<FeedState, 'vendor'>> }
+    +jobs: {
+    list(): Array<{ name: string; cron: string; tz: string; next: string | null }>;
+    lastRun(name: string): Promise<{ at: string; outcome: 'ok' | 'failed' | 'skipped' } | null>;
+    has(name: string): boolean;
+    runNow(name: string): Promise<void>;
+  }
+    +leadership: {
+    leader(): Promise<OpsFeeds['leader']>;
+    subscriptions(): Promise<OpsFeeds['subscriptions']>;
+  }
+    +sources: {
+    list(): Promise<Array<{ source: string; status: string; reason: string | null; count: number; lastSuccessAt: string | null }>>;
+  }
+  }
   class ZerodhaConnect {
     +autoLogin() Promise<{ connected: true; expiresAt: string }>
     +connect(requestToken: string) Promise<{ connected: true; expiresAt: string }>
@@ -20,4 +50,6 @@ classDiagram
     +loginUrl: string
     +redirectUrl: string | null
   }
+  OpsController --> OpsOverview
+  OpsOverview --> OpsPorts
   ZerodhaController --> ZerodhaConnect
