@@ -14,31 +14,32 @@ subgraph 8["shared"]
 A["apps/api/src/shared/database"]
 B["apps/api/src/shared/errors"]
 C["apps/api/src/shared/health"]
-D["apps/api/src/shared/jobs"]
-E["apps/api/src/shared/observability"]
-F["apps/api/src/shared/redis"]
-G["apps/api/src/shared/vendors"]
+D["apps/api/src/shared/http"]
+E["apps/api/src/shared/jobs"]
+F["apps/api/src/shared/observability"]
+G["apps/api/src/shared/redis"]
+H["apps/api/src/shared/vendors"]
 end
 end
 end
-subgraph H["web"]
-subgraph I["src"]
-J["apps/web/src/app"]
-subgraph K["features"]
-L["apps/web/src/features/symbol-search"]
+subgraph I["web"]
+subgraph J["src"]
+K["apps/web/src/app"]
+subgraph L["features"]
+M["apps/web/src/features/symbol-search"]
 end
-subgraph M["shared"]
-N["apps/web/src/shared/api"]
-O["apps/web/src/shared/live"]
-P["apps/web/src/shared/state"]
-Q["apps/web/src/shared/ui"]
-end
-end
+subgraph N["shared"]
+O["apps/web/src/shared/api"]
+P["apps/web/src/shared/live"]
+Q["apps/web/src/shared/state"]
+R["apps/web/src/shared/ui"]
 end
 end
-subgraph R["packages"]
-S["packages/contracts"]
-T["packages/resilience"]
+end
+end
+subgraph S["packages"]
+T["packages/contracts"]
+U["packages/resilience"]
 end
 3-->5
 3-->6
@@ -46,40 +47,43 @@ end
 3-->9
 3-->A
 3-->B
-3-->D
 3-->E
 3-->F
 3-->G
+3-->H
 5-->C
 6-->A
 6-->C
+6-->E
 6-->D
 6-->B
 7-->9
 7-->A
 7-->C
 7-->D
-7-->F
+7-->E
 7-->G
+7-->H
 7-->6
 7-->B
 A-->9
 A-->C
 A-->B
-D-->9
+D-->B
 E-->9
-F-->B
 F-->9
-F-->C
 G-->B
 G-->9
-G-->A
 G-->C
-G-->D
-J-->Q
-J-->N
-J-->P
-J-->L
-L-->Q
-L-->N
-L-->P
+H-->B
+H-->9
+H-->A
+H-->C
+H-->E
+K-->R
+K-->O
+K-->Q
+K-->M
+M-->R
+M-->O
+M-->Q

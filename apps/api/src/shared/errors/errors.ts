@@ -32,3 +32,8 @@ export class UnavailableError extends DomainError {
   readonly code = 'UNAVAILABLE';
   readonly httpStatus = 503;
 }
+
+export class ProviderDownError extends DomainError {
+  readonly code = 'PROVIDER_DOWN';
+  readonly httpStatus = 503;
+}

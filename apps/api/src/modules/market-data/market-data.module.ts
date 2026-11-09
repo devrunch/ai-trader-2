@@ -7,7 +7,11 @@ import { KiteModule, KiteSessionService } from '../../shared/vendors/kite';
 import { InstrumentHistory } from '../instruments/application/index';
 import { JobScheduler } from '../../shared/jobs';
 import { ReadinessRegistry, type ReadinessResult } from '../../shared/health';
-import { ReadBars } from './application';
+import { IpRateLimitGuard } from '../../shared/http';
+import { ResolveInstrument } from '../instruments/application/index';
+import { GetQuote, MarketDataService, ReadBars } from './application';
+import { MarketDataController } from './api/market-data.controller';
+import { RedisFeedStateStore } from './infrastructure/feed-state.store';
 import { DrizzleCandleStore } from './infrastructure/drizzle-candle-store';
 import { RedisFormingBarStore } from './infrastructure/redis-forming-bar-store';
 import { PartitionJob } from './infrastructure/partition.job';
@@ -26,7 +30,14 @@ import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 
 @Module({
   imports: [KiteModule],
+  controllers: [MarketDataController],
   providers: [
+    { provide: IpRateLimitGuard, useFactory: () => new IpRateLimitGuard(60, 20) },
+    { provide: RedisFeedStateStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFeedStateStore(redis) },
+    { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
+      useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
+    { provide: GetQuote, inject: [MarketDataService, DrizzleCandleStore, RedisFormingBarStore],
+      useFactory: (market: MarketDataService, store: DrizzleCandleStore, forming: RedisFormingBarStore) => new GetQuote(market, store, forming) },
     { provide: DerivHistoryProvider, useFactory: () => new DerivHistoryProvider() },
     { provide: UsDelayedProvider, useFactory: () => new UsDelayedProvider() },
     { provide: UsDelayedFeed, inject: [UsDelayedProvider, InstrumentHistory],

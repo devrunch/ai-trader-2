@@ -1,6 +1,7 @@
+import type { ProviderReason } from '@aitrader/contracts';
 import type { Bar } from '../../domain/bar';
 
-export type ProviderReason = 'NO_DATA' | 'MARKET_CLOSED' | 'UNSUPPORTED' | 'RATE_LIMITED' | 'PROVIDER_DOWN' | 'AUTH_EXPIRED';
+export type { ProviderReason };
 export type ProviderResult<T> = { ok: true; data: T } | { ok: false; reason: ProviderReason; detail?: string; retryAfterMs?: number };
 export interface MarketDataProvider {
   readonly name: 'kite' | 'deriv' | 'us-delayed';
