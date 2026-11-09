@@ -17,7 +17,7 @@ sequenceDiagram
   M->>G: scripts/task/start.sh <id> <slug>  (branch task/<id>-<slug> from main, brief from template)
   M->>M: fill docs/tasks/<id>.md from the phase plan
   M->>C: scripts/task/codex.sh <id>  (brief on stdin, no sandbox)
-  C->>C: TDD: tests fail, implement, tests pass, pnpm check, pnpm diagrams
+  C->>C: TDD: tests fail, implement, tests pass, pnpm check:code (architecture/ is left to the manager)
   C-->>M: docs/tasks/<id>.result.md
   M->>M: review (checklist below)
   alt changes needed (at most 2 rounds)
@@ -41,7 +41,7 @@ sequenceDiagram
 6. **Resilience:** timeouts, cancellation, shared retry and breaker helpers, idempotency, a degraded state that's visible.
 7. **Errors:** codes come from contracts, the body shape is right, no leaks.
 8. **Web:** no fetch outside `shared/api`, no ticks in React state, components ≤ 250 lines, theme tokens only.
-9. **Diagrams:** the feature README is updated; `pnpm diagrams:check` passes.
+9. **Diagrams:** the manager regenerates `architecture/` and writes the feature README at merge time (`finish.sh`); `pnpm diagrams:check` passes.
 10. **Hygiene:** exact versions, no secrets, no commented-out code, no history-narrating comments.
 11. **Verified by the manager:** the manager reruns `pnpm check` and doesn't rely on the result file's claim.
 

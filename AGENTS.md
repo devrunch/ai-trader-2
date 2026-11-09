@@ -77,10 +77,12 @@ R-1 to R-8 and R-12 are enforced by `pnpm depcruise`, `pnpm knip` and ESLint. A 
 
 ## 7. Diagrams (`architecture/`)
 
-- **Each task** that adds or changes a module or feature updates `architecture/features/<feature>/README.md`: its purpose, SRD IDs, and Mermaid sequence or state diagrams for the flows it touches.
-- **Then run `pnpm diagrams`.** It regenerates `classes.mmd`, the dependency graph and the knip and jscpd reports; commit what it changes. `pnpm diagrams:check` fails if they are stale.
-- **The manager** owns the LikeC4 model in `architecture/model/`; propose changes under Follow-ups.
+- **The manager owns `architecture/`:** the generated reports, the feature READMEs and the LikeC4 model. Don't edit or regenerate anything there, and don't run `pnpm diagrams`. The manager regenerates at merge time.
+- **Put design notes under Follow-ups** in the result file (new flows, states, module purpose); the manager writes them into the README.
+- **Declare return types** on public methods of exported classes. Generated class diagrams must not depend on inference.
 
-## 8. Done means
+## 8. Speed and done means
 
-`pnpm check` exits 0. That runs lint, typecheck, tests with coverage floors, dependency rules, knip, jscpd, `diagrams:check` and the build. The result file is written, and the brief's "Done when" list is all true.
+- **While working, run only what you touched:** `pnpm exec vitest run <files>`, the one integration spec (`pnpm --filter @aitrader/api test:int -- <spec>`), `pnpm lint`, `pnpm typecheck`, `pnpm depcruise`. Don't run the full check after every small fix.
+- **Run `pnpm check:code` once at the end** (lint, typecheck, tests with coverage floors, dependency rules, knip, jscpd and the build). Run it again only after fixing what it reported.
+- **Done means:** `pnpm check:code` exits 0, the result file is written, and the brief's "Done when" list is all true. `pnpm check`, which adds the diagram gates, is run by the manager.

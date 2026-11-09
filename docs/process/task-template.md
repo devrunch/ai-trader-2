@@ -23,7 +23,7 @@ Read `AGENTS.md` first. It's binding. Do only what this brief asks.
 ## Steps
 1. Write the tests above. Run them and confirm they FAIL; paste the failure tail into the result file.
 2. Implement.
-3. Run the tests, then `pnpm check`, then `pnpm diagrams`. All must pass.
+3. Run the tests you touched while working, then `pnpm check:code` once at the end. It must exit 0. Don't touch `architecture/`; put design notes under Follow-ups.
 4. Write `docs/tasks/<ID>.result.md` (AGENTS.md §0).
 
 ## Commands
