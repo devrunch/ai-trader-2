@@ -5,7 +5,7 @@ import type { Database } from '../../../shared/database';
 import { bars1d, bars1m } from '../../../shared/database/schema';
 import { UnavailableError, ValidationError } from '../../../shared/errors';
 import { InstrumentId } from '../../instruments/application/index';
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import { dateAt, localTime } from '../domain/calendars/time';
 import type { CandleStore } from '../application/ports/candle-store';
 import type { Bar } from '../domain/bar';
@@ -20,7 +20,7 @@ function dailyClock(instrumentId: string): { date: (time: number) => string; sta
   const id = InstrumentId.tryParse(instrumentId);
   if (!id) throw new ValidationError('Invalid instrument ID');
   let cal;
-  try { cal = calendarFor(id.exchange); } catch { throw new ValidationError('Unsupported exchange'); }
+  try { cal = calendarForInstrument(instrumentId); } catch { throw new ValidationError('Unsupported exchange'); }
   const fx = cal.id === 'FX' || cal.id === 'OANDA';
   return { date: time => dateAt(time, cal.timezone),
     start: date => fx ? localTime(date, '17:00', 'America/New_York') : localTime(date, '00:00', cal.timezone) };

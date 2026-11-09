@@ -1,5 +1,5 @@
 import { BarBuilder } from '../domain/bar-builder';
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import type { Bar } from '../domain/bar';
 import type { CandleStore } from './ports/candle-store';
 import type { FormingBarStore } from './ports/forming-bar-store';
@@ -32,7 +32,7 @@ export class LiveBars {
     const off = feed.onTick(tick => {
       let state = builders.get(tick.instrumentId);
       if (!state) {
-        const builder = new BarBuilder(calendarFor(tick.instrumentId.split(':')[0] ?? ''));
+        const builder = new BarBuilder(calendarForInstrument(tick.instrumentId));
         state = { builder, lastWrite: -Infinity, seq: null, restored: false, unwritten: new Map(), pending: Promise.resolve(), lastTickAt: -Infinity, lastCumVolume: null };
         builders.set(tick.instrumentId, state);
       }

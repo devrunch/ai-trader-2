@@ -1,2 +1,2 @@
 export type { MarketCalendar, SessionWindow } from './calendars/types';
-export { calendarFor, holidaysKnownThrough } from './calendars/factory';
+export { calendarFor, calendarForInstrument, holidaysKnownThrough } from './calendars/factory';

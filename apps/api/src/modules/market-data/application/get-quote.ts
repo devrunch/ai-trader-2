@@ -1,7 +1,6 @@
 import type { QuoteResponse } from '@aitrader/contracts';
 import { NotFoundError } from '../../../shared/errors';
-import { InstrumentId } from '../../instruments/application/index';
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import { addDaysToDate, dateAt } from '../domain/calendars/time';
 import type { MarketDataService } from './market-data.service';
 import type { CandleStore } from './ports/candle-store';
@@ -31,7 +30,7 @@ export class GetQuote {
   }
 
   private async previousClose(resolvedId: string, lastTime: number, signal: AbortSignal): Promise<number | null> {
-    const calendar = calendarFor(InstrumentId.parse(resolvedId).exchange);
+    const calendar = calendarForInstrument(resolvedId);
     let date = dateAt(lastTime, calendar.timezone);
     for (let i = 0; i < LOOKBACK_DAYS; i++) {
       date = addDaysToDate(date, -1);

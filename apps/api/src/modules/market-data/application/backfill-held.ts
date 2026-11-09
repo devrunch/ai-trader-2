@@ -1,4 +1,4 @@
-import { calendarFor } from '../domain/calendar';
+import { calendarForInstrument } from '../domain/calendar';
 import { addDaysToDate, dateAt } from '../domain/calendars/time';
 import type { FillHistory } from './fill-history';
 import type { HistoryInstruments } from './ports/history-instruments';
@@ -24,7 +24,7 @@ export class BackfillHeld {
   }
 
   private async fillInstrument(id: string, to: number, signal: AbortSignal): Promise<ProviderResult<Counts>> {
-    const cal = calendarFor(id.split(':')[0] ?? '');
+    const cal = calendarForInstrument(id);
     let date = dateAt(to, cal.timezone); let count = 0; let from = to;
     // Count completed sessions, including special trading dates, rather than weekdays.
     while (count < 5) {

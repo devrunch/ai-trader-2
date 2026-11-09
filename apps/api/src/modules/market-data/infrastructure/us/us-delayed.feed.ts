@@ -2,7 +2,7 @@ import { sleep, withTimeout } from '@aitrader/resilience';
 import type { FeedState, LiveFeed, Tick } from '../../application/ports/live-feed';
 import type { HistoryInstruments } from '../../application/ports/history-instruments';
 import type { MarketDataProvider } from '../../application/ports/market-data-provider';
-import { calendarFor } from '../../domain/calendar';
+import { calendarForInstrument } from '../../domain/calendar';
 
 interface Dependencies { provider: MarketDataProvider; instruments: HistoryInstruments; clock?: () => number }
 interface Subscription { symbol: string; count: number; lastClose: number }
@@ -49,7 +49,7 @@ export class UsDelayedFeed implements LiveFeed {
   private emit(state: FeedState, reason?: string): void { for (const cb of this.states) cb(state, reason); }
   private async poll(signal: AbortSignal): Promise<void> {
     try {
-      const open = [...this.subscriptions].filter(([id]) => calendarFor(id.split(':')[0] ?? '').isOpen(this.clock()));
+      const open = [...this.subscriptions].filter(([id]) => calendarForInstrument(id).isOpen(this.clock()));
       if (!open.length) return;
       const batch = Array.from({ length: Math.min(10, open.length) }, (_, index) => open[(this.cursor + index) % open.length]);
       this.cursor = (this.cursor + batch.length) % open.length;
@@ -58,7 +58,7 @@ export class UsDelayedFeed implements LiveFeed {
         if (!entry) continue;
         if (index) await sleep(1000, signal);
         const [id, sub] = entry;
-        if (this.subscriptions.get(id) !== sub || !calendarFor(id.split(':')[0] ?? '').isOpen(this.clock())) continue;
+        if (this.subscriptions.get(id) !== sub || !calendarForInstrument(id).isOpen(this.clock())) continue;
         const now = this.clock();
         const result = await withTimeout(abort => this.deps.provider.history({ providerSymbol: sub.symbol }, '1m', now - this.delayMs - 7 * 60000, now, abort), 15000, signal);
         if (!result.ok) { reason = result.reason; continue; }
