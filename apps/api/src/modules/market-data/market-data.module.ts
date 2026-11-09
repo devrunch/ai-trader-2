@@ -23,6 +23,8 @@ import { FillHistory } from './application/fill-history';
 import { BackfillHeld } from './application/backfill-held';
 import { MARKET_DATA_PROVIDERS, type MarketDataProvider } from './application/ports/market-data-provider';
 import { KiteHistoryProvider } from './infrastructure/kite/kite-history.provider';
+import { KitePreviousCloseSource } from './infrastructure/kite/kite-previous-close.source';
+import { RedisPreviousCloseStore } from './infrastructure/redis-previous-close.store';
 import { BackfillJob } from './infrastructure/backfill.job';
 import { LiveBars } from './application/live-bars';
 import { KiteTickerFeed } from './infrastructure/kite/kite-ticker.feed';
@@ -52,8 +54,14 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     { provide: RequestSubscription, inject: [RedisSubscriptionLeases], useFactory: (leases: RedisSubscriptionLeases) => new RequestSubscription(leases) },
     { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
       useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
-    { provide: GetQuote, inject: [MarketDataService, DrizzleCandleStore, RedisFormingBarStore],
-      useFactory: (market: MarketDataService, store: DrizzleCandleStore, forming: RedisFormingBarStore) => new GetQuote(market, store, forming) },
+    { provide: RedisPreviousCloseStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisPreviousCloseStore(redis) },
+    // Kite quote endpoints allow about 1 request a second; a separate bucket keeps history calls unaffected.
+    { provide: KitePreviousCloseSource, inject: [KiteSessionService, InstrumentHistory, REDIS, APP_CONFIG],
+      useFactory: (session: KiteSessionService, instruments: InstrumentHistory, redis: Redis, config: AppConfig) =>
+        new KitePreviousCloseSource(session, instruments, new RedisTokenBucket(redis, 'rl:kite:quote', 1, 1), config.ZERODHA_API_KEY ?? '') },
+    { provide: GetQuote, inject: [MarketDataService, DrizzleCandleStore, RedisFormingBarStore, RedisPreviousCloseStore, KitePreviousCloseSource],
+      useFactory: (market: MarketDataService, store: DrizzleCandleStore, forming: RedisFormingBarStore, prevCloses: RedisPreviousCloseStore, source: KitePreviousCloseSource) =>
+        new GetQuote(market, store, forming, { store: prevCloses, source }) },
     { provide: DerivHistoryProvider, useFactory: () => new DerivHistoryProvider() },
     { provide: UsDelayedProvider, useFactory: () => new UsDelayedProvider() },
     { provide: UsDelayedFeed, inject: [UsDelayedProvider, InstrumentHistory],
@@ -97,10 +105,10 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     { provide: ReadSeq, inject: [RedisBarSequenceStore], useFactory: (store: RedisBarSequenceStore) => new ReadSeq(store) },
     AggregateLiveBars,
     { provide: BarPublisherToken, useExisting: RedisBarPublisher },
-    { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore, BarPublisherToken],
-      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, publisher: BarPublisher) => {
+    { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore, BarPublisherToken, RedisPreviousCloseStore],
+      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, publisher: BarPublisher, prevCloses: RedisPreviousCloseStore) => {
         const logger = new Logger('LiveBars');
-        return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); } }, publisher);
+        return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); }, prevCloses }, publisher);
       } },
     { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, fill: FillHistory) => new ReadBars(store, forming, Date.now, fill) },

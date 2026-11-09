@@ -5,6 +5,8 @@ import type { CandleStore } from './ports/candle-store';
 import type { FormingBarStore } from './ports/forming-bar-store';
 import type { LiveFeed, Tick } from './ports/live-feed';
 import type { BarPublisher } from './ports/bar-publisher';
+import type { PreviousCloseStore } from './ports/previous-close';
+import { dateAt } from '../domain/calendars/time';
 
 interface BuilderState {
   builder: BarBuilder;
@@ -18,13 +20,28 @@ interface BuilderState {
   lastTickAt: number;
   lastCumVolume: number | null;
 }
-interface Options { clock: () => number; log: (reason: string, error: unknown) => void; canPersist?: () => Promise<boolean> }
+interface Options { clock: () => number; log: (reason: string, error: unknown) => void; canPersist?: () => Promise<boolean>; prevCloses?: PreviousCloseStore }
 export class LiveBars {
   private readonly attached = new Set<{ feed: LiveFeed; builders: Map<string, BuilderState> }>();
   private canPersist: (() => Promise<boolean>) | undefined;
   constructor(private readonly candles: CandleStore, private readonly forming: FormingBarStore, private readonly deps: Options,
     private readonly publisher?: BarPublisher) { this.canPersist = deps.canPersist; }
   setPersistenceFence(check: () => Promise<boolean>): void { this.canPersist = check; }
+  private readonly savedPrevClose = new Map<string, string>();
+  /** Kite's official previous close, saved once per instrument and trading day (quotes prefer it over bars). */
+  private savePrevClose(instrumentId: string, close: number, at: number): void {
+    const store = this.deps.prevCloses;
+    if (!store) return;
+    let forDate: string;
+    try { forDate = dateAt(at, calendarForInstrument(instrumentId).timezone); } catch { return; }
+    const key = `${String(close)}|${forDate}`;
+    if (this.savedPrevClose.get(instrumentId) === key) return;
+    this.savedPrevClose.set(instrumentId, key);
+    void (async () => {
+      if (this.canPersist && !(await this.canPersist())) { this.savedPrevClose.delete(instrumentId); return; }
+      await store.set(instrumentId, close, forDate);
+    })().catch((error: unknown) => { this.savedPrevClose.delete(instrumentId); this.deps.log('previous close save failed', error); });
+  }
 
   attach(feed: LiveFeed): () => void {
     const builders = new Map<string, BuilderState>();
@@ -37,6 +54,7 @@ export class LiveBars {
         builders.set(tick.instrumentId, state);
       }
       const current = state;
+      if (tick.prevClose !== undefined) this.savePrevClose(tick.instrumentId, tick.prevClose, tick.at);
       this.enqueue(current, () => this.consume(tick, current, feed.name));
     });
     const sweep = setInterval(() => {
