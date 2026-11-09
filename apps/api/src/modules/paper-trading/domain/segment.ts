@@ -1,6 +1,6 @@
-import type { PaperProduct } from '@aitrader/contracts';
+import type { PaperProduct, PaperSegment } from '@aitrader/contracts';
 
-export type Segment = 'equity' | 'futures' | 'options';
+export type Segment = PaperSegment;
 
 /** The subset of an instrument master row that paper trading needs. */
 export interface TradableInstrument {

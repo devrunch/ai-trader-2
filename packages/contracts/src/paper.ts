@@ -8,6 +8,8 @@ export type PaperOrderType = (typeof PAPER_ORDER_TYPES)[number];
 /** MIS intraday (squared off before the close), CNC equity delivery, NRML derivatives carry-forward. */
 export const PAPER_PRODUCTS = ['MIS', 'CNC', 'NRML'] as const;
 export type PaperProduct = (typeof PAPER_PRODUCTS)[number];
+export const PAPER_SEGMENTS = ['equity', 'futures', 'options'] as const;
+export type PaperSegment = (typeof PAPER_SEGMENTS)[number];
 export const PAPER_ORDER_STATUSES = ['open', 'filled', 'cancelled', 'rejected', 'expired'] as const;
 export type PaperOrderStatus = (typeof PAPER_ORDER_STATUSES)[number];
 export const PAPER_REJECT_REASONS = [

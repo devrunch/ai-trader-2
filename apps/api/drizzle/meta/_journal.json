@@ -50,6 +50,13 @@
       "when": 1794221000000,
       "tag": "0006_kite_captcha_lock",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0010_paper_trading",
+      "breakpoints": true
     }
   ]
 }
