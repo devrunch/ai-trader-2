@@ -41,6 +41,11 @@ describe('FR-MD-2 NFR-RB-4 NFR-PF-2 Q5 candle storage', () => {
       expect(await write('NSE:TEST', [bar('2026-11-09T03:45:00Z')], 'test')).toEqual({ written: 0, repaired: 0 });
     }
   });
+  it('latest1m returns the newest stored minute, or null (E7)', async () => {
+    expect(await store.latest1m('NSE:EMPTY')).toBeNull();
+    await store.upsert1m('NSE:LATEST', [bar('2026-11-09T03:45:00Z'), bar('2026-11-09T07:35:00Z'), bar('2026-11-09T05:00:00Z')], 'test');
+    expect(await store.latest1m('NSE:LATEST')).toBe(Date.parse('2026-11-09T07:35:00Z'));
+  });
   it('a changed vendor bar marks repaired', async () => {
     await store.upsert1m('NSE:TEST', [bar('2026-11-09T03:45:00Z')], 'test');
     expect(await store.upsert1m('NSE:TEST', [bar('2026-11-09T03:45:00Z', 11)], 'test')).toEqual({ written: 1, repaired: 1 });

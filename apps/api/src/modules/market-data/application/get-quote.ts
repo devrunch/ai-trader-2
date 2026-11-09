@@ -40,7 +40,8 @@ export class GetQuote {
       const final = sessions.at(-1);
       if (!first || !final) continue;
       const bars = await this.store.range1m(resolvedId, first.open, final.close, signal);
-      return bars.at(-1)?.close ?? null;
+      const close = bars.at(-1)?.close;
+      if (close !== undefined) return close; // a session with no stored bars (not yet backfilled) is skipped
     }
     return null;
   }

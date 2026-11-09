@@ -3,6 +3,7 @@ import { InstrumentId } from '../../instruments/application/index';
 import { aggregate } from '../domain/aggregate';
 import { calendarFor } from '../domain/calendar';
 import { bucketStart } from '../domain/grid';
+import { tailGap } from '../domain/tail-gap';
 import { dateAt, periodStart } from '../domain/calendars/time';
 import { intervalMinutes, type Interval } from '../domain/interval';
 import type { Bar } from '../domain/bar';
@@ -18,17 +19,25 @@ export interface BarsPage {
   status: { ok: true } | { ok: false; reason: ProviderReason; detail?: string };
 }
 const day = 86400000;
+const TAIL_COOLDOWN_MS = 60_000;
 const date = (time: number) => new Date(time).toISOString().slice(0, 10);
 
 export class ReadBars {
+  private readonly tailCheckedAt = new Map<string, number>();
+  /** Tail ends the vendor had nothing for (e.g. the closing-auction minutes); not asked again until new minutes are due. */
+  private readonly tailSettled = new Map<string, number>();
   constructor(private readonly store: CandleStore, private readonly forming: FormingBarStore,
     private readonly clock: () => number = Date.now, private readonly fill?: Pick<FillHistory, 'execute'>) {}
 
   async execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number,
     signal: AbortSignal = new AbortController().signal): Promise<BarsPage | Extract<ProviderResult<never>, { ok: false }>> {
     signal.throwIfAborted();
+    const tail = 'before' in cursor ? null : await this.fillTail(instrumentId, interval, signal);
     const first = await this.read(instrumentId, interval, cursor, limit, signal);
-    if (first.page.complete) return first.page.bars.length ? first.page : { ok: false, reason: 'NO_DATA' };
+    if (first.page.complete) {
+      if (!first.page.bars.length) return { ok: false, reason: 'NO_DATA' };
+      return tail ? { ...first.page, status: { ok: false, reason: tail.reason, ...(tail.detail === undefined ? {} : { detail: tail.detail }) } } : first.page;
+    }
     const res = intervalMinutes(interval) === null ? '1d' : '1m';
     const earliest = await this.store.earliest(instrumentId, res === '1d', signal);
     const to = earliest === null ? first.end : Math.min(first.end, earliest);
@@ -38,6 +47,27 @@ export class ReadBars {
     if (!result.ok) return page.bars.length ? { ...page, status: { ok: false, reason: result.reason,
       ...(result.detail === undefined ? {} : { detail: result.detail }) } } : result;
     return page.bars.length ? page : { ok: false, reason: 'NO_DATA' };
+  }
+
+  /**
+   * Repairs minutes missing after the newest stored bar (a feed outage, a process restart) before reading,
+   * so the newest page never shows a hole. At most once a minute per instrument.
+   */
+  private async fillTail(instrumentId: string, interval: Interval, signal: AbortSignal): Promise<Extract<ProviderResult<unknown>, { ok: false }> | null> {
+    if (!this.fill || intervalMinutes(interval) === null) return null;
+    const id = InstrumentId.tryParse(instrumentId);
+    if (!id) return null;
+    let cal;
+    try { cal = calendarFor(id.exchange); } catch { return null; }
+    const now = this.clock();
+    if (now - (this.tailCheckedAt.get(instrumentId) ?? -Infinity) < TAIL_COOLDOWN_MS) return null;
+    this.tailCheckedAt.set(instrumentId, now);
+    const gap = tailGap(cal, (await this.store.latest1m(instrumentId, signal)) ?? undefined, now);
+    if (!gap || this.tailSettled.get(instrumentId) === gap.to) return null;
+    const result = await this.fill.execute(instrumentId, '1m', gap.from, gap.to, signal);
+    const empty = result.ok ? result.data.written === 0 : result.reason === 'NO_DATA';
+    if (empty) this.tailSettled.set(instrumentId, gap.to);
+    return result.ok || empty ? null : result;
   }
 
   // Widen from a session-size estimate until enough buckets or the persisted boundary is reached.

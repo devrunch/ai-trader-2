@@ -2,7 +2,12 @@ import { expect, it } from 'vitest';
 import { MarketDataService } from './market-data.service';
 import { marketFixture, quoteBar } from './market-data.spec-helper';
 
-function fixture(id?: string) { const f = marketFixture(id); return { ...f, service: new MarketDataService(f.resolve, f.read, f.feeds) }; }
+// Clocks inside each market's session, so status reflects the feed rather than the hour.
+const NSE_OPEN = Date.parse('2026-11-09T11:00:00+05:30');
+const US_OPEN = Date.parse('2026-11-09T11:00:00-05:00');
+function fixture(id?: string, now = id?.startsWith('NASDAQ') ? US_OPEN : NSE_OPEN) {
+  const f = marketFixture(id); return { ...f, service: new MarketDataService(f.resolve, f.read, f.feeds, () => now) };
+}
 it('continuous id reads the resolved contract and reports resolvedId (FR-SY-5, FR-CH-5)', async () => {
   const f = fixture('MCX:GOLD27JANFUT');
   const result = await f.service.bars('MCX:GOLD1!', '1', { before: 100 }, 42);
@@ -33,4 +38,13 @@ it('market closed with no bars returns 200 empty with reason (FR-MD-1)', async (
 it.each([['PROVIDER_DOWN', 503, 'PROVIDER_DOWN'], ['RATE_LIMITED', 429, 'RATE_LIMITED'], ['UNSUPPORTED', 422, 'VALIDATION_FAILED']] as const)('maps %s to a typed error (FR-MD-1)', async (reason, httpStatus, code) => {
   const f = fixture(); f.read.execute.mockResolvedValue({ ok: false, reason, retryAfterMs: 2000 });
   await expect(f.service.bars('NSE:TEST', '1', { latest: true }, 500)).rejects.toMatchObject({ httpStatus, code, details: { reason } });
+});
+it('outside market hours a live feed reports market closed (FR-UI-7)', async () => {
+  const f = fixture('NSE:TEST', Date.parse('2026-11-09T18:00:00+05:30'));
+  expect((await f.service.bars('NSE:TEST', '5', { latest: true }, 500)).status).toEqual({ state: 'stale', reason: 'MARKET_CLOSED' });
+});
+it('a worse reason wins over market closed (FR-UI-7)', async () => {
+  const f = fixture('NSE:TEST', Date.parse('2026-11-09T18:00:00+05:30'));
+  f.feeds.get.mockResolvedValue({ state: 'stale', reason: 'AUTH_EXPIRED', at: 1 });
+  expect((await f.service.bars('NSE:TEST', '5', { latest: true }, 500)).status).toMatchObject({ state: 'stale', reason: 'AUTH_EXPIRED' });
 });

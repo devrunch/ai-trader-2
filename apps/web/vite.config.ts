@@ -6,7 +6,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [tailwindcss(), react(), babel({ presets: [reactCompilerPreset()] })],
-  server: { proxy: { '/api': 'http://localhost:8000' } },
+  server: { proxy: { '/api': { target: 'http://localhost:8000', ws: true } } }, // ws: the live socket upgrades through the proxy
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }, conditions: ['source', 'module', 'browser', 'development|production'] },
   test: {
     name: 'web',
