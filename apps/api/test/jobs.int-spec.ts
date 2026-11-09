@@ -107,6 +107,17 @@ describe('durable jobs', () => {
     await scheduler().register(job); await delay(100);
     expect(run).toHaveBeenCalledTimes(1);
   });
+  it('lists registered jobs with their next run and knows which names exist', async () => {
+    const instance = scheduler();
+    const job = spec(vi.fn<JobSpec['run']>().mockResolvedValue(undefined));
+    await instance.register(job);
+    expect(instance.has(job.name)).toBe(true);
+    expect(instance.has('missing-job')).toBe(false);
+    const listed = instance.list().find((item) => item.name === job.name);
+    expect(listed).toMatchObject({ name: job.name, cron: job.cron, tz: job.tz });
+    expect(listed?.next).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it('reads legacy run records with a null scheduled occurrence', async () => {
     const job = spec(async () => {}); const instance = scheduler();
     await redis.set(`jobs:${job.name}:last`, JSON.stringify({ at: '2020-01-01T00:00:00Z', outcome: 'ok' }));

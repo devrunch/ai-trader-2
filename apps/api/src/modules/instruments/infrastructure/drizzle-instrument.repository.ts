@@ -1,11 +1,11 @@
-import { and, desc, eq, getTableColumns, gte, inArray, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte, inArray, lt, ne, or, sql } from 'drizzle-orm';
 import { withTimeout } from '@aitrader/resilience';
 import { z } from 'zod';
 import type { Database } from '../../../shared/database/index.js';
 import { ConflictError, DomainError, UnavailableError } from '../../../shared/errors/index.js';
 import { instruments, instrumentMappings, instrumentChanges, instrumentSourceStatus } from '../../../shared/database/schema/index.js';
 import { InstrumentId, type Instrument, type InstrumentChange } from '../domain/index.js';
-import type { InstrumentRepository } from '../application/ports/instrument-repository.js';
+import type { InstrumentRepository, SourceStatusRow } from '../application/ports/instrument-repository.js';
 import type { ProviderMapping, SourceSnapshot } from '../application/ports/instrument-source.js';
 
 const rowSchema = z.object({
@@ -136,6 +136,11 @@ export class DrizzleInstrumentRepository implements InstrumentRepository {
       ...(s.status === 'ok' ? { lastSuccessAt: s.at, instrumentCount: s.count ?? 0 } : {}) };
     await this.read(() => this.db.insert(instrumentSourceStatus).values({ source, ...fields })
       .onConflictDoUpdate({ target: instrumentSourceStatus.source, set: fields }), signal);
+  }
+  async listSourceStatus(signal?: AbortSignal): Promise<SourceStatusRow[]> {
+    const rows = await this.read(() => this.db.select().from(instrumentSourceStatus).orderBy(asc(instrumentSourceStatus.source)), signal);
+    return rows.map(row => ({ source: row.source, status: row.status, reason: row.reason, count: row.instrumentCount,
+      lastSuccessAt: row.lastSuccessAt === null ? null : new Date(row.lastSuccessAt).toISOString() }));
   }
   async purgeExpired(before: string, signal?: AbortSignal): Promise<number> {
     const result = await this.read(() => this.db.delete(instruments).where(and(eq(instruments.status, 'expired'),

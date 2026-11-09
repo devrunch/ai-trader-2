@@ -12,6 +12,8 @@ import { ResolveInstrument } from '../instruments/application/index';
 import { GetQuote, MarketDataService, ReadBars } from './application';
 import { MarketDataController } from './api/market-data.controller';
 import { RedisFeedStateStore } from './infrastructure/feed-state.store';
+import { RedisFeedLeadership } from './infrastructure/process/redis-feed-leadership';
+import { GetFeedOverview } from './application/get-feed-overview';
 import { DrizzleCandleStore } from './infrastructure/drizzle-candle-store';
 import { RedisFormingBarStore } from './infrastructure/redis-forming-bar-store';
 import { PartitionJob } from './infrastructure/partition.job';
@@ -41,6 +43,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
   providers: [
     { provide: IpRateLimitGuard, useFactory: () => new IpRateLimitGuard(60, 20) },
     { provide: RedisFeedStateStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFeedStateStore(redis) },
+    { provide: GetFeedOverview, inject: [RedisFeedStateStore, REDIS], useFactory: (states: RedisFeedStateStore, redis: Redis) => new GetFeedOverview(states, new RedisFeedLeadership(redis)) },
     { provide: RequestSubscription, inject: [REDIS], useFactory: (redis: Redis) => new RequestSubscription(redis) },
     { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
       useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
@@ -99,7 +102,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq],
+  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, GetFeedOverview],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;

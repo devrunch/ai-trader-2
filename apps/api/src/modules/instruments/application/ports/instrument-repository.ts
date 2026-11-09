@@ -12,5 +12,8 @@ export interface InstrumentRepository {
   listContinuousCandidates(underlyingOrRoot: string, exchange: string): Promise<Instrument[]>;
   setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }): Promise<void>;
   purgeExpired(before: string): Promise<number>;
+  listSourceStatus(signal?: AbortSignal): Promise<SourceStatusRow[]>;
 }
 export const INSTRUMENT_REPOSITORY: symbol = Symbol('INSTRUMENT_REPOSITORY');
+
+export interface SourceStatusRow { source: string; status: string; reason: string | null; count: number; lastSuccessAt: string | null }

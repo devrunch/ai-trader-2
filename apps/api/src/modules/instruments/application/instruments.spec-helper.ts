@@ -20,7 +20,8 @@ export function repository() {
     listForIndex: vi.fn<InstrumentRepository['listForIndex']>().mockResolvedValue([]),
     listContinuousCandidates: vi.fn<InstrumentRepository['listContinuousCandidates']>().mockResolvedValue([]),
     setSourceStatus: vi.fn<InstrumentRepository['setSourceStatus']>().mockResolvedValue(undefined),
-    purgeExpired: vi.fn<InstrumentRepository['purgeExpired']>().mockResolvedValue(0) };
+    purgeExpired: vi.fn<InstrumentRepository['purgeExpired']>().mockResolvedValue(0),
+    listSourceStatus: vi.fn<InstrumentRepository['listSourceStatus']>().mockResolvedValue([]) };
 }
 export function index() {
   return { search: vi.fn<SearchIndex['search']>().mockReturnValue([]), rebuild: vi.fn<SearchIndex['rebuild']>(), suggest: vi.fn<SearchIndex['suggest']>().mockReturnValue([]) };
