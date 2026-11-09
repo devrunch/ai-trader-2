@@ -1,5 +1,5 @@
 import type { Redis } from 'ioredis';
-import { BarUpdateSchema } from '@aitrader/contracts';
+import { BarUpdateSchema, type BarUpdate } from '@aitrader/contracts';
 import { withTimeout } from '@aitrader/resilience';
 import type { BarSequenceStore } from '../application/ports/bar-sequence-store';
 
@@ -15,7 +15,7 @@ export class RedisBarSequenceStore implements BarSequenceStore {
       return seq;
     }, 3000);
   }
-  async updates(instrumentId: string) {
+  async updates(instrumentId: string): Promise<BarUpdate[]> {
     return withTimeout(async abort => {
       abort.throwIfAborted();
       const values = await this.redis.lrange(`md:bars:history:${instrumentId}`, 0, 299);
