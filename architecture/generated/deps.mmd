@@ -33,19 +33,20 @@ P["apps/web/src/features/admin"]
 Q["apps/web/src/features/auth"]
 R["apps/web/src/features/chart"]
 S["apps/web/src/features/symbol-search"]
+T["apps/web/src/features/terminal"]
 end
-subgraph T["shared"]
-U["apps/web/src/shared/api"]
-V["apps/web/src/shared/live"]
-W["apps/web/src/shared/state"]
-X["apps/web/src/shared/ui"]
+subgraph U["shared"]
+V["apps/web/src/shared/api"]
+W["apps/web/src/shared/live"]
+X["apps/web/src/shared/state"]
+Y["apps/web/src/shared/ui"]
 end
 end
 end
 end
-subgraph Y["packages"]
-Z["packages/contracts"]
-10["packages/resilience"]
+subgraph Z["packages"]
+10["packages/contracts"]
+11["packages/resilience"]
 end
 3-->5
 3-->6
@@ -107,21 +108,25 @@ K-->C
 K-->D
 K-->F
 K-->H
-N-->X
-N-->U
+N-->Y
+N-->V
 N-->P
-N-->W
+N-->X
 N-->Q
 N-->R
 N-->S
-P-->X
+N-->T
+P-->Y
 P-->Q
-P-->U
-Q-->U
-R-->V
-R-->U
+P-->V
+Q-->V
 R-->W
+R-->V
 R-->X
+R-->Y
+S-->Y
+S-->V
 S-->X
-S-->U
-S-->W
+T-->V
+T-->W
+T-->Y

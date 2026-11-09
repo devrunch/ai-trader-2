@@ -227,7 +227,7 @@ export class LiveClient {
   }
 
   private price(entry: Series, bar: Bar): void {
-    if (entry.instrumentId) this.deps.store.set(`price:${entry.instrumentId}`, bar.close);
+    this.deps.store.set(`price:${entry.symbol}`, bar.close); // keyed by the symbol the screen asked for
   }
 
   private async syncClock(): Promise<void> {

@@ -137,6 +137,9 @@ model {
     feat_symbol_search = component 'symbol-search' {
       description 'generated from code — do not edit'
     }
+    feat_terminal = component 'terminal' {
+      description 'generated from code — do not edit'
+    }
     app = component 'app' {
       description 'generated from code — do not edit'
     }
@@ -192,6 +195,9 @@ model {
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_state 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_ui 'imports'
+  aitrader.web.feat_terminal -[calls]-> aitrader.web.shared_api 'imports'
+  aitrader.web.feat_terminal -[calls]-> aitrader.web.shared_live 'imports'
+  aitrader.web.feat_terminal -[calls]-> aitrader.web.shared_ui 'imports'
   aitrader.web.shared_api -[calls]-> pkg_contracts 'imports'
   aitrader.web.shared_live -[calls]-> pkg_contracts 'imports'
   aitrader.web.shared_live -[calls]-> pkg_resilience 'imports'

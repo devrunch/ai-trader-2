@@ -3,7 +3,7 @@ import { LiveClient } from './live-client';
 import { LiveStore } from './live-store';
 
 /** Last prices by `price:<instrumentId>`; read with `useLiveValue(prices, key)`. */
-const prices = new LiveStore<number>();
+export const prices = new LiveStore<number>();
 
 let client: LiveClient | undefined;
 
