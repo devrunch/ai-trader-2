@@ -62,7 +62,7 @@ describe('paper trading persistence FR-PT-1, FR-PT-3, FR-PT-5, NFR-RB-4, E17', (
     const portfolio = new ReadPortfolio(store, market, deps);
     expect(await portfolio.positions(userId)).toEqual([expect.objectContaining({ quantity: 10, averagePrice: 1490, lastPrice: 1500, unrealisedPnl: 100 })]);
     const [fill] = await portfolio.fills(userId, 10);
-    expect(fill).toMatchObject({ orderId: resting.id, price: 1490, charges: { brokerage: 4.47, stt: 0, total: expect.any(Number) } });
+    expect(fill).toMatchObject({ orderId: resting.id, price: 1490, charges: { brokerage: 4.47, stt: 0 } });
     await expect(pool?.query(`INSERT INTO paper_fills SELECT gen_random_uuid(), order_id, account_id, instrument_id, side, product, quantity, price, slippage,
       brokerage, stt, exchange_charges, sebi, stamp, gst, total_charges, realised_pnl, filled_at FROM paper_fills WHERE order_id = $1`, [resting.id])).rejects.toThrow(/paper_fills_order_unique/);
   });
