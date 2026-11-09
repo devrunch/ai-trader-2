@@ -15,6 +15,7 @@ export const BarSchema = z.strictObject({
   time: z.number().int(), open: z.number(), high: z.number(), low: z.number(), close: z.number(),
   volume: z.number().nullable(), repaired: z.boolean().optional(),
 });
+export type Bar = z.infer<typeof BarSchema>;
 export const BarUpdateSchema = z.strictObject({
   instrumentId: z.string(), seq: z.number().int().positive(), kind: z.enum(['forming', 'closed']), bar: BarSchema, at: z.number().int(),
 });
