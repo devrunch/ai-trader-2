@@ -9,7 +9,7 @@ const recordSchema = z.object({
   at: z.number().int(),
 });
 
-const feedStateKey = (vendor: FeedVendor): string => `md:feed-state:${vendor}`;
+export const feedStateKey = (vendor: FeedVendor): string => `md:feed-state:${vendor}`;
 
 // A missing, malformed or unreadable record is 'unknown', never an error: status must not fail a read.
 export class RedisFeedStateStore implements FeedStateStore {

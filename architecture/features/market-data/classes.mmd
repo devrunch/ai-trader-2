@@ -56,8 +56,15 @@ classDiagram
     +upsert1d(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
     +upsert1m(instrumentId: string, bars: readonly Bar[], source: string, signal?: AbortSignal) Promise<{ written: number; repaired: number }>
   }
+  class FeedStatePublisher {
+    +publish(vendor: FeedVendor, state: FeedState, reason?: ProviderReason) Promise<void>
+  }
   class FeedStateStore {
     +get(vendor: FeedVendor, signal?: AbortSignal) Promise<FeedStateRecord>
+  }
+  class FeedSupervisor {
+    +start() Promise<void>
+    +stop() Promise<void>
   }
   class FeedTransport {
     +close() void
@@ -128,8 +135,14 @@ classDiagram
     +sendSubscribe(keys: readonly string[]) void
     +sendUnsubscribe(keys: readonly string[]) void
   }
+  class LeaderLock {
+    +acquireLoop(signal: AbortSignal, onAcquired: () => Promise<void>, onLost: () => Promise<void>) Promise<void>
+    +release() Promise<void>
+  }
   class LiveBars {
     +attach(feed: LiveFeed) () => void
+    +closeDue(now: number) Promise<void>
+    +setPersistenceFence(check: () => Promise<boolean>) void
   }
   class LiveFeed {
     +delayMs?: number
@@ -148,6 +161,8 @@ classDiagram
     +sessionContaining(at: number) SessionWindow | null
     +sessionsOn(date: string) SessionWindow[]
     +timezone: string
+  }
+  class MarketDataApiModule {
   }
   class MarketDataController {
     +bars(raw: unknown) Promise<{ instrumentId: string; resolvedId: string; interval: "1" | "3" | "5" | "15" | "30" | "60" | "240" | "1D" | "1W" | "1M"; bars: { time: number; open: number; high: number; low: number; close: number; volume: number | null; repaired?: boolean | undefined; }[]; nextBefore: number | null; status: { state: "ok"; } | { state: "delayed"; delayMs: number; } | { state: "stale"; reason: "RATE_LIMITED" | "MARKET_CLOSED" | "PROVIDER_DOWN" | "UNSUPPORTED" | "NO_DATA" | "AUTH_EXPIRED"; detail?: string | undefined; }; }>
@@ -182,6 +197,10 @@ classDiagram
     +get(instrumentId: string, signal?: AbortSignal) ReturnType<FormingBarStore['get']>
     +set(instrumentId: string, v: Parameters<FormingBarStore['set']>[1], signal?: AbortSignal) Promise<void>
   }
+  class RequestSubscription {
+    +acquire(instrumentId: string) Promise<void>
+    +release(instrumentId: string) Promise<void>
+  }
   class ResilientFeed {
     +name: 'kite' | 'deriv'
     +onState(listener: (s: FeedState, reason?: string) => void) () => void
@@ -212,6 +231,11 @@ classDiagram
     +add(token: string) number
     +groups() string[][]
     +remove(token: string) void
+  }
+  class SubscriptionRequests {
+    +close() void
+    +current() Promise<Map<string, number>>
+    +onChange(cb: (instrumentId: string, count: number) => void) () => void
   }
   class Tick {
     +at: number

@@ -20,4 +20,16 @@ export class InstrumentHistory {
     }
     return held;
   }
+
+  async heldForFeeds(signal: AbortSignal): Promise<string[]> {
+    const active = new Set((await this.repository.listForIndex(signal)).filter(i => i.status === 'active').map(i => String(i.id)));
+    const held: string[] = [];
+    for (const id of this.popular) {
+      if (!active.has(id)) continue;
+      for (const provider of ['kite', 'deriv', 'us-delayed'] as const) {
+        if (await this.repository.getMapping(id, provider, signal)) held.push(id);
+      }
+    }
+    return held;
+  }
 }

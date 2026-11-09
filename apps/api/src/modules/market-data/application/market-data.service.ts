@@ -3,16 +3,11 @@ import { ProviderDownError, RateLimitedError, ValidationError } from '../../../s
 import type { ResolveInstrument } from '../../instruments/application/index';
 import type { Interval } from '../domain/interval';
 import type { BarsCursor, BarsPage, ReadBars } from './read-bars';
-import type { FeedStateStore, FeedVendor } from './ports/feed-state-store';
+import type { FeedStateStore } from './ports/feed-state-store';
+import { vendorFor } from './vendor-for';
 
 const US_DELAY_MS = 15 * 60_000;
 const READ_TIMEOUT_MS = 25_000;
-const VENDOR_BY_EXCHANGE: Readonly<Record<string, FeedVendor>> = {
-  NSE: 'kite', BSE: 'kite', MCX: 'kite', NFO: 'kite',
-  FX: 'deriv', OANDA: 'deriv',
-  NASDAQ: 'us-delayed', NYSE: 'us-delayed', NYSEARCA: 'us-delayed', AMEX: 'us-delayed', CBOE: 'us-delayed', IEX: 'us-delayed',
-};
-
 type ReadFailure = Exclude<Awaited<ReturnType<ReadBars['execute']>>, BarsPage>;
 
 // Every instrument reads only from its own vendor (E3); status is always reported, never guessed.
@@ -23,7 +18,7 @@ export class MarketDataService {
   async bars(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number): Promise<BarsResponse> {
     const { instrument } = await this.resolve.execute(instrumentId);
     const resolvedId = instrument.id.toString();
-    const vendor = VENDOR_BY_EXCHANGE[instrument.exchange];
+    const vendor = vendorFor(resolvedId);
     const signal = AbortSignal.timeout(READ_TIMEOUT_MS);
     const [page, feed] = await Promise.all([
       this.read.execute(resolvedId, interval, cursor, limit, signal),

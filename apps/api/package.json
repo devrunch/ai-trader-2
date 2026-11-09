@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "nest build",
+    "start:md": "node dist/market-data.main.js",
     "typecheck": "tsc --noEmit",
     "test:int": "vitest run --config vitest.int.config.mts",
     "db:generate": "drizzle-kit generate",

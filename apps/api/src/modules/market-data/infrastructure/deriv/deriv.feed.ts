@@ -12,6 +12,11 @@ interface Dependencies {
   instruments: HistoryInstruments; fill: Pick<FillHistory, 'execute'>; store: CandleStore;
   log: (reason: string, error: unknown) => void;
 }
+export function isDerivWatchdogQuietWindow(at: number): boolean {
+  const date = new Date(at);
+  return date.getUTCDay() === 5 && date.getUTCHours() >= 20
+    && (date.getUTCHours() > 20 || date.getUTCMinutes() >= 50) && date.getUTCHours() < 22;
+}
 export class DerivFeed extends ResilientFeed {
   private readonly disconnect: () => void;
   constructor(deps: Dependencies) {
@@ -28,6 +33,7 @@ export class DerivFeed extends ResilientFeed {
         onMessage: cb => { socket.onMessage(cb); }, onClose: cb => { socket.onClose(cb); } };
     }, {
       clock, log: deps.log, ...(deps.watchdogMs === undefined ? {} : { watchdogMs: deps.watchdogMs }),
+      watchdogQuiet: isDerivWatchdogQuietWindow,
       isOpen: (id, at) => calendarFor(id.split(':')[0] ?? '').isOpen(at),
       resolveKey: async id => {
         const mapping = await withTimeout(signal => deps.instruments.getMapping(id, 'deriv', signal), 5000);

@@ -23,4 +23,13 @@ describe('FR-MD-1 FR-MD-2 instrument history routing', () => {
     expect(await new InstrumentHistory(repo, ['NSE:TEST', 'NSE:INACTIVE', 'NASDAQ:AAPL']).held(signal)).toEqual(['NSE:TEST']);
     expect(repo.getMapping).not.toHaveBeenCalledWith('NSE:INACTIVE', 'kite', signal);
   });
+  it('holds popular instruments mapped to any live feed vendor (FR-MD-5)', async () => {
+    const repo = repository(); const signal = new AbortController().signal;
+    repo.listForIndex.mockResolvedValue([instrument('NSE:TEST'), instrument('OANDA:XAUUSD'), instrument('NASDAQ:AAPL')]);
+    repo.getMapping.mockImplementation((id, provider) => Promise.resolve(
+      (id === 'NSE:TEST' && provider === 'kite') || (id === 'OANDA:XAUUSD' && provider === 'deriv')
+        || (id === 'NASDAQ:AAPL' && provider === 'us-delayed') ? { id, provider, providerSymbol: 'mapped' } : undefined));
+    expect(await new InstrumentHistory(repo, ['NSE:TEST', 'OANDA:XAUUSD', 'NASDAQ:AAPL']).heldForFeeds(signal))
+      .toEqual(['NSE:TEST', 'OANDA:XAUUSD', 'NASDAQ:AAPL']);
+  });
 });

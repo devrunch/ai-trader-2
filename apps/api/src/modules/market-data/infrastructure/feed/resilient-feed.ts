@@ -17,6 +17,7 @@ interface Dependencies {
   releaseKey?: (key: string) => void;
   backoff?: { baseMs: number; maxMs: number; random?: () => number };
   watchdogMs?: number;
+  watchdogQuiet?: (at: number) => boolean;
   graceMs?: number;
   connectTimeoutMs?: number;
   refreshAuth?: (signal: AbortSignal) => Promise<void>;
@@ -147,6 +148,7 @@ export class ResilientFeed implements LiveFeed {
   private checkSilence(): void {
     if (this.state !== 'live') return;
     const now = this.deps.clock();
+    if (this.deps.watchdogQuiet?.(now)) return;
     if (![...this.subscriptions.keys()].some(id => this.deps.isOpen(id, now))) { this.quietSince = now; return; }
     const since = Math.max(this.lastMessage, this.quietSince ?? this.lastMessage);
     if (now - since < (this.deps.watchdogMs ?? 30000)) return;

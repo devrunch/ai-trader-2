@@ -27,13 +27,14 @@ import { DerivFeed } from './infrastructure/deriv/deriv.feed';
 import { DerivHistoryProvider } from './infrastructure/deriv/deriv-history.provider';
 import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
 import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
+import { RequestSubscription } from './application/request-subscription';
 
 @Module({
   imports: [KiteModule],
-  controllers: [MarketDataController],
   providers: [
     { provide: IpRateLimitGuard, useFactory: () => new IpRateLimitGuard(60, 20) },
     { provide: RedisFeedStateStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFeedStateStore(redis) },
+    { provide: RequestSubscription, inject: [REDIS], useFactory: (redis: Redis) => new RequestSubscription(redis) },
     { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
       useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
     { provide: GetQuote, inject: [MarketDataService, DrizzleCandleStore, RedisFormingBarStore],
@@ -84,7 +85,7 @@ import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed],
+  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;
@@ -105,3 +106,5 @@ export class MarketDataModule {
   }
   async onModuleDestroy(): Promise<void> { await this.kite.stop(); this.detach?.(); this.detach = undefined; }
 }
+@Module({ imports: [MarketDataModule], controllers: [MarketDataController] })
+export class MarketDataApiModule {}

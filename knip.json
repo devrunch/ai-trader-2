@@ -6,7 +6,7 @@
       "project": ["*.{js,ts,cjs}", "tools/gates/*.{ts,mts}", "scripts/diagrams/**/*.{ts,mts}"]
     },
     "apps/api": {
-      "entry": ["src/main.ts", "**/*.config.*", "src/**/*.spec.ts", "test/**/*.int-spec.ts"],
+      "entry": ["src/main.ts", "src/market-data.main.ts", "**/*.config.*", "src/**/*.spec.ts", "test/**/*.int-spec.ts"],
       "project": ["src/**/*.ts", "*.mts", "test/**/*.ts"]
     },
     "apps/web": {

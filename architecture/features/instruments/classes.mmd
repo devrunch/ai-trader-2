@@ -49,6 +49,7 @@ classDiagram
   class InstrumentHistory {
     +getMapping(id: string, provider: ProviderMapping['provider'], signal: AbortSignal) Promise<{ volumeType: "real" | "tick" | "none"; id: string; provider: "kite" | "deriv" | "us-delayed"; providerSymbol: string; providerToken?: string; } | undefined>
     +held(signal: AbortSignal) Promise<string[]>
+    +heldForFeeds(signal: AbortSignal) Promise<string[]>
   }
   class InstrumentId {
     +equals(other: InstrumentId) boolean
@@ -69,6 +70,8 @@ classDiagram
     +loadSource(source: string) Promise<{ instruments: Instrument[]; mappings: ProviderMapping[] }>
     +purgeExpired(before: string) Promise<number>
     +setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }) Promise<void>
+  }
+  class InstrumentsApiModule {
   }
   class InstrumentsController {
     +resolveInstrument(id: string) Promise<{ instrument: { id: string; description: string; exchange: string; type: "stock" | "index" | "futures" | "option" | "forex" | "metal" | "commodity" | "etf" | "bond"; currency: string; status: "active" | "suspended" | "delisted" | "expired"; ticker: string; timezone: string; session: string; pricescale: number; minmov: number; lotSize: number; hasIntraday: boolean; volumeType: "real" | "tick" | "none"; aliases: string[]; expiry?: string | undefined; strike?: number | undefined; optionType?: "CE" | "PE" | undefined; underlying?: string | undefined; isin?: string | undefined; sector?: string | undefined; }; via?: "renamed" | "continuous"; resolvedFrom?: string; }>
