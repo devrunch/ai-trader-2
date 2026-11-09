@@ -190,4 +190,15 @@ describe('LiveClient (FR-LS-3/4, E7–E11, E14, FR-UI-8)', () => {
     socket.fire('bar', { subscriptionId: SUB_A, seq: 6, kind: 'forming', bar: bar(0, 12.5) });
     expect(store.set).toHaveBeenLastCalledWith('price:NSE:A', 12.5);
   });
+
+  it('older history merges into the shared series and reaches every chart', () => {
+    const { socket, client } = setup();
+    const h = handlers();
+    client.subscribe('NSE:A', '1', h);
+    socket.ack(0, { ok: true, subscriptionId: SUB_A });
+    snapshot(socket, SUB_A, 5, [bar(10), bar(11)]);
+    client.mergeHistory('NSE:A', '1', [bar(8), bar(9)]);
+    expect(h.onReset).toHaveBeenLastCalledWith([bar(8), bar(9), bar(10), bar(11)]);
+    client.mergeHistory('NSE:B', '1', [bar(1)]);
+  });
 });

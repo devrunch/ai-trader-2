@@ -1,0 +1,45 @@
+import { CandlestickSeries, ColorType, HistogramSeries, createChart, type Time, type UTCTimestamp } from 'lightweight-charts';
+import type { ChartColors, ChartLike } from './chart-adapter';
+
+const ts = (seconds: number): UTCTimestamp => seconds as UTCTimestamp;
+const seconds = (time: Time): number => (typeof time === 'number' ? time : 0);
+
+/** Binds Lightweight Charts 5 to ChartLike. Candles in pane 0, volume in its own pane below. Times shown in the exchange's zone. */
+export function createLwcChart(container: HTMLElement, timeZone: string): ChartLike {
+  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
+  const day = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short' });
+  const full = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const chart = createChart(container, {
+    autoSize: true,
+    localization: { timeFormatter: (time: Time) => full.format(seconds(time) * 1000) },
+    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 4,
+      tickMarkFormatter: (time: Time, type: number) => (type <= 2 ? day : clock).format(seconds(time) * 1000) },
+  });
+  const candles = chart.addSeries(CandlestickSeries, { borderVisible: false });
+  const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false }, 1);
+  chart.panes()[1]?.setHeight(90);
+
+  return {
+    candles: {
+      setData: points => { candles.setData(points.map(p => ({ ...p, time: ts(p.time) }))); },
+      update: point => { candles.update({ ...point, time: ts(point.time) }); },
+    },
+    volume: {
+      setData: points => { volume.setData(points.map(p => ({ ...p, time: ts(p.time) }))); },
+      update: point => { volume.update({ ...point, time: ts(point.time) }); },
+    },
+    onVisibleRange: cb => {
+      const listener = (range: { from: number } | null) => { cb(range ? range.from : null); };
+      chart.timeScale().subscribeVisibleLogicalRangeChange(listener);
+      return () => { chart.timeScale().unsubscribeVisibleLogicalRangeChange(listener); };
+    },
+    applyColors: (colors: ChartColors) => {
+      chart.applyOptions({
+        layout: { background: { type: ColorType.Solid, color: colors.background }, textColor: colors.text },
+        grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+      });
+      candles.applyOptions({ upColor: colors.up, downColor: colors.down, wickUpColor: colors.up, wickDownColor: colors.down });
+    },
+    remove: () => { chart.remove(); },
+  };
+}

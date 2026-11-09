@@ -97,6 +97,11 @@ export class LiveClient {
     };
   }
 
+  /** Older bars a chart paged in; merged into the shared series (no-op if nobody holds it). */
+  mergeHistory(symbol: string, interval: Interval, bars: readonly Bar[]): void {
+    this.series.get(`${symbol}|${interval}`)?.sync.mergeHistory(bars);
+  }
+
   private onConnect(): void {
     this.attempt = 0;
     setConnection({ state: 'live' });
