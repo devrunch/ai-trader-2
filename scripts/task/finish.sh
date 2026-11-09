@@ -16,7 +16,7 @@ else
 fi
 git add -A
 if ! git diff --cached --quiet; then
-  git commit -q --author "Codex <codex@users.noreply.local>" -m "$msg" -m "Reviewed-by: Claude (manager)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+  git commit -q --author "${AUTHOR:-Codex <codex@users.noreply.local>}" -m "$msg" -m "Reviewed-by: Claude (manager)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 fi
 [ "$(git rev-list --count main..HEAD)" -gt 0 ] || { echo "nothing to merge" >&2; exit 1; }
 git switch -q main
