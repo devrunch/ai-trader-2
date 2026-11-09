@@ -20,12 +20,14 @@ export const AppConfigSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   DATABASE_POOL_MAX: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).default(10),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
+  SESSION_SECRET: z.string().min(32).optional(),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ORIGINS: z.string()
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
     .pipe(z.array(httpOrigin)).default([]),
 }).superRefine((config, context) => {
   if (config.NODE_ENV !== 'production') return;
+  if (!config.SESSION_SECRET) context.addIssue({ code: 'custom', path: ['SESSION_SECRET'], message: 'required in production' });
   for (const key of ['ZERODHA_API_KEY', 'ZERODHA_API_SECRET', 'ZERODHA_USER_ID', 'ZERODHA_PASSWORD', 'ZERODHA_TOTP_SECRET'] as const) {
     if (!config[key]) context.addIssue({ code: 'custom', path: [key], message: 'required in production' });
   }

@@ -1,0 +1,101 @@
+classDiagram
+  class Argon2Hasher {
+    +hash(password: string, signal?: AbortSignal) Promise<string>
+    +verify(encoded: string, password: string, signal?: AbortSignal) Promise<boolean>
+    +verifyDummy(password: string, signal?: AbortSignal) Promise<void>
+  }
+  class AuthController {
+    +me(req: Request & { authUser?: { id: string; username: string; role: 'admin' | 'user' } }) { user: { id: string; username: string; role: "admin" | "user"; }; }
+    +signIn(input: unknown, req: Request, res: Response) Promise<{ user: { id: string; username: string; role: "admin" | "user"; }; }>
+    +signOut(req: Request, res: Response) Promise<void>
+  }
+  class AuthModule {
+  }
+  class AuthPersistenceModule {
+  }
+  class AuthRateLimitGuard {
+  }
+  class CreateAdmin {
+    +execute(username: string, password: string, signal?: AbortSignal) Promise<void>
+  }
+  class CsrfHeaderGuard {
+    +canActivate(context: ExecutionContext) boolean
+  }
+  class CurrentUser {
+    +execute(sessionId: string | undefined, signal?: AbortSignal) Promise<UserRecord | null>
+  }
+  class DrizzleUserRepository {
+    +findById(id: string, signal?: AbortSignal) Promise<User | null>
+    +findByUsername(username: string, signal?: AbortSignal) Promise<User | null>
+    +recordFailure(id: string, now: Date, signal?: AbortSignal) Promise<void>
+    +resetFailures(id: string, signal?: AbortSignal) Promise<void>
+    +upsertAdmin(username: string, passwordHash: string, signal?: AbortSignal) Promise<void>
+  }
+  class Login {
+    +execute(usernameInput: string, password: string, _ip: string, signal?: AbortSignal) Promise<{ user: UserRecord; sessionId: string }>
+    +sessionId() string
+  }
+  class LoginError {
+    +code: "UNAUTHORIZED"
+    +httpStatus: 401
+  }
+  class Logout {
+    +execute(sessionId: string | undefined, signal?: AbortSignal) Promise<void>
+  }
+  class PasswordHasher {
+    +hash(password: string, signal?: AbortSignal) Promise<string>
+    +verify(hash: string, password: string, signal?: AbortSignal) Promise<boolean>
+    +verifyDummy(password: string, signal?: AbortSignal) Promise<void>
+  }
+  class RedisSessionStore {
+    +create(session: Session, signal?: AbortSignal) Promise<string>
+    +delete(id: string, signal?: AbortSignal) Promise<void>
+    +get(id: string, signal?: AbortSignal) Promise<Session | null>
+  }
+  class RolesGuard {
+    +canActivate(context: ExecutionContext) boolean
+  }
+  class Session {
+    +createdAt: string
+    +role: UserRole
+    +userId: string
+  }
+  class SessionGuard {
+    +canActivate(context: ExecutionContext) Promise<boolean>
+  }
+  class SessionStore {
+    +create(session: Session, signal?: AbortSignal) Promise<string>
+    +delete(id: string, signal?: AbortSignal) Promise<void>
+    +get(id: string, signal?: AbortSignal) Promise<Session | null>
+  }
+  class User {
+    +disabled: boolean
+    +failedLogins: number
+    +id: string
+    +lockedUntil: Date | null
+    +passwordHash: string
+    +role: UserRole
+    +username: string
+  }
+  class UserRepository {
+    +findById(id: string, signal?: AbortSignal) Promise<User | null>
+    +findByUsername(username: string, signal?: AbortSignal) Promise<User | null>
+    +recordFailure(id: string, now: Date, signal?: AbortSignal) Promise<void>
+    +resetFailures(id: string, signal?: AbortSignal) Promise<void>
+    +upsertAdmin(username: string, passwordHash: string, signal?: AbortSignal) Promise<void>
+  }
+  AuthController --> CurrentUser
+  AuthController --> Login
+  AuthController --> Logout
+  CreateAdmin --> PasswordHasher
+  CreateAdmin --> UserRepository
+  CurrentUser --> SessionStore
+  CurrentUser --> UserRepository
+  Login --> PasswordHasher
+  Login --> SessionStore
+  Login --> UserRepository
+  Logout --> SessionStore
+  PasswordHasher <|.. Argon2Hasher
+  SessionGuard --> CurrentUser
+  SessionStore <|.. RedisSessionStore
+  UserRepository <|.. DrizzleUserRepository

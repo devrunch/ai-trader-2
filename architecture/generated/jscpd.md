@@ -1,10 +1,10 @@
 # Copy/paste detection report
 
-> Duplications detection: Found 0 exact clones with 0(0.00%) duplicated lines in 170 (2 formats) files.
+> Duplications detection: Found 0 exact clones with 0(0.00%) duplicated lines in 189 (2 formats) files.
 
 | Format | Files analyzed | Total lines | Total tokens | Clones found | Duplicated lines | Duplicated tokens |
 |--------|---------------|-------------|--------------|--------------|------------------|-------------------|
-| tsx | 15 | 441 | 3965 | 0 | 0 (0.00%) | 0 (0.00%) |
-| typescript | 155 | 6087 | 71361 | 0 | 0 (0.00%) | 0 (0.00%) |
-| Total: | 170 | 6528 | 75326 | 0 | 0 (0.00%) | 0 (0.00%) |
-| **Total:** | 170 | 6528 | 75326 | 0 | 0 (0.00%) | 0 (0.00%) |
+| tsx | 17 | 464 | 4579 | 0 | 0 (0.00%) | 0 (0.00%) |
+| typescript | 172 | 6389 | 75952 | 0 | 0 (0.00%) | 0 (0.00%) |
+| Total: | 189 | 6853 | 80531 | 0 | 0 (0.00%) | 0 (0.00%) |
+| **Total:** | 189 | 6853 | 80531 | 0 | 0 (0.00%) | 0 (0.00%) |

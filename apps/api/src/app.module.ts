@@ -9,6 +9,7 @@ import { KiteModule } from './shared/vendors/kite';
 import { JobSchedulerModule } from './shared/jobs';
 import { InstrumentsApiModule } from './modules/instruments/instruments.module';
 import { MarketDataApiModule } from './modules/market-data/market-data.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({})
 export class AppModule {
@@ -17,7 +18,7 @@ export class AppModule {
       module: AppModule,
       providers: [GlobalExceptionFilter],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule],
     };
   }
 }

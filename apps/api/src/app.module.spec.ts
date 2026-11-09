@@ -4,13 +4,15 @@ import { Test } from '@nestjs/testing';
 import { expect, it } from 'vitest';
 import { AppModule } from './app.module';
 import { loadConfig } from './shared/config';
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { DatabaseModule } from './shared/database';
 import { KiteModule } from './shared/vendors/kite';
 import { RedisModule } from './shared/redis';
 import { isolateInstruments } from '../test/support/isolate-instruments';
+import { DB } from './shared/database';
+import { REDIS } from './shared/redis';
 
-@Module({})
+@Global() @Module({ providers: [{ provide: DB, useValue: {} }, { provide: REDIS, useValue: {} }], exports: [DB, REDIS] })
 class NoInfrastructureModule {}
 
 // SRD §10.1; NFR-QL-1.

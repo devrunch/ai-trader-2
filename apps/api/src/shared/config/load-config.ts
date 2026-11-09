@@ -22,7 +22,8 @@ export class ConfigError extends Error {
 }
 
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): AppConfig {
-  const result = AppConfigSchema.safeParse(env);
+  const input = env.NODE_ENV === 'production' || env.SESSION_SECRET ? env : { ...env, SESSION_SECRET: 'development-session-secret-change-me-32' };
+  const result = AppConfigSchema.safeParse(input);
   if (!result.success) {
     // NFR-SC-1: expose fixed descriptions, never validator input or payloads.
     const keys = [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
