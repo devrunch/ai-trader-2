@@ -1,0 +1,287 @@
+classDiagram
+  class AccountRecord {
+    +cash: number
+    +charges: number
+    +currency: 'INR'
+    +id: string
+    +initialCash: number
+    +realisedPnl: number
+    +userId: string
+  }
+  class CancelOrder {
+    +execute(userId: string, orderId: string) Promise<OrderRecord>
+  }
+  class ChargeInput {
+    +exchange: string
+    +price: number
+    +product: PaperProduct
+    +quantity: number
+    +segment: Segment
+    +side: PaperSide
+  }
+  class DrizzlePaperStore {
+    +accountFor(userId: string, initialCash: number) Promise<AccountRecord>
+    +allOpenOrders() Promise<OrderRecord[]>
+    +fills(accountId: string, limit: number) Promise<FillRecord[]>
+    +inAccount(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>) Promise<T>
+    +orderByClientId(accountId: string, clientOrderId: string) Promise<OrderRecord | null>
+    +orders(accountId: string, filter: { openOnly: boolean; limit: number }) Promise<OrderRecord[]>
+    +ordersExpiredBy(at: number) Promise<OrderRecord[]>
+    +positions(accountId: string) Promise<PositionRecord[]>
+    +positionsDueForSquareOff(at: number) Promise<PositionRecord[]>
+  }
+  class FakeMarket {
+    +bars: Map<string, PriceBar[]>
+    +barsSince(instrumentId: string, since: number) Promise<PriceBar[]>
+    +instrument(id: string) Promise<TradableInstrument>
+    +instruments: Map<string, TradableInstrument>
+    +quote(instrumentId: string) Promise<{ price: number; at: number } | null>
+    +quotes: Map<string, { price: number; at: number; } | null>
+    +session(_instrumentId: string, at: number) Session | null
+    +sessionWindow: Session | null
+    +watch(instrumentIds: readonly string[]) Promise<void>
+    +watched: string[][]
+  }
+  class FillFacts {
+    +at: number
+    +price: number
+    +slippage: number
+  }
+  class FillRecord {
+    +accountId: string
+    +charges: PaperCharges
+    +filledAt: number
+    +id: string
+    +instrumentId: string
+    +orderId: string
+    +price: number
+    +product: PaperProduct
+    +quantity: number
+    +realisedPnl: number
+    +side: PaperSide
+    +slippage: number
+  }
+  class InvalidOrderError {
+    +code: "VALIDATION_FAILED"
+    +field: string
+  }
+  class MarketDataPaperMarket {
+    +barsSince(instrumentId: string, since: number) Promise<PriceBar[]>
+    +instrument(id: string) Promise<TradableInstrument>
+    +quote(instrumentId: string) Promise<{ price: number; at: number } | null>
+    +session(instrumentId: string, at: number) Session | null
+    +watch(instrumentIds: readonly string[]) Promise<void>
+  }
+  class MatchOpenOrders {
+    +execute(signal?: AbortSignal) Promise<{ filled: number; triggered: number }>
+  }
+  class MemoryPaperStore {
+    +accountFor(userId: string, initialCash: number) Promise<AccountRecord>
+    +allOpenOrders() Promise<OrderRecord[]>
+    +fills(accountId: string, limit: number) Promise<FillRecord[]>
+    +inAccount(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>) Promise<T>
+    +orderByClientId(accountId: string, clientOrderId: string) Promise<OrderRecord | null>
+    +orders(accountId: string, filter: { openOnly: boolean; limit: number }) Promise<OrderRecord[]>
+    +ordersExpiredBy(at: number) Promise<OrderRecord[]>
+    +positions(accountId: string) Promise<PositionRecord[]>
+    +positionsDueForSquareOff(at: number) Promise<PositionRecord[]>
+    +state: State
+  }
+  class OrderInput {
+    +limitPrice?: number | undefined
+    +product: PaperProduct
+    +quantity: number
+    +side: PaperSide
+    +stopLoss?: number | undefined
+    +target?: number | undefined
+    +triggerPrice?: number | undefined
+    +type: PaperOrderType
+  }
+  class OrderRecord {
+    +accountId: string
+    +clientOrderId: string
+    +closeReason: PaperCloseReason | null
+    +expiresAt: number
+    +fillPrice: number | null
+    +filledAt: number | null
+    +id: string
+    +instrumentId: string
+    +limitPrice: number | null
+    +parentOrderId: string | null
+    +placedAt: number
+    +product: PaperProduct
+    +quantity: number
+    +referencePrice: number | null
+    +rejectReason: PaperRejectReason | null
+    +segment: Segment | null
+    +side: PaperSide
+    +status: PaperOrderStatus
+    +stopLoss: number | null
+    +target: number | null
+    +tick: number
+    +triggerPrice: number | null
+    +triggered: boolean
+    +type: PaperOrderType
+    +updatedAt: number
+  }
+  class OrderStateError {
+    +code: "CONFLICT"
+    +status: PaperOrderStatus
+  }
+  class PaperController {
+    +account(request: AuthRequest) Promise<{ account: PaperAccount }>
+    +cancel(request: AuthRequest, id: string) Promise<{ order: PaperOrder }>
+    +fills(request: AuthRequest, raw: unknown) Promise<{ fills: PaperFill[] }>
+    +orders(request: AuthRequest, raw: unknown) Promise<{ orders: PaperOrder[] }>
+    +placeOrder(request: AuthRequest, raw: unknown) Promise<{ order: PaperOrder }>
+    +positions(request: AuthRequest) Promise<{ positions: PaperPosition[] }>
+  }
+  class PaperDeps {
+    +clock: () => number
+    +ids: () => string
+    +settings: PaperSettings
+  }
+  class PaperJobsRegistration {
+    +onApplicationBootstrap() Promise<void>
+  }
+  class PaperMarket {
+    +barsSince(instrumentId: string, since: number, signal?: AbortSignal) Promise<PriceBar[]>
+    +instrument(id: string) Promise<TradableInstrument>
+    +quote(instrumentId: string, signal?: AbortSignal) Promise<{ price: number; at: number } | null>
+    +session(instrumentId: string, at: number) Session | null
+    +watch(instrumentIds: readonly string[]) Promise<void>
+  }
+  class PaperSettings {
+    +freshQuoteMs: number
+    +initialCash: number
+    +limits: RiskLimits
+    +slippageRate: number
+  }
+  class PaperStore {
+    +accountFor(userId: string, initialCash: number) Promise<AccountRecord>
+    +allOpenOrders() Promise<OrderRecord[]>
+    +fills(accountId: string, limit: number) Promise<FillRecord[]>
+    +inAccount(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>) Promise<T>
+    +orderByClientId(accountId: string, clientOrderId: string) Promise<OrderRecord | null>
+    +orders(accountId: string, filter: { openOnly: boolean; limit: number }) Promise<OrderRecord[]>
+    +ordersExpiredBy(at: number) Promise<OrderRecord[]>
+    +positions(accountId: string) Promise<PositionRecord[]>
+    +positionsDueForSquareOff(at: number) Promise<PositionRecord[]>
+  }
+  class PaperTradingModule {
+  }
+  class PaperUnitOfWork {
+    +account() Promise<AccountRecord>
+    +closeOrder(id: string, close: OrderClose, at: number) Promise<boolean>
+    +insertFill(fill: FillRecord) Promise<void>
+    +insertOrder(order: OrderRecord) Promise<void>
+    +markTriggered(id: string, at: number) Promise<void>
+    +netPnlSince(since: number) Promise<number>
+    +openOrders() Promise<OrderRecord[]>
+    +order(id: string) Promise<OrderRecord | null>
+    +orderByClientId(clientOrderId: string) Promise<OrderRecord | null>
+    +positions() Promise<PositionRecord[]>
+    +saveAccount(account: Pick<AccountRecord, 'cash' | 'realisedPnl' | 'charges'>) Promise<void>
+    +savePosition(position: PositionRecord) Promise<void>
+  }
+  class PlaceOrder {
+    +execute(userId: string, request: PaperPlaceOrderRequest) Promise<OrderRecord>
+  }
+  class PositionRecord {
+    +accountId: string
+    +averagePrice: number
+    +id: string
+    +instrumentId: string
+    +product: PaperProduct
+    +quantity: number
+    +realisedPnl: number
+    +segment: Segment
+    +squareOffAt: number | null
+    +tick: number
+    +updatedAt: number
+  }
+  class PositionState {
+    +averagePrice: number
+    +quantity: number
+    +realisedPnl: number
+  }
+  class PriceBar {
+    +close: number
+    +high: number
+    +low: number
+    +open: number
+    +time: number
+  }
+  class ReadPortfolio {
+    +account(userId: string) Promise<PaperAccount>
+    +fills(userId: string, limit: number) Promise<FillRecord[]>
+    +orders(userId: string, filter: { openOnly: boolean; limit: number }) Promise<OrderRecord[]>
+    +positions(userId: string, signal?: AbortSignal) Promise<MarkedPosition[]>
+  }
+  class RiskInput {
+    +afterMisCutoff: boolean
+    +availableMargin: number
+    +dayPnl: number
+    +lastPrice: number | null
+    +limitPrice: number | null
+    +marketOpen: boolean
+    +openPositions: number
+    +position: number
+    +product: PaperProduct
+    +quantity: number
+    +segment: Segment | null
+    +side: PaperSide
+    +triggerPrice: number | null
+    +type: PaperOrderType
+  }
+  class RiskLimits {
+    +maxDailyLoss: number
+    +maxOpenPositions: number
+    +maxOrderValue: number
+    +maxPositionValue: number
+    +priceBand: number
+  }
+  class Session {
+    +close: number
+    +open: number
+  }
+  class SquareOff {
+    +execute(signal?: AbortSignal) Promise<{ expired: number; squaredOff: number }>
+  }
+  class TradableInstrument {
+    +currency: string
+    +exchange: string
+    +id: string
+    +lotSize: number
+    +status: string
+    +tick: number
+    +type: string
+  }
+  class WorkingOrder {
+    +limitPrice: number | null
+    +placedAt: number
+    +side: PaperSide
+    +slippageRate: number
+    +tick: number
+    +triggerPrice: number | null
+    +triggered: boolean
+    +type: PaperOrderType
+  }
+  CancelOrder --> PaperStore
+  MatchOpenOrders --> PaperDeps
+  MatchOpenOrders --> PaperMarket
+  MatchOpenOrders --> PaperStore
+  PaperController --> CancelOrder
+  PaperController --> PlaceOrder
+  PaperController --> ReadPortfolio
+  PaperMarket <|.. FakeMarket
+  PaperMarket <|.. MarketDataPaperMarket
+  PaperStore <|.. DrizzlePaperStore
+  PaperStore <|.. MemoryPaperStore
+  PlaceOrder --> PaperDeps
+  PlaceOrder --> PaperMarket
+  PlaceOrder --> PaperStore
+  ReadPortfolio --> PaperStore
+  SquareOff --> PaperDeps
+  SquareOff --> PaperMarket
+  SquareOff --> PaperStore
