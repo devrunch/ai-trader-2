@@ -29,12 +29,10 @@ export async function startMarketDataProcess(config: AppConfig = loadRuntimeConf
   const redis = app.get<Redis>(REDIS); const appConfig = app.get<AppConfig>(APP_CONFIG);
   await redis.ping();
   const bars = app.get(LiveBars);
-  let fencedAt = 0; let isLeader = false;
-  bars.setPersistenceFence(async () => {
-    const now = Date.now();
-    if (now - fencedAt >= 1000) { isLeader = (await redis.get('md:leader')) === appConfig.MD_INSTANCE_ID; fencedAt = now; }
-    return isLeader;
-  });
+  let isLeader = false;
+  const lock = new LeaderLock(redis, appConfig.MD_INSTANCE_ID);
+  // Fence on the lock's own lease knowledge: no Redis call on the save path, so a slow Redis never drops bars.
+  bars.setPersistenceFence(() => Promise.resolve(lock.holdsLease()));
   const publisher = new FeedStatePublisher(redis, Date.now, (vendor, state, reason) => {
     app.get(Logger).log({ vendor, state, ...(reason === undefined ? {} : { reason }) }, 'Market-data feed state published');
   });
@@ -47,7 +45,6 @@ export async function startMarketDataProcess(config: AppConfig = loadRuntimeConf
     scheduleDaily: run => scheduler.register({ name: 'continuous-instrument-roll', cron: '5 0 * * *', tz: 'Asia/Kolkata',
       graceMs: 3600000, maxRuntimeMs: 60000, run: async () => run() }),
     log: message => { app.get(Logger).warn(message); } });
-  const lock = new LeaderLock(redis, appConfig.MD_INSTANCE_ID);
   const controller = new AbortController();
   let shuttingDown: Promise<void> | undefined;
   const shutdown = () => {
@@ -64,7 +61,7 @@ export async function startMarketDataProcess(config: AppConfig = loadRuntimeConf
     return shuttingDown;
   };
   const leaderLoop = lock.acquireLoop(controller.signal, async () => {
-    isLeader = true; fencedAt = 0;
+    isLeader = true;
     app.get(Logger).log({ instanceId: appConfig.MD_INSTANCE_ID }, 'Market-data leader lock acquired');
     await supervisor.start();
   }, async () => {
