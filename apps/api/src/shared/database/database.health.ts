@@ -3,6 +3,7 @@ import { backoffDelay, withTimeout } from '@aitrader/resilience';
 import { ReadinessRegistry, type ReadinessResult } from '../health';
 import { UnavailableError } from '../errors';
 import type { Pool } from 'pg';
+import { watchCheckedOut } from './checked-out';
 
 export class DatabaseHealth implements OnModuleInit {
   private attempt = 0;
@@ -20,11 +21,13 @@ export class DatabaseHealth implements OnModuleInit {
       await withTimeout(async (signal) => {
         const client = await this.pool.connect();
         if (signal.aborted) { client.release(true); throw new UnavailableError('Database unavailable'); }
+        const watch = watchCheckedOut(client);
         let released = false;
         const release = (destroy: boolean) => {
           if (released) return;
           released = true;
-          client.release(destroy);
+          watch.stop();
+          client.release(destroy || watch.failed());
         };
         const abort = () => { release(true); };
         signal.addEventListener('abort', abort, { once: true });

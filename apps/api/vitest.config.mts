@@ -1,5 +1,6 @@
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
+import { NOT_PERF_TESTS } from './vitest.perf-tests.mjs';
 
 export default defineConfig({
   plugins: [swc.vite({
@@ -13,5 +14,6 @@ export default defineConfig({
     name: 'api',
     environment: 'node',
     include: ['src/**/*.spec.ts'],
+    testNamePattern: NOT_PERF_TESTS,
   },
 });

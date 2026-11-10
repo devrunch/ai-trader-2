@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { Providers } from '../providers';
 import { createAppRouter } from '../router';
 import { http, HttpResponse } from 'msw';
@@ -16,6 +16,9 @@ vi.mock('../../shared/live/live-connection', async () => {
 });
 // FR-UI-3, FR-UI-5: canonical symbol and interval survive navigation.
 afterEach(cleanup);
+// The terminal page is lazy and pulls in the chart library; load it once up front so the first test is not timing an import.
+beforeAll(async () => { await import('./terminal-page'); }, 30_000);
+
 async function visit(url: string) {
   const router = createAppRouter(createMemoryHistory({ initialEntries: [url] }));
   await router.load();

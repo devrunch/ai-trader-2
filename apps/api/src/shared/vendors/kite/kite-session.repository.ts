@@ -1,3 +1,4 @@
+import { watchCheckedOut } from '../../database/checked-out';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { withTimeout } from '@aitrader/resilience';
@@ -93,8 +94,9 @@ export class DrizzleKiteSessionRepository implements KiteSessionRepository {
       return await withTimeout(async (signal) => {
         const client = await this.pool.connect();
         if (signal.aborted) { client.release(true); throw new Error('aborted'); }
+        const watch = watchCheckedOut(client);
         let released = false;
-        const release = () => { if (!released) { released = true; client.release(signal.aborted); } };
+        const release = () => { if (!released) { released = true; watch.stop(); client.release(signal.aborted || watch.failed()); } };
         signal.addEventListener('abort', release, { once: true });
         try { return await action(client); }
         finally { signal.removeEventListener('abort', release); release(); }
