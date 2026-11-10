@@ -12,6 +12,7 @@
     "vitest.config.mts",
     "vitest.int.config.mts",
     "vitest.perf.config.mts",
+    "vitest.perf-tests.mts",
     "drizzle.config.ts",
     "test/**/*.ts"
   ]
