@@ -3,7 +3,7 @@ import { TurnBudget } from '../domain/turn-budget';
 import type { ToolContext } from './guarded-tool';
 import type { ActivePrompt } from './prompt-registry';
 
-export type TurnOutcome = 'ok' | 'error' | 'aborted' | 'budget:rounds' | 'budget:time' | 'budget:tokens';
+type TurnOutcome = 'ok' | 'error' | 'aborted' | 'budget:rounds' | 'budget:time' | 'budget:tokens';
 export interface RunInput { system: string; messages: unknown[]; ctx: ToolContext; budget: TurnBudget; signal: AbortSignal }
 export interface RunDone { outcome: TurnOutcome | (string & {}); tokens: number; messages: unknown[] }
 /** Port: one streamed model turn with read tools. The infrastructure adapter is Mastra. */

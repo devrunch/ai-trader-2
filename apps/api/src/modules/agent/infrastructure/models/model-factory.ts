@@ -5,8 +5,8 @@ import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 import { bedrockMantleKey } from './bedrock-mantle-key';
 
-export const PROVIDERS = ['bedrock-mantle', 'anthropic', 'xai', 'openai', 'openai-compatible'] as const;
-export type Provider = (typeof PROVIDERS)[number];
+const PROVIDERS = ['bedrock-mantle', 'anthropic', 'xai', 'openai', 'openai-compatible'] as const;
+type Provider = (typeof PROVIDERS)[number];
 export interface ModelSpec { provider: Provider; modelId: string }
 export interface ModelEnv {
   AGENT_BASE_URL?: string | undefined; AGENT_API_KEY?: string | undefined;
@@ -15,7 +15,7 @@ export interface ModelEnv {
   AWS_ACCESS_KEY_ID?: string | undefined; AWS_SECRET_ACCESS_KEY?: string | undefined; AWS_SESSION_TOKEN?: string | undefined;
 }
 
-export class ModelConfigError extends Error { override readonly name = 'ModelConfigError'; }
+class ModelConfigError extends Error { override readonly name = 'ModelConfigError'; }
 
 /** `provider/model`; the model id may itself contain slashes (OpenRouter) or colons (Bedrock). */
 export function parseModelSpec(spec: string): ModelSpec {
