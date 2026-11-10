@@ -15,6 +15,13 @@ describe('FR-MD-1 E6 US delayed history', () => {
     expect(chart).toHaveBeenNthCalledWith(1, 'AAPL', { interval: '1m', period1: new Date(now - 15 * 86400000), period2: new Date(now - 8 * 86400000) }, expect.anything());
     expect(chart).toHaveBeenNthCalledWith(3, 'AAPL', { interval: '1m', period1: new Date(now - 86400000), period2: new Date(now) }, expect.anything());
   });
+  it('a minute request older than Yahoo keeps is clamped to the last 30 days, not refused', async () => {
+    const chart = vi.fn().mockResolvedValue({ quotes: [{ date: new Date(now - 86400000), open: 1, high: 1, low: 1, close: 1, volume: 1 }] });
+    const result = await new UsDelayedProvider({ chart }, () => now).history({ providerSymbol: 'AAPL' }, '1m', now - 77 * 86400000, now, signal());
+    expect(result.ok).toBe(true);
+    const firstFrom = (chart.mock.calls[0]?.[1] as { period1: Date }).period1.getTime();
+    expect(firstFrom).toBeGreaterThanOrEqual(now - 30 * 86400000);
+  });
   it('opens after three server failures and probes after five minutes (E6)', async () => {
     let clock = now; const chart = vi.fn().mockRejectedValue({ code: 503 }); const provider = new UsDelayedProvider({ chart }, () => clock);
     for (let i = 0; i < 4; i++) expect(await provider.history({ providerSymbol: 'AAPL' }, '1d', 0, now, signal())).toEqual({ ok: false, reason: 'PROVIDER_DOWN' });
@@ -32,9 +39,9 @@ describe('FR-MD-1 E6 US delayed history', () => {
     expect(chart.mock.calls[0]?.slice(0, 2)).toEqual(['BRK-B', { interval: '1m', period1: new Date(now - 60000), period2: new Date(now) }]);
     expect(chart.mock.calls[0]?.[2]).toHaveProperty('fetchOptions.signal');
   });
-  it('1m older than 30 days is NO_DATA with detail', async () => {
+  it('a 1m range entirely older than 30 days is NO_DATA with detail, without calling Yahoo', async () => {
     const chart = vi.fn();
-    expect(await new UsDelayedProvider({ chart }, () => now).history({ providerSymbol: 'AAPL' }, '1m', now - 31 * 86400000, now, signal())).toEqual({ ok: false, reason: 'NO_DATA', detail: 'yahoo keeps 30 days of 1m' });
+    expect(await new UsDelayedProvider({ chart }, () => now).history({ providerSymbol: 'AAPL' }, '1m', now - 40 * 86400000, now - 31 * 86400000, signal())).toEqual({ ok: false, reason: 'NO_DATA', detail: 'yahoo keeps 30 days of 1m' });
     expect(chart).not.toHaveBeenCalled();
   });
   it('429 maps to RATE_LIMITED', async () => {
