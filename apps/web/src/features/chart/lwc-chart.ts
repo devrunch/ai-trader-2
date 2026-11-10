@@ -33,6 +33,11 @@ export function createLwcChart(container: HTMLElement, timeZone: string): ChartL
       chart.timeScale().subscribeVisibleLogicalRangeChange(listener);
       return () => { chart.timeScale().unsubscribeVisibleLogicalRangeChange(listener); };
     },
+    onCrosshair: cb => {
+      const listener = (param: { time?: Time }) => { cb(param.time === undefined ? null : seconds(param.time)); };
+      chart.subscribeCrosshairMove(listener);
+      return () => { chart.unsubscribeCrosshairMove(listener); };
+    },
     applyColors: (colors: ChartColors) => {
       chart.applyOptions({
         layout: { background: { type: ColorType.Solid, color: colors.background }, textColor: colors.text },

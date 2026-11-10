@@ -135,3 +135,16 @@ it('shows the server-computed levels before applying and draws them through the 
   await screen.findByText('applied');
   expect(addDrawing).toHaveBeenCalledWith(cardId, expect.objectContaining({ segments: [expect.objectContaining({ label: 'Resistance 1510.00 · 3 touches' })] }));
 });
+
+it('renders the assistant reply as markdown and never as raw HTML', async () => {
+  server.use(http.post('/api/v1/agent/chat', () => sse([
+    { type: 'start', messageId: 'a3' }, { type: 'start-step' }, { type: 'text-start', id: 't' },
+    { type: 'text-delta', id: 't', delta: '**Closed** market.\n\n- one\n- two\n\n<img src=x onerror=alert(1)>' },
+    { type: 'text-end', id: 't' }, { type: 'finish-step' }, { type: 'finish' },
+  ])));
+  render(<Providers><ChatPanel /></Providers>);
+  await ask('status?');
+  expect((await screen.findByText('Closed')).tagName).toBe('STRONG');
+  expect(screen.getAllByRole('listitem').map(li => li.textContent)).toContain('one');
+  expect(document.querySelector('img')).toBeNull();
+});

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { Interval } from '@aitrader/contracts';
+import type { Interval, PaperSide } from '@aitrader/contracts';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search';
 import { Brand, CompactNav } from '../layout/app-shell';
@@ -7,7 +7,7 @@ import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
 import { IndicatorPicker } from '../../features/indicators';
 import { InstrumentBadge, IntervalPicker, Watchlist } from '../../features/terminal';
-import { PositionsPanel } from '../../features/paper';
+import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
@@ -21,6 +21,7 @@ export function TerminalPage() {
   const [initial, setInitial] = useState<string | null>(null);
   const open = useCallback((value: string) => { setInitial((current) => current ?? value); }, []);
   useOpenOnType(open);
+  const [ticket, setTicket] = useState<PaperSide | null>(null);
   const addDrawing = useDrawingStore(s => s.add);
   const chatActions = useMemo(() => ({ openSymbol: (next: string, nextInterval?: Interval) => { void navigate({ to: '/terminal', search: { symbol: next, interval: nextInterval ?? interval } }); },
     addDrawing }), [navigate, interval, addDrawing]);
@@ -34,8 +35,9 @@ export function TerminalPage() {
     <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><CompactNav /><ThemeToggle /></div>
   </div>;
   return <>
-    <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<PositionsPanel symbol={symbol} />}
+    <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
       widgets={{ watchlist: <Watchlist />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NotYet what="News feeds" /> }} />
+    {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}
   </>;
 }

@@ -1,1 +1,1 @@
-export { PositionsPanel } from './positions-panel';
+export { OrderDialog, TradingPanel } from './trading-panel';

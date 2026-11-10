@@ -6,8 +6,8 @@ import { useOrderTicket, type TicketValues } from './use-paper';
 const field = 'rounded-md border bg-background px-2 py-1 text-sm';
 
 /** A compact paper order ticket for the chart's symbol: market or limit, MIS or CNC. */
-export function OrderTicket({ symbol }: { symbol: string }) {
-  const { values, update, submit, place } = useOrderTicket(symbol);
+export function OrderTicket({ symbol, initialSide = 'buy' }: { symbol: string; initialSide?: TicketValues['side'] }) {
+  const { values, update, submit, place } = useOrderTicket(symbol, initialSide);
   const result = place.data?.order;
   return <form aria-label="Paper order" className="space-y-2" onSubmit={event => { event.preventDefault(); submit(); }}>
     <div className="flex gap-1">

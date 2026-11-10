@@ -89,7 +89,7 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
     <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-auto">
       {chat.messages.length === 0 && <li className="text-muted-foreground">Ask about a symbol, your paper positions or a setup. The assistant reads data only and never places orders.</li>}
       {chat.messages.map(m => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
-        <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} />
+        <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} role={m.role} />
       </li>)}
       {chat.status === 'submitted' && <li className="text-muted-foreground">Thinking…</li>}
     </ol>
