@@ -26,6 +26,14 @@
   --destructive: var(--down);
   --input: var(--border);
   --radius: 0.5rem;
+  --ind-blue: #2962ff;
+  --ind-orange: #ff6d00;
+  --ind-violet: #7e57c2;
+  --ind-teal: #26a69a;
+  --ind-red: #f23645;
+  --ind-green: #089981;
+  --ind-gray: #787b86;
+  --ind-yellow: #e0a800;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {

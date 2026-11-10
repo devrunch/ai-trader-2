@@ -5,6 +5,7 @@ import { MarketDataApiModule, MarketDataModule } from '../../src/modules/market-
 import { LiveModule } from '../../src/modules/live/live.module';
 import { AdminOpsModule } from '../../src/modules/admin-ops/admin-ops.module';
 import { AlertsModule } from '../../src/modules/alerts/alerts.module';
+import { IndicatorsModule } from '../../src/modules/indicators/indicators.module';
 import { PaperTradingModule } from '../../src/modules/paper-trading/paper-trading.module';
 
 @Module({})
@@ -18,5 +19,6 @@ export function isolateInstruments(builder: TestingModuleBuilder): TestingModule
     .overrideModule(LiveModule).useModule(NoInstrumentsModule)
     .overrideModule(AdminOpsModule).useModule(NoInstrumentsModule)
     .overrideModule(AlertsModule).useModule(NoInstrumentsModule)
+    .overrideModule(IndicatorsModule).useModule(NoInstrumentsModule)
     .overrideModule(PaperTradingModule).useModule(NoInstrumentsModule);
 }

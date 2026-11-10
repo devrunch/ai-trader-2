@@ -59,6 +59,22 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_indicators = component 'indicators' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_instruments = component 'instruments' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -176,6 +192,9 @@ model {
     feat_chart = component 'chart' {
       description 'generated from code — do not edit'
     }
+    feat_indicators = component 'indicators' {
+      description 'generated from code — do not edit'
+    }
     feat_paper = component 'paper' {
       description 'generated from code — do not edit'
     }
@@ -214,6 +233,12 @@ model {
   aitrader.api.mod_compute -[calls]-> pkg_resilience 'imports'
   aitrader.api.mod_compute.infra -[calls]-> aitrader.api.mod_compute.app 'imports'
   aitrader.api.mod_health.api -[calls]-> aitrader.api.mod_health.app 'imports'
+  aitrader.api.mod_indicators -[calls]-> aitrader.api.mod_market_data 'imports'
+  aitrader.api.mod_indicators -[calls]-> pkg_contracts 'imports'
+  aitrader.api.mod_indicators.api -[calls]-> aitrader.api.mod_indicators.app 'imports'
+  aitrader.api.mod_indicators.app -[calls]-> aitrader.api.mod_indicators.domain 'imports'
+  aitrader.api.mod_indicators.infra -[calls]-> aitrader.api.mod_indicators.app 'imports'
+  aitrader.api.mod_indicators.infra -[calls]-> aitrader.api.mod_indicators.domain 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_resilience 'imports'
   aitrader.api.mod_instruments.api -[calls]-> aitrader.api.mod_instruments.app 'imports'
@@ -256,6 +281,8 @@ model {
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_live 'imports'
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_state 'imports'
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_ui 'imports'
+  aitrader.web.feat_indicators -[calls]-> aitrader.web.shared_api 'imports'
+  aitrader.web.feat_indicators -[calls]-> aitrader.web.shared_ui 'imports'
   aitrader.web.feat_paper -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_paper -[calls]-> aitrader.web.shared_ui 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
@@ -297,6 +324,10 @@ views {
   view module_health of aitrader.api.mod_health {
     description 'generated from code — do not edit'
     include aitrader.api.mod_health.*
+  }
+  view module_indicators of aitrader.api.mod_indicators {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_indicators.*
   }
   view module_instruments of aitrader.api.mod_instruments {
     description 'generated from code — do not edit'

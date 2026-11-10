@@ -3,6 +3,9 @@ import type { Bar } from '@aitrader/contracts';
 export interface ChartColors { up: string; down: string; text: string; grid: string; background: string }
 interface CandlePoint { time: number; open: number; high: number; low: number; close: number }
 export type VolumePoint = { time: number; value: number; color: string } | { time: number };
+export type LinePoint = { time: number; value: number } | { time: number };
+export interface IndicatorSeriesOptions { kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'; color: string; lineWidth: number; pane: number; title: string }
+export interface IndicatorSeriesLike { setData: (points: LinePoint[]) => void; priceLine: (value: number, title: string, color: string) => void; remove: () => void }
 
 /** The slice of the charting library we use, so the adapter is testable without a canvas. */
 export interface ChartLike {
@@ -11,6 +14,8 @@ export interface ChartLike {
   /** Calls back with the visible range's left logical index (null when empty); returns an unsubscribe. */
   onVisibleRange(cb: (from: number | null) => void): () => void;
   applyColors(colors: ChartColors): void;
+  /** Pane 0 is the price pane, 1 volume; indicator panes follow. */
+  addIndicatorSeries(options: IndicatorSeriesOptions): IndicatorSeriesLike;
   remove(): void;
 }
 

@@ -24,10 +24,10 @@ if [ "$(git rev-list --count HEAD..main)" -gt 0 ]; then
   fi
   pnpm install --frozen-lockfile
 fi
-if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.check ? 0 : 1)"; then
-  # The manager owns architecture/: regenerate from the branch's code, then run every gate.
-  pnpm run build:packages && pnpm run diagrams
-  pnpm run check
+if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.['check:code'] ? 0 : 1)"; then
+  # Owner decision 2026-11-10: code first. Merges gate on check:code; diagrams are regenerated in a separate batch
+  # (pnpm diagrams && pnpm diagrams:check), so generated files never block a merge.
+  pnpm run check:code
 elif [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
   echo "no check script yet; running tests"; pnpm test
 else

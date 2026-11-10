@@ -14,11 +14,29 @@ classDiagram
     +up: string
   }
   class ChartLike {
+    +addIndicatorSeries(options: IndicatorSeriesOptions) IndicatorSeriesLike
     +applyColors(colors: ChartColors) void
     +candles: { setData(points: CandlePoint[]): void; update(point: CandlePoint): void }
     +onVisibleRange(cb: (from: number | null) => void) () => void
     +remove() void
     +volume: { setData(points: VolumePoint[]): void; update(point: VolumePoint): void }
+  }
+  class IndicatorLayer {
+    +destroy() void
+    +recolor() void
+    +set(items: readonly Painted[]) void
+  }
+  class IndicatorSeriesLike {
+    +priceLine: (value: number, title: string, color: string) => void
+    +remove: () => void
+    +setData: (points: LinePoint[]) => void
+  }
+  class IndicatorSeriesOptions {
+    +color: string
+    +kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'
+    +lineWidth: number
+    +pane: number
+    +title: string
   }
   ChartAdapter --> ChartColors
   ChartAdapter --> ChartLike

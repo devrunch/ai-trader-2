@@ -27,6 +27,7 @@ vi.mock('./lwc-chart', () => ({
     const chart: ChartLike = {
       candles: { setData: vi.fn(), update }, volume: { setData: vi.fn(), update: vi.fn() },
       onVisibleRange: cb => { scroll = cb; return () => undefined; }, applyColors: vi.fn(), remove: vi.fn(),
+      addIndicatorSeries: () => ({ setData: vi.fn(), priceLine: vi.fn(), remove: vi.fn() }),
     };
     charts.push(chart);
     return chart;
@@ -34,6 +35,7 @@ vi.mock('./lwc-chart', () => ({
 }));
 
 const { LiveChart } = await import('./live-chart');
+const { useIndicatorStore } = await import('../indicators');
 const { Providers } = await import('../../app/providers');
 
 const t0 = Date.UTC(2026, 10, 9, 3, 45);
@@ -41,13 +43,20 @@ const bar = (minute: number): Bar => ({ time: t0 + minute * 60_000, open: 10, hi
 const page = (bars: Bar[]) => ({ instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', bars, nextBefore: null, status: { state: 'ok' } });
 let pageDelay = 0;
 const requested: string[] = [];
+const computes: unknown[] = [];
+const sma = { ref: 'builtin:sma@1', id: 'sma', version: 1, name: 'SMA', shortName: 'SMA', overlay: true, levels: [], inputs: [],
+  plots: [{ id: 'ma', title: 'MA', kind: 'line', color: 'blue', lineWidth: 1 }] };
 const server = setupServer(http.get('/api/v1/bars', async ({ request }) => {
   requested.push(new URL(request.url).search);
   await delay(pageDelay);
   return HttpResponse.json(page([bar(-2), bar(-1)]));
+}), http.get('/api/v1/indicators', () => HttpResponse.json({ indicators: [sma] })),
+http.post('/api/v1/indicators/compute', async ({ request }) => {
+  computes.push(await request.json());
+  return HttpResponse.json({ instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', ref: 'builtin:sma@1', inputs: {}, times: [t0], plots: [{ id: 'ma', values: [1] }], status: { state: 'ok' } });
 }));
 beforeAll(() => { server.listen(); });
-beforeEach(() => { subscriptions.length = 0; charts.length = 0; candleUpdates.length = 0; requested.length = 0; mergeHistory.mockReset(); pageDelay = 0; });
+beforeEach(() => { computes.length = 0; useIndicatorStore.setState({ items: [] }); subscriptions.length = 0; charts.length = 0; candleUpdates.length = 0; requested.length = 0; mergeHistory.mockReset(); pageDelay = 0; });
 afterEach(() => { cleanup(); });
 afterAll(() => { server.close(); });
 
@@ -92,4 +101,17 @@ it('market closed or provider down says why instead of an empty canvas (FR-UI-7)
   const closed: DataStatus = { state: 'stale', reason: 'MARKET_CLOSED' };
   act(() => { subscriptions[0]?.handlers.onReset([]); subscriptions[0]?.handlers.onStatus(closed); });
   expect(screen.getByText(/Market closed/)).toBeDefined();
+});
+
+it('refreshes indicators once per new bar, never per tick (FR-CH-2)', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+  render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(1)]); });
+  await vi.waitFor(() => { expect(computes).toHaveLength(1); });
+  act(() => { subscriptions[0]?.handlers.onUpdate(bar(1)); subscriptions[0]?.handlers.onUpdate(bar(1)); });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(computes).toHaveLength(1);
+  act(() => { subscriptions[0]?.handlers.onUpdate(bar(2)); });
+  await vi.waitFor(() => { expect(computes).toHaveLength(2); });
+  expect(await screen.findAllByTestId('indicator-legend-row')).toHaveLength(1);
 });
