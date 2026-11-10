@@ -1,0 +1,30 @@
+{
+  "name": "@aitrader/compute-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "generate": "node scripts/generate.ts",
+    "check:generated": "node scripts/generate.ts --check"
+  },
+  "dependencies": {
+    "@aitrader/resilience": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/node": "26.6.6",
+    "vitest": "5.1.0"
+  }
+}
