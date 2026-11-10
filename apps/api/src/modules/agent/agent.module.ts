@@ -19,6 +19,7 @@ import { PromptsController } from './api/prompts.controller';
 import { ActionCards } from './application/action-cards';
 import { buildActionTools, buildIndicatorTools } from './application/action-tools';
 import { ChatService, type AgentRunner, type WindowLimiter } from './application/chat-service';
+import { DrawingService } from './application/drawing-service';
 import { PromptRegistry } from './application/prompt-registry';
 import { buildReadTools } from './application/read-tools';
 import { Threads } from './application/threads';
@@ -59,8 +60,11 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
-    { provide: ActionCards, inject: [DB, IndicatorService],
-      useFactory: (db: Database, indicators: IndicatorService) => new ActionCards(new DrizzleActionStore(db), () => indicators.list(), { now: Date.now, id: randomUUID }) },
+    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService],
+      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService) => {
+        const drawings = new DrawingService(market);
+        return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent) }, { now: Date.now, id: randomUUID });
+      } },
     { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, LIMITER],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio,
         indicators: IndicatorService, cards: ActionCards, limiter: WindowLimiter) => createRunner(config, { quote, market, search, portfolio, indicators, cards }, limiter) },

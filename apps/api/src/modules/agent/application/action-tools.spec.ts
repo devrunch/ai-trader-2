@@ -19,9 +19,13 @@ function memoryStore(): ActionCardStore & { rows: Map<string, ActionCard> } {
     get: (userId, id) => Promise.resolve(rows.get(id)?.userId === userId ? rows.get(id) ?? null : null) };
 }
 
+const drawing = { symbol: 'NSE:INFY', interval: '5' as const, segments: [{ from: { time: 1, price: 100 }, to: { time: 2, price: 100 }, label: 'Support 100.00 · 3 touches' }],
+  note: null, barsUsed: 300, lastBarTime: 2, status: { state: 'ok' as const } };
+const draw = vi.fn().mockResolvedValue(drawing);
+
 describe('action cards (FR-AG-17)', () => {
   let now = Date.parse('2026-11-10T10:00:00Z');
-  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, () => [rsi], { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
+  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, { indicators: () => [rsi], draw }, { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
 
   it('the propose tool only records a pending card for the caller', async () => {
     const { store, cards } = setup();
@@ -62,6 +66,24 @@ describe('action cards (FR-AG-17)', () => {
     expect(store.rows.get(card.id)?.state).toBe('dismissed');
   });
 
+  it('a drawing card carries server geometry when proposed and is recomputed from fresh bars on apply (FR-AG-6)', async () => {
+    const { cards } = setup();
+    const [, proposeDrawing] = buildActionTools(cards, deps);
+    const proposed = await proposeDrawing?.call(ctx, { kind: 'levels', symbol: 'NSE:INFY', interval: '5', count: 2 });
+    expect(proposed).toMatchObject({ ok: true, data: { action: { kind: 'draw', intent: { kind: 'levels', bars: 300, count: 2 } }, drawing: { segments: [{ label: 'Support 100.00 · 3 touches' }] } } });
+    draw.mockClear();
+    const id = proposed?.ok ? (proposed.data as { id: string }).id : '';
+    await cards.apply('u1', id);
+    expect(draw).toHaveBeenCalledTimes(1);
+    expect(await proposeDrawing?.call(ctx, { kind: 'levels', symbol: 'NSE:INFY', interval: '5', segments: [{ price: 1 }] })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+
+  it('the chart-action tool cannot be used to smuggle a drawing with model-made geometry', async () => {
+    const { cards } = setup();
+    const [proposeChartAction] = buildActionTools(cards, deps);
+    expect(await proposeChartAction?.call(ctx, { kind: 'draw', intent: { kind: 'levels', symbol: 'NSE:INFY', interval: '5' } })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+
   it("another user's card is not found", async () => {
     const { cards } = setup();
     const card = await cards.propose('u1', { kind: 'open-symbol', symbol: 'NSE:INFY' });
@@ -71,7 +93,7 @@ describe('action cards (FR-AG-17)', () => {
 
 describe('indicator tools', () => {
   const result = (n: number): IndicatorResult => ({ instrumentId: 'NSE:INFY', resolvedId: 'NSE:INFY', interval: '5', ref: 'builtin:rsi@1', inputs: { length: 14 },
-    times: Array.from({ length: n }, (_, i) => i), plots: [{ id: 'rsi', values: Array.from({ length: n }, (_, i) => i) }], status: { state: 'live' } } as unknown as IndicatorResult);
+    times: Array.from({ length: n }, (_, i) => i), plots: [{ id: 'rsi', values: Array.from({ length: n }, (_, i) => i) }], status: { state: 'ok' } } as unknown as IndicatorResult);
 
   it('returns only the latest bars the model asked for, computed by the server', async () => {
     const compute = vi.fn().mockResolvedValue(result(500));

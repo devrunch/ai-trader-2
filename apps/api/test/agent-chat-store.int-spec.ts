@@ -70,12 +70,17 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
 
   it('action cards: owner-only reads and a compare-and-set on state (FR-AG-17)', async () => {
     const card = { id: randomUUID(), userId: alice, action: { kind: 'add-indicator' as const, indicatorId: 'rsi', inputs: { length: 14 } }, state: 'pending' as const,
-      reason: null, createdAt: Date.parse('2026-11-10T10:00:00Z'), expiresAt: Date.parse('2026-11-10T10:15:00Z') };
+      reason: null, drawing: null, createdAt: Date.parse('2026-11-10T10:00:00Z'), expiresAt: Date.parse('2026-11-10T10:15:00Z') };
     await actions.create(card);
     expect(await actions.get(alice, card.id)).toEqual(card);
     expect(await actions.get(bob, card.id)).toBeNull();
     expect(await actions.save({ ...card, state: 'dismissed' }, 'pending')).toBe(true);
     expect(await actions.save({ ...card, state: 'applied' }, 'pending')).toBe(false);
     expect((await actions.get(alice, card.id))?.state).toBe('dismissed');
+    const drawn = { ...card, id: randomUUID(), action: { kind: 'draw' as const, intent: { kind: 'levels' as const, symbol: 'NSE:INFY', interval: '5' as const, bars: 300, count: 3 } },
+      drawing: { symbol: 'NSE:INFY', interval: '5' as const, segments: [{ from: { time: 1, price: 100 }, to: { time: 2, price: 100 }, label: 'Support 100.00 · 3 touches' }],
+        note: null, barsUsed: 300, lastBarTime: 2, status: { state: 'ok' as const } } };
+    await actions.create(drawn);
+    expect(await actions.get(alice, drawn.id)).toEqual(drawn);
   });
 });
