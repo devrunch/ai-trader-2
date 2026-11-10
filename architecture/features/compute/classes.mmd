@@ -1,0 +1,12 @@
+classDiagram
+  class ComputeGateway {
+    +backtest(request: BacktestRequest, signal: AbortSignal) Promise<ComputeResult<BacktestResponse>>
+  }
+  class HttpComputeGateway {
+    +backtest(request: BacktestRequest, signal: AbortSignal) Promise<ComputeResult<BacktestResponse>>
+  }
+  class RunBacktest {
+    +execute(request: BacktestRequest, signal: AbortSignal) Promise<BacktestResponse>
+  }
+  ComputeGateway <|.. HttpComputeGateway
+  RunBacktest --> ComputeGateway

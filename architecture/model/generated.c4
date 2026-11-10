@@ -39,6 +39,16 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_compute = component 'compute' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_health = component 'health' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -160,6 +170,9 @@ model {
       description 'generated from code — do not edit'
     }
   }
+  pkg_compute_client = component 'compute-client' {
+    description 'generated from code — do not edit'
+  }
   pkg_contracts = component 'contracts' {
     description 'generated from code — do not edit'
   }
@@ -178,6 +191,9 @@ model {
   aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.app 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.domain 'imports'
+  aitrader.api.mod_compute -[calls]-> pkg_compute_client 'imports'
+  aitrader.api.mod_compute -[calls]-> pkg_resilience 'imports'
+  aitrader.api.mod_compute.infra -[calls]-> aitrader.api.mod_compute.app 'imports'
   aitrader.api.mod_health.api -[calls]-> aitrader.api.mod_health.app 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_resilience 'imports'
@@ -226,7 +242,7 @@ model {
 views {
   view api_code of aitrader.api {
     description 'generated from code — do not edit'
-    include aitrader.api.*, pkg_contracts, pkg_resilience
+    include aitrader.api.*, pkg_compute_client, pkg_contracts, pkg_resilience
   }
   view web_code of aitrader.web {
     description 'generated from code — do not edit'
@@ -243,6 +259,10 @@ views {
   view module_auth of aitrader.api.mod_auth {
     description 'generated from code — do not edit'
     include aitrader.api.mod_auth.*
+  }
+  view module_compute of aitrader.api.mod_compute {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_compute.*
   }
   view module_health of aitrader.api.mod_health {
     description 'generated from code — do not edit'
