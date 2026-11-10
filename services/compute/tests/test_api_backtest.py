@@ -110,3 +110,23 @@ def test_returns_504_when_the_time_limit_passes() -> None:
         res = c.post(URL, json=ok_request(), headers={"x-request-id": "slow"})
     assert res.status_code == 504
     assert res.json() == {"code": "UNAVAILABLE", "message": "Backtest exceeded 0 s", "requestId": "slow"}
+
+
+def test_rejects_a_badly_named_series(client: TestClient) -> None:
+    raw = ok_request()
+    raw["series"]["1bad"] = [1.0] * 10
+    assert any("series name '1bad' must match" in m for m in errors_for(client, raw))
+
+
+def test_openapi_names_the_contract_without_property_titles(client: TestClient) -> None:
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    assert {"BacktestRequest", "BacktestResponse", "Condition", "ErrorBody"} <= set(schemas)
+    assert "title" not in schemas["Bar"]["properties"]["close"]
+    assert set(schemas["BacktestResponse"]["required"]) == {
+        "trades",
+        "equity",
+        "metrics",
+        "signals",
+        "inSample",
+        "outOfSample",
+    }

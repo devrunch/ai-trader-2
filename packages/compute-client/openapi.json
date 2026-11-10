@@ -1,0 +1,861 @@
+{
+  "components": {
+    "schemas": {
+      "AllOf": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "all",
+            "type": "string"
+          },
+          "of": {
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "of"
+        ],
+        "title": "AllOf",
+        "type": "object"
+      },
+      "AnyOf": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "any",
+            "type": "string"
+          },
+          "of": {
+            "items": {
+              "$ref": "#/components/schemas/Condition"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "of"
+        ],
+        "title": "AnyOf",
+        "type": "object"
+      },
+      "BacktestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "items": {
+              "$ref": "#/components/schemas/Bar"
+            },
+            "maxItems": 100000,
+            "minItems": 2,
+            "type": "array"
+          },
+          "costs": {
+            "$ref": "#/components/schemas/Costs",
+            "default": {
+              "commissionPct": 0.0,
+              "slippagePct": 0.0
+            }
+          },
+          "initialCapital": {
+            "default": 100000,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "type": "number"
+          },
+          "outOfSampleFraction": {
+            "anyOf": [
+              {
+                "maximum": 0.5,
+                "minimum": 0.1,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "positionFraction": {
+            "default": 1.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "type": "number"
+          },
+          "series": {
+            "additionalProperties": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            "description": "Keys match ^[A-Za-z][A-Za-z0-9_]{0,31}$.",
+            "maxProperties": 32,
+            "type": "object"
+          },
+          "strategy": {
+            "$ref": "#/components/schemas/Strategy"
+          }
+        },
+        "required": [
+          "bars",
+          "strategy"
+        ],
+        "title": "BacktestRequest",
+        "type": "object"
+      },
+      "BacktestResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "equity": {
+            "items": {
+              "$ref": "#/components/schemas/EquityPoint"
+            },
+            "type": "array"
+          },
+          "inSample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Segment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "outOfSample": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Segment"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signals": {
+            "$ref": "#/components/schemas/SignalCounts"
+          },
+          "trades": {
+            "items": {
+              "$ref": "#/components/schemas/Trade"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "trades",
+          "equity",
+          "metrics",
+          "signals",
+          "inSample",
+          "outOfSample"
+        ],
+        "title": "BacktestResponse",
+        "type": "object"
+      },
+      "Bar": {
+        "additionalProperties": false,
+        "properties": {
+          "close": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          },
+          "low": {
+            "type": "number"
+          },
+          "open": {
+            "type": "number"
+          },
+          "repaired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time": {
+            "type": "integer"
+          },
+          "volume": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "volume"
+        ],
+        "title": "Bar",
+        "type": "object"
+      },
+      "Compare": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "compare",
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/Operand"
+          },
+          "op": {
+            "enum": [
+              "gt",
+              "gte",
+              "lt",
+              "lte",
+              "eq",
+              "neq",
+              "crossesAbove",
+              "crossesBelow"
+            ],
+            "type": "string"
+          },
+          "right": {
+            "$ref": "#/components/schemas/Operand"
+          }
+        },
+        "required": [
+          "kind",
+          "left",
+          "op",
+          "right"
+        ],
+        "title": "Compare",
+        "type": "object"
+      },
+      "Condition": {
+        "discriminator": {
+          "mapping": {
+            "all": "#/components/schemas/AllOf",
+            "any": "#/components/schemas/AnyOf",
+            "compare": "#/components/schemas/Compare",
+            "not": "#/components/schemas/Not"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/Compare"
+          },
+          {
+            "$ref": "#/components/schemas/AllOf"
+          },
+          {
+            "$ref": "#/components/schemas/AnyOf"
+          },
+          {
+            "$ref": "#/components/schemas/Not"
+          }
+        ]
+      },
+      "Costs": {
+        "additionalProperties": false,
+        "description": "Charged on every fill, entry and exit, so a round trip pays each twice.",
+        "properties": {
+          "commissionPct": {
+            "default": 0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "slippagePct": {
+            "default": 0,
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "type": "number"
+          }
+        },
+        "title": "Costs",
+        "type": "object"
+      },
+      "EquityPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "equity": {
+            "description": "Marked at the bar's close.",
+            "type": "number"
+          },
+          "time": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "time",
+          "equity"
+        ],
+        "title": "EquityPoint",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "description": "The error shape shared with the Node API (SRD 11).",
+        "properties": {
+          "code": {
+            "enum": [
+              "VALIDATION_FAILED",
+              "NOT_FOUND",
+              "UNAVAILABLE",
+              "INTERNAL"
+            ],
+            "type": "string"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ErrorDetail",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Level": {
+        "discriminator": {
+          "mapping": {
+            "percent": "#/components/schemas/PercentLevel",
+            "series": "#/components/schemas/SeriesLevel"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PercentLevel"
+          },
+          {
+            "$ref": "#/components/schemas/SeriesLevel"
+          }
+        ]
+      },
+      "Metrics": {
+        "additionalProperties": false,
+        "properties": {
+          "cagrPct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exposurePct": {
+            "type": "number"
+          },
+          "finalEquity": {
+            "type": "number"
+          },
+          "maxDrawdownPct": {
+            "type": "number"
+          },
+          "profitFactor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when there is no losing trade."
+          },
+          "sharpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Annualised from per-bar returns, risk-free rate 0."
+          },
+          "totalReturnPct": {
+            "type": "number"
+          },
+          "tradeCount": {
+            "type": "integer"
+          },
+          "winRatePct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "totalReturnPct",
+          "cagrPct",
+          "maxDrawdownPct",
+          "sharpe",
+          "winRatePct",
+          "profitFactor",
+          "exposurePct",
+          "tradeCount",
+          "finalEquity"
+        ],
+        "title": "Metrics",
+        "type": "object"
+      },
+      "Not": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "not",
+            "type": "string"
+          },
+          "of": {
+            "$ref": "#/components/schemas/Condition"
+          }
+        },
+        "required": [
+          "kind",
+          "of"
+        ],
+        "title": "Not",
+        "type": "object"
+      },
+      "Operand": {
+        "discriminator": {
+          "mapping": {
+            "series": "#/components/schemas/SeriesOperand",
+            "value": "#/components/schemas/ValueOperand"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SeriesOperand"
+          },
+          {
+            "$ref": "#/components/schemas/ValueOperand"
+          }
+        ]
+      },
+      "PercentLevel": {
+        "additionalProperties": false,
+        "description": "A distance of `percent` of the entry fill price.",
+        "properties": {
+          "kind": {
+            "const": "percent",
+            "type": "string"
+          },
+          "percent": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000.0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "percent"
+        ],
+        "title": "PercentLevel",
+        "type": "object"
+      },
+      "Segment": {
+        "additionalProperties": false,
+        "properties": {
+          "endTime": {
+            "type": "integer"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "startTime": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "startTime",
+          "endTime",
+          "metrics"
+        ],
+        "title": "Segment",
+        "type": "object"
+      },
+      "SeriesLevel": {
+        "additionalProperties": false,
+        "description": "A distance of `multiple` x the series value at the decision bar (for example an ATR series).",
+        "properties": {
+          "kind": {
+            "const": "series",
+            "type": "string"
+          },
+          "multiple": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100.0,
+            "type": "number"
+          },
+          "name": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "multiple"
+        ],
+        "title": "SeriesLevel",
+        "type": "object"
+      },
+      "SeriesOperand": {
+        "additionalProperties": false,
+        "description": "A bar field or a caller-supplied series, `offset` bars back (0 = the current bar).",
+        "properties": {
+          "kind": {
+            "const": "series",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,31}$",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0,
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "SeriesOperand",
+        "type": "object"
+      },
+      "SignalCounts": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "type": "integer"
+          },
+          "exits": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "exits"
+        ],
+        "title": "SignalCounts",
+        "type": "object"
+      },
+      "Strategy": {
+        "additionalProperties": false,
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/Condition"
+          },
+          "exit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Condition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "side": {
+            "default": "long",
+            "enum": [
+              "long",
+              "short"
+            ],
+            "type": "string"
+          },
+          "stopLoss": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Level"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "takeProfit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Level"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "entry"
+        ],
+        "title": "Strategy",
+        "type": "object"
+      },
+      "Trade": {
+        "additionalProperties": false,
+        "properties": {
+          "barsHeld": {
+            "description": "Exit bar index minus entry bar index.",
+            "type": "integer"
+          },
+          "entryPrice": {
+            "type": "number"
+          },
+          "entryTime": {
+            "type": "integer"
+          },
+          "exitPrice": {
+            "type": "number"
+          },
+          "exitReason": {
+            "enum": [
+              "stopLoss",
+              "takeProfit",
+              "exitSignal",
+              "endOfData"
+            ],
+            "type": "string"
+          },
+          "exitTime": {
+            "type": "integer"
+          },
+          "pnl": {
+            "description": "Net of commission and slippage, in account currency.",
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "returnPct": {
+            "description": "pnl / (quantity x entry price + entry commission) x 100.",
+            "type": "number"
+          },
+          "side": {
+            "enum": [
+              "long",
+              "short"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "side",
+          "entryTime",
+          "entryPrice",
+          "exitTime",
+          "exitPrice",
+          "quantity",
+          "pnl",
+          "returnPct",
+          "barsHeld",
+          "exitReason"
+        ],
+        "title": "Trade",
+        "type": "object"
+      },
+      "ValueOperand": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "value",
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "value"
+        ],
+        "title": "ValueOperand",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "AI Trader compute",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/compute/v1/backtest": {
+      "post": {
+        "description": "Backtest one strategy; deterministic, pessimistic fills (FR-BT-1, FR-BT-2).",
+        "operationId": "backtest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BacktestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "Backtest"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

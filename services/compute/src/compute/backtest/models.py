@@ -1,5 +1,6 @@
 """Backtest wire contract. camelCase on the wire, like @aitrader/contracts; bar times are epoch milliseconds."""
 
+import re
 from collections.abc import Iterator
 from itertools import pairwise
 from typing import Annotated, Literal, Self
@@ -14,7 +15,8 @@ MAX_DEPTH = 8
 MAX_OFFSET = 500
 BAR_FIELDS = frozenset({"open", "high", "low", "close", "volume"})
 
-SeriesName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,31}$")]
+_SERIES_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,31}")
+SeriesName = Annotated[str, StringConstraints(pattern=f"^{_SERIES_NAME.pattern}$")]
 
 
 class Wire(BaseModel):
@@ -152,7 +154,11 @@ class Costs(Wire):
 
 class BacktestRequest(Wire):
     bars: list[Bar] = Field(min_length=2, max_length=MAX_BARS)
-    series: dict[SeriesName, list[float | None]] = Field(default_factory=dict, max_length=MAX_SERIES)
+    series: dict[str, list[float | None]] = Field(
+        default_factory=dict,
+        max_length=MAX_SERIES,
+        description="Keys match ^[A-Za-z][A-Za-z0-9_]{0,31}$.",
+    )
     strategy: Strategy
     costs: Costs = Costs()
     initial_capital: float = Field(default=100_000, gt=0, le=1e12)
@@ -165,6 +171,8 @@ class BacktestRequest(Wire):
         if any(b <= a for a, b in pairwise(times)):
             raise ValueError("bar times must be strictly increasing")
         for name, values in self.series.items():
+            if not _SERIES_NAME.fullmatch(name):
+                raise ValueError(f"series name '{name}' must match {_SERIES_NAME.pattern}")
             if name in BAR_FIELDS:
                 raise ValueError(f"series '{name}' is a bar field")
             if len(values) != len(self.bars):
@@ -225,5 +233,5 @@ class BacktestResponse(Wire):
     equity: list[EquityPoint]
     metrics: Metrics
     signals: SignalCounts
-    in_sample: Segment | None = None
-    out_of_sample: Segment | None = None
+    in_sample: Segment | None
+    out_of_sample: Segment | None

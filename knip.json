@@ -1,5 +1,7 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["uv"],
+  "ignore": ["packages/compute-client/src/generated/**"],
   "workspaces": {
     ".": {
       "entry": ["*.config.*", ".dependency-cruiser.cjs", "tools/gates/*.spec.ts", "tools/gates/*.config.mts", "scripts/diagrams/run.ts", "scripts/diagrams/check.ts", "scripts/diagrams/*.spec.ts", "scripts/diagrams/*.config.mts", "scripts/diagrams/fixtures/sample/*.ts"],
@@ -13,6 +15,7 @@
       "entry": ["src/main.tsx", "**/*.config.*", "src/**/*.spec.tsx"],
       "project": ["src/**/*.{ts,tsx,css}", "*.ts"]
     },
-    "packages/*": { "entry": ["src/index.ts", "src/**/*.spec.ts"], "project": ["src/**/*.ts"] }
+    "packages/*": { "entry": ["src/index.ts", "src/**/*.spec.ts"], "project": ["src/**/*.ts"] },
+    "packages/compute-client": { "entry": ["src/index.ts", "src/**/*.spec.ts", "scripts/generate.ts"], "project": ["src/**/*.ts", "scripts/**/*.ts"] }
   }
 }
