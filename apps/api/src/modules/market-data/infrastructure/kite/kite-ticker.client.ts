@@ -1,11 +1,15 @@
 import { Logger } from '@nestjs/common';
 import { CircuitBreaker, CircuitOpenError, withTimeout } from '@aitrader/resilience';
 import type { Tick } from '../../application/ports/live-feed';
+import { UnavailableError } from '../../../../shared/errors';
 import type { FeedTransport } from '../feed/resilient-feed';
 import { KiteWsClient, type TickerMapping } from './kite-ws.client';
 import type { SubscriptionManager } from './subscription-manager';
 
 const reasonFor = (error: unknown) => error instanceof Error && error.message === 'AUTH_EXPIRED' ? 'AUTH_EXPIRED' : 'PROVIDER_DOWN';
+/** The owner's session (not connected, CAPTCHA lock), not Kite's health: passed through for an honest AUTH_EXPIRED status. */
+export const isSessionError = (error: unknown): error is UnavailableError =>
+  error instanceof UnavailableError && ['NOT_CONNECTED', 'CAPTCHA_REQUIRED'].includes(String(error.details?.reason));
 export class KiteTickerClient implements FeedTransport {
   private readonly connections = new Map<number, KiteWsClient>();
   private readonly opening = new Map<number, Promise<void>>();
@@ -27,7 +31,10 @@ export class KiteTickerClient implements FeedTransport {
         const groups = this.manager.groups();
         await Promise.all((groups.length ? groups : [[]]).map((_, index) => this.open(index, accessToken, signal)));
       });
-    } catch (error) { throw new Error(error instanceof CircuitOpenError ? 'PROVIDER_DOWN' : reasonFor(error)); }
+    } catch (error) {
+      if (isSessionError(error)) throw error;
+      throw new Error(error instanceof CircuitOpenError ? 'PROVIDER_DOWN' : reasonFor(error));
+    }
   }
   close(): void {
     this.active = false; this.controller.abort();
