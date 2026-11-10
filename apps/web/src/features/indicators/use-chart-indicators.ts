@@ -7,10 +7,10 @@ import { useIndicatorStore, type ChartIndicator } from './state/indicator-store'
 const LIMIT = 500;
 
 /** What the chart paints for one indicator: its definition and the latest computed series. */
-export interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult }
+interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult }
 export interface IndicatorRow { item: ChartIndicator; definition: IndicatorDefinition | undefined; result: IndicatorResult | undefined; error: string | undefined; loading: boolean }
 
-export function useIndicatorCatalog() {
+function useIndicatorCatalog() {
   return useQuery({ queryKey: ['indicators'], staleTime: Infinity,
     queryFn: ({ signal }) => apiFetch('v1/indicators', { schema: IndicatorListResponseSchema, signal }).then(body => body.indicators) });
 }
