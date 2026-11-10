@@ -7,6 +7,7 @@ import { AdminOpsModule } from '../../src/modules/admin-ops/admin-ops.module';
 import { AlertsModule } from '../../src/modules/alerts/alerts.module';
 import { IndicatorsModule } from '../../src/modules/indicators/indicators.module';
 import { PaperTradingModule } from '../../src/modules/paper-trading/paper-trading.module';
+import { AgentModule } from '../../src/modules/agent/agent.module';
 
 @Module({})
 class NoInstrumentsModule {}
@@ -20,5 +21,6 @@ export function isolateInstruments(builder: TestingModuleBuilder): TestingModule
     .overrideModule(AdminOpsModule).useModule(NoInstrumentsModule)
     .overrideModule(AlertsModule).useModule(NoInstrumentsModule)
     .overrideModule(IndicatorsModule).useModule(NoInstrumentsModule)
-    .overrideModule(PaperTradingModule).useModule(NoInstrumentsModule);
+    .overrideModule(PaperTradingModule).useModule(NoInstrumentsModule)
+    .overrideModule(AgentModule).useModule(NoInstrumentsModule);
 }

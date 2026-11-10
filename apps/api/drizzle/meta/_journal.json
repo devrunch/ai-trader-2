@@ -64,6 +64,13 @@
       "when": 1794300001000,
       "tag": "0011_prompt_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794300002000,
+      "tag": "0012_agent_chat",
+      "breakpoints": true
     }
   ]
 }

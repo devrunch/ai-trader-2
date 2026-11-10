@@ -7,6 +7,11 @@ const httpOrigin = z.url({ protocol: /^https?$/ }).refine((value) => {
   return url.username === '' && url.password === '' && url.pathname === '/' && url.search === '' && url.hash === '';
 }, 'Expected an HTTP(S) origin');
 
+/** `KEY=` in .env means unset, so the documented blank template boots. */
+const unsetIfBlank = <T extends z.ZodType>(schema: T) => z.preprocess(value => (value === '' ? undefined : value), schema.optional());
+const modelSpec = z.string().regex(/^[a-z-]+\/.+$/, 'provider/model');
+const secret = z.string().min(1);
+
 export const AppConfigSchema = z.object({
   ZERODHA_API_KEY: z.string().optional(),
   ZERODHA_API_SECRET: z.string().optional(),
@@ -19,6 +24,24 @@ export const AppConfigSchema = z.object({
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
   ALERT_EMAIL_FROM: z.string().min(3).optional(),
   ALERT_EMAIL_TO: z.string().transform(value => value.split(',').map(part => part.trim()).filter(Boolean)).pipe(z.array(z.email())).default([]),
+  // Agent model, any provider: `provider/model` (bedrock-mantle, anthropic, xai, openai, openai-compatible). Unset disables the assistant.
+  AGENT_MODEL: unsetIfBlank(modelSpec),
+  AGENT_FALLBACK_MODEL: unsetIfBlank(modelSpec),
+  AGENT_BASE_URL: unsetIfBlank(z.url({ protocol: /^https?$/ })),
+  AGENT_API_KEY: unsetIfBlank(secret),
+  ANTHROPIC_API_KEY: unsetIfBlank(secret),
+  OPENAI_API_KEY: unsetIfBlank(secret),
+  XAI_API_KEY: unsetIfBlank(secret),
+  BEDROCK_API_KEY: unsetIfBlank(secret),
+  BEDROCK_BASE_URL: unsetIfBlank(z.url({ protocol: /^https$/ })),
+  AWS_REGION: unsetIfBlank(secret),
+  AWS_ACCESS_KEY_ID: unsetIfBlank(secret),
+  AWS_SECRET_ACCESS_KEY: unsetIfBlank(secret),
+  AWS_SESSION_TOKEN: unsetIfBlank(secret),
+  AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(20)).default(6),
+  AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
+  AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
+  AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   APP_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),

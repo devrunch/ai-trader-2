@@ -18,15 +18,21 @@ async function readBody(response: Response): Promise<unknown> {
     throw error;
   }
 }
+/** Absolute API URL for a path, for clients that do their own fetching (the chat stream). */
+export function apiUrl(path: string): string {
+  return z.string().catch('/api').parse(import.meta.env.VITE_API_URL).replace(/\/$/, '') + '/' + path.replace(/^\//, '');
+}
+/** Headers every mutating request carries (CSRF guard). */
+export const API_HEADERS = { 'X-Requested-With': 'aitrader' } as const;
+
 export async function apiFetch<T>(path: string, opts: Options<T>): Promise<T> {
-  const base = z.string().catch('/api').parse(import.meta.env.VITE_API_URL);
   const timeout = AbortSignal.timeout(15_000);
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   let response: Response;
   try {
-    response = await fetch(base.replace(/\/$/, '') + '/' + path.replace(/^\//, ''), {
+    response = await fetch(apiUrl(path), {
       method: opts.method ?? 'GET', credentials: 'include', signal,
-      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Requested-With': 'aitrader' },
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', ...API_HEADERS },
       ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
     });
   } catch (error) {
