@@ -64,7 +64,7 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets }: Props) {
       <nav aria-label="Widgets" className="flex w-11 shrink-0 flex-col items-center gap-1 border-l bg-panel py-2">
         {WIDGETS.map(({ id, label, icon: Icon }) => <Tooltip key={id}><TooltipTrigger asChild>
           <button type="button" aria-label={label} aria-pressed={widget === id}
-            className={`grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-accent' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            className={`grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => { setWidget(current => (current === id ? null : id)); }}><Icon className="size-4" /></button>
         </TooltipTrigger><TooltipContent side="left">{label}</TooltipContent></Tooltip>)}
       </nav>
@@ -86,7 +86,7 @@ function PhoneLayout({ toolbar, chart, bottom, widgets }: Props) {
     <section aria-label={PHONE_TABS.find(t => t.id === tab)?.label} className={`min-h-0 flex-1 ${tab === 'chart' ? '' : 'overflow-auto bg-panel'}`}>{content}</section>
     <div role="tablist" aria-label="Sections" className="grid shrink-0 grid-cols-6 border-t bg-panel">
       {PHONE_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
-        className={`h-11 text-[11px] ${tab === t.id ? 'text-accent' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
+        className={`h-11 text-[11px] ${tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
     </div>
   </div>;
 }

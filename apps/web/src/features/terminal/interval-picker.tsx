@@ -13,7 +13,7 @@ export function IntervalPicker() {
     {CHOICES.map(choice => {
       const active = interval === choice.value;
       return <button key={choice.value} type="button" aria-pressed={active}
-        className={`h-7 min-w-7 rounded px-1.5 text-[12px] ${active ? 'text-accent' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+        className={`h-7 min-w-7 rounded px-1.5 text-[12px] ${active ? 'text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
         onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval: choice.value } }); }}>{choice.label}</button>;
     })}
   </div>;
