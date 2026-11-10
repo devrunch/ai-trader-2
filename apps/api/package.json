@@ -12,14 +12,18 @@
     "admin:create": "pnpm build && node dist/cli/create-admin.js"
   },
   "dependencies": {
+    "@ai-sdk/amazon-bedrock": "4.0.204",
     "@aitrader/compute-client": "workspace:*",
     "@aitrader/contracts": "workspace:*",
     "@aitrader/resilience": "workspace:*",
     "@date-fns/tz": "1.5.0",
+    "@mastra/ai-sdk": "1.11.2",
+    "@mastra/core": "1.79.0",
     "@nestjs/common": "12.4.0",
     "@nestjs/core": "12.4.0",
     "@nestjs/platform-express": "12.4.0",
     "@node-rs/argon2": "2.2.2",
+    "ai": "7.0.155",
     "bullmq": "6.7.2",
     "cookie-parser": "1.4.7",
     "cron-parser": "5.10.4",
