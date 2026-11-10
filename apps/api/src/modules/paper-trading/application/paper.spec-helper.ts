@@ -5,13 +5,13 @@ import type { PaperMarket } from './ports/paper-market';
 import type { AccountRecord, FillRecord, OrderRecord, PaperStore, PaperUnitOfWork, PositionRecord } from './ports/paper-store';
 import { DEFAULT_PAPER_SETTINGS, type PaperDeps } from './paper-settings';
 
-/** 2026-11-10 10:00 IST, a Tuesday session 09:15–15:30 IST. */
-export const NOW = Date.parse('2026-11-10T04:30:00Z');
-export const SESSION: Session = { open: Date.parse('2026-11-10T03:45:00Z'), close: Date.parse('2026-11-10T10:00:00Z') };
-export const SQUARE_OFF = Date.parse('2026-11-10T09:50:00Z');
+/** 2026-11-11 10:00 IST, a Wednesday session 09:15–15:30 IST. */
+export const NOW = Date.parse('2026-11-11T04:30:00Z');
+export const SESSION: Session = { open: Date.parse('2026-11-11T03:45:00Z'), close: Date.parse('2026-11-11T10:00:00Z') };
+export const SQUARE_OFF = Date.parse('2026-11-11T09:50:00Z');
 
 export const INFY: TradableInstrument = { id: 'NSE:INFY', exchange: 'NSE', type: 'stock', currency: 'INR', status: 'active', lotSize: 1, tick: 0.05 };
-export const NIFTY_FUT: TradableInstrument = { id: 'NFO:NIFTYZ2026', exchange: 'NFO', type: 'futures', currency: 'INR', status: 'active', lotSize: 75, tick: 0.05 };
+export const NIFTY_FUT: TradableInstrument = { id: 'NSE:NIFTYZ2026', exchange: 'NSE', type: 'futures', currency: 'INR', status: 'active', lotSize: 75, tick: 0.05 };
 
 interface State { accounts: AccountRecord[]; orders: OrderRecord[]; fills: FillRecord[]; positions: PositionRecord[] }
 

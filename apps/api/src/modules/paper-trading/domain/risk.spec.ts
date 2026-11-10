@@ -74,12 +74,12 @@ describe('margin', () => {
 });
 
 describe('session rules FR-PT-5', () => {
-  const session = { open: Date.parse('2026-11-10T03:45:00Z'), close: Date.parse('2026-11-10T10:00:00Z') };
+  const session = { open: Date.parse('2026-11-11T03:45:00Z'), close: Date.parse('2026-11-11T10:00:00Z') };
   it('squares off NSE, BSE and NFO intraday positions at 15:20 IST', () => {
-    for (const exchange of ['NSE', 'BSE', 'NFO']) expect(new Date(squareOffAt(exchange, session)).toISOString()).toBe('2026-11-10T09:50:00.000Z');
+    for (const exchange of ['NSE', 'BSE', 'NFO']) expect(new Date(squareOffAt(exchange, session)).toISOString()).toBe('2026-11-11T09:50:00.000Z');
   });
   it('expires MIS orders at the square-off and other day orders at the close', () => {
-    expect(orderExpiresAt('MIS', 'NSE', session)).toBe(Date.parse('2026-11-10T09:50:00Z'));
+    expect(orderExpiresAt('MIS', 'NSE', session)).toBe(Date.parse('2026-11-11T09:50:00Z'));
     expect(orderExpiresAt('CNC', 'NSE', session)).toBe(session.close);
   });
 });
