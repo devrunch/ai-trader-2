@@ -135,7 +135,8 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     expect((await repo.listForIndex()).map(row => row.id.toString())).toEqual(['MCX:RECENT']);
     expect((await db.select().from(schema.instrumentChanges)).length).toBe(6);
   });
-  it('refresh of 100,000 instruments completes within 60 seconds', async () => {
+  // Timed alone by test:perf (vitest.perf.config.mts); in the parallel integration run other containers skew it.
+  it.runIf(process.env.INT_PERF === '1')('refresh of 100,000 instruments completes within 60 seconds', async () => {
     snapshot = { instruments: Array.from({ length: 100000 }, (_, i) => instrument(`NSE:PERF${String(i)}`)), mappings: Array.from({ length: 100000 }, (_, i) => ({ id: `NSE:PERF${String(i)}`, provider: 'kite', providerSymbol: `PERF${String(i)}` })) };
     const started = performance.now(); const report = await run(); const duration = performance.now() - started;
     console.info(`P1-5 100,000 instrument refresh: ${duration.toFixed(0)} ms`);
