@@ -123,3 +123,26 @@ it('alerts tab says when mail is not configured and sends a test email when it i
   expect(await screen.findByText('Test email sent.')).toBeDefined();
   expect(sent).toBe(1);
 });
+
+it('prompts tab edits like commits: save with a message, diff a version, revert', async () => {
+  const history = [{ key: 'system', version: 1, content: 'Edited.', parentVersion: 0, message: 'first edit', author: 'owner', createdAt: '2026-11-10T00:00:00.000Z' }];
+  const posts: Array<{ path: string; body: unknown }> = [];
+  server.use(
+    http.get('/api/v1/admin/prompts', () => HttpResponse.json([{ key: 'system', version: 2, source: 'admin' }])),
+    http.get('/api/v1/admin/prompts/system', () => HttpResponse.json({ active: { key: 'system', version: 2, source: 'admin', content: 'Edited twice.' },
+      history: [{ ...history[0], version: 2, content: 'Edited twice.', parentVersion: 1, message: 'second edit' }, ...history] })),
+    http.get('/api/v1/admin/prompts/system/diff', () => HttpResponse.json([{ op: '-', line: 'Edited.' }, { op: '+', line: 'Edited twice.' }])),
+    http.post('/api/v1/admin/prompts/system', async ({ request }) => { posts.push({ path: 'save', body: await request.json() }); return HttpResponse.json({ version: null }); }),
+    http.post('/api/v1/admin/prompts/system/revert', async ({ request }) => { posts.push({ path: 'revert', body: await request.json() }); return HttpResponse.json({ version: null }); }),
+  );
+  await renderAt('/admin?tab=prompts');
+  const editor = await screen.findByLabelText('Prompt content');
+  fireEvent.change(editor, { target: { value: 'Edited three times.' } });
+  fireEvent.change(screen.getByLabelText('Change message'), { target: { value: 'third edit' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save version' }));
+  await vi.waitFor(() => { expect(posts[0]).toEqual({ path: 'save', body: { content: 'Edited three times.', message: 'third edit' } }); });
+  fireEvent.click(screen.getByRole('button', { name: 'Diff v1 → active' }));
+  expect(await screen.findByText('+ Edited twice.')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Revert to v1' }));
+  await vi.waitFor(() => { expect(posts[1]).toEqual({ path: 'revert', body: { version: 1 } }); });
+});
