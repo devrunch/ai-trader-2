@@ -35,3 +35,8 @@ export const QuoteResponseSchema = z.strictObject({
   changePct: z.number().nullable(), at: z.number().int(), status: DataStatusSchema,
 });
 export type QuoteResponse = z.infer<typeof QuoteResponseSchema>;
+/** Many quotes in one request (a watchlist); an instrument that fails carries its error code instead of failing the batch. */
+export const QuotesResponseSchema = z.strictObject({
+  quotes: z.array(z.union([QuoteResponseSchema, z.strictObject({ instrumentId: z.string(), error: z.string() })])),
+});
+export const QUOTES_MAX = 50;

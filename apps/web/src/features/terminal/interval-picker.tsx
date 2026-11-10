@@ -9,11 +9,11 @@ const CHOICES: Array<{ value: Interval; label: string }> = [
 export function IntervalPicker() {
   const { symbol, interval } = useSearch({ from: '/terminal' });
   const navigate = useNavigate();
-  return <div role="group" aria-label="Interval" className="inline-flex rounded border text-xs">
+  return <div role="group" aria-label="Interval" className="flex items-center">
     {CHOICES.map(choice => {
       const active = interval === choice.value;
       return <button key={choice.value} type="button" aria-pressed={active}
-        className={`px-2 py-1 ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        className={`h-7 min-w-7 rounded px-1.5 text-[12px] ${active ? 'text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
         onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval: choice.value } }); }}>{choice.label}</button>;
     })}
   </div>;

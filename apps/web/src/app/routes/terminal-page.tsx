@@ -2,16 +2,19 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Interval } from '@aitrader/contracts';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search';
+import { Brand, CompactNav } from '../layout/app-shell';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
-import { IntervalPicker, SymbolHeader, Watchlist } from '../../features/terminal';
+import { IndicatorPicker } from '../../features/indicators';
+import { InstrumentBadge, IntervalPicker, Watchlist } from '../../features/terminal';
 import { PositionsPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
+import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 // Loaded on first visit to /terminal: the chart library and live client stay out of the initial bundle.
-function Placeholder({ title }: { title: string }) {
-  return <div className="space-y-3"><h2 className="font-medium">{title}</h2><p className="text-sm text-muted-foreground">No content yet. This workspace is ready for future features.</p></div>;
-}
+const Divider = () => <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />;
+const NotYet = ({ what }: { what: string }) => <p className="p-3 text-[12px] text-muted-foreground">{what} aren't available yet.</p>;
+
 export function TerminalPage() {
   const { symbol, interval } = useSearch({ from: '/terminal' });
   const navigate = useNavigate();
@@ -21,7 +24,18 @@ export function TerminalPage() {
   const addDrawing = useDrawingStore(s => s.add);
   const chatActions = useMemo(() => ({ openSymbol: (next: string, nextInterval?: Interval) => { void navigate({ to: '/terminal', search: { symbol: next, interval: nextInterval ?? interval } }); },
     addDrawing }), [navigate, interval, addDrawing]);
-  return <><TerminalLayout watchlist={<Watchlist />} chart={<div className="flex h-full flex-col gap-3"><div className="flex flex-wrap items-center gap-3"><SymbolHeader symbol={symbol} onSymbolClick={() => { open(''); }} /><IntervalPicker /><span className="ml-auto"><ConnectionIndicator /></span></div><div className="min-h-0 flex-1"><LiveChart symbol={symbol} interval={interval} /></div></div>} side={{ chat: <ChatPanel actions={chatActions} />, positions: <PositionsPanel symbol={symbol} />, news: <Placeholder title="News" />, alerts: <Placeholder title="Alerts" /> }} />
+  const toolbar = <div className="flex w-full min-w-0 items-center gap-1 px-2">
+    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+      <span className="hidden shrink-0 items-center xl:flex"><Brand /><Divider /></span>
+      <InstrumentBadge symbol={symbol} onSymbolClick={() => { open(''); }} /><Divider />
+      <span className="shrink-0"><IntervalPicker /></span><Divider />
+      <span className="shrink-0"><IndicatorPicker /></span>
+    </div>
+    <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><CompactNav /><ThemeToggle /></div>
+  </div>;
+  return <>
+    <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<PositionsPanel symbol={symbol} />}
+      widgets={{ watchlist: <Watchlist />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NotYet what="News feeds" /> }} />
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}
   </>;
 }

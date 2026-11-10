@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, expect, it } from 'vitest';
 import type { IndicatorDefinition } from '@aitrader/contracts';
 import { Providers } from '../../app/providers';
 import { IndicatorLegend } from './indicator-legend';
+import { IndicatorPicker } from './indicator-picker';
 import { useIndicatorStore } from './state/indicator-store';
 import { useChartIndicators } from './use-chart-indicators';
 
@@ -25,21 +26,23 @@ const server = setupServer(
       times: [60_000, 120_000], plots: [{ id: 'ma', values: [null, length + 0.5] }], status: { state: 'ok' } });
   }),
 );
-beforeAll(() => { server.listen(); });
+// cmdk scrolls the active item into view; jsdom has no layout.
+beforeAll(() => { server.listen(); Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: () => undefined }); });
 afterEach(() => { cleanup(); bodies.length = 0; useIndicatorStore.setState({ items: [] }); });
-afterAll(() => { server.close(); });
+afterAll(() => { server.close(); Reflect.deleteProperty(Element.prototype, 'scrollIntoView'); });
 
 function Harness() {
-  const { rows, catalog } = useChartIndicators('NSE:A', '1', 0);
-  return <IndicatorLegend rows={rows} catalog={catalog.data} />;
+  const { rows } = useChartIndicators('NSE:A', '1', 0);
+  return <><IndicatorPicker /><IndicatorLegend rows={rows} /></>;
 }
 
 // FR-IN-9, FR-IN-15: add from the catalog, see values, change inputs in the settings dialog, remove.
 it('adds an indicator, edits its inputs and removes it', async () => {
   render(<Providers><Harness /></Providers>);
-  const picker = await screen.findByRole('combobox', { name: 'Add indicator' });
-  await waitFor(() => { expect(screen.getByRole('option', { name: 'Moving Average Simple' })).toBeDefined(); });
-  fireEvent.change(picker, { target: { value: 'sma' } });
+  const open = await screen.findByRole('button', { name: 'Indicators' });
+  await waitFor(() => { expect(open.hasAttribute('disabled')).toBe(false); });
+  fireEvent.click(open);
+  fireEvent.click(await screen.findByRole('option', { name: /Moving Average Simple/ }));
   expect(await screen.findByText('9.50')).toBeDefined();
   expect(bodies[0]).toEqual({ symbol: 'NSE:A', interval: '1', indicator: { kind: 'builtin', id: 'sma', inputs: {} }, range: { limit: 500 } });
 

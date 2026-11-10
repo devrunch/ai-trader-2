@@ -1,3 +1,5 @@
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/600.css';
 import './app/theme.css';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/app';

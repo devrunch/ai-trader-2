@@ -1,20 +1,37 @@
-import { Link, Outlet } from '@tanstack/react-router';
-import { Monitor, Moon, Sun } from 'lucide-react';
-import { useThemeStore } from '../../shared/state';
-import { Button } from '../../shared/ui/button';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { House, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
+import { ThemeToggle } from '../../shared/ui/theme-toggle';
+
+function MainNav() {
+  const link = 'rounded px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground';
+  return <nav aria-label="Main navigation" className="flex items-center gap-1 text-[12px]">
+    <Link to="/" className={link} activeProps={{ className: 'text-foreground' }} activeOptions={{ exact: true }}>Home</Link>
+    <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={{ className: 'text-foreground' }}>Terminal</Link>
+    <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={{ className: 'text-foreground' }}>Admin</Link>
+  </nav>;
+}
+
+/** Icon-only navigation for the terminal toolbar, where width belongs to the chart controls. */
+export function CompactNav() {
+  const item = 'grid size-7 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground';
+  return <nav aria-label="Main navigation" className="flex items-center">
+    <Tooltip><TooltipTrigger asChild><Link to="/" aria-label="Home" className={item}><House className="size-4" /></Link></TooltipTrigger><TooltipContent>Home</TooltipContent></Tooltip>
+    <Tooltip><TooltipTrigger asChild><Link to="/admin" search={{ tab: undefined, notice: undefined }} aria-label="Admin" className={item}><Shield className="size-4" /></Link></TooltipTrigger><TooltipContent>Admin</TooltipContent></Tooltip>
+  </nav>;
+}
+
+export function Brand() {
+  return <span data-testid="app-root" className="px-1 text-[13px] font-semibold">AI Trader</span>;
+}
+
+/** The terminal draws its own toolbar; every other page gets this slim header. */
 export function AppShell() {
-  const { mode, setMode } = useThemeStore();
-  const Icon = mode === 'system' ? Monitor : mode === 'light' ? Sun : Moon;
+  const terminal = useRouterState({ select: state => state.location.pathname.startsWith('/terminal') });
   return <div className="flex h-dvh flex-col">
-    <header className="flex flex-wrap items-center gap-6 border-b bg-panel px-4 py-3">
-      <span data-testid="app-root" className="font-semibold tracking-tight">AI Trader</span>
-      <nav aria-label="Main navigation" className="flex gap-4 text-sm">
-        <Link to="/" activeProps={{ className: 'text-accent' }} activeOptions={{ exact: true }}>Home</Link>
-        <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} activeProps={{ className: 'text-accent' }}>Terminal</Link>
-      </nav>
-      <Tooltip><TooltipTrigger asChild><Button variant="outline" size="icon" className="ml-auto" aria-label={'Theme: ' + mode} onClick={() => { setMode(mode === 'system' ? 'light' : mode === 'light' ? 'dark' : 'system'); }}><Icon /></Button></TooltipTrigger><TooltipContent>Theme: {mode}</TooltipContent></Tooltip>
-    </header>
+    {!terminal && <header className="flex h-10 shrink-0 items-center gap-3 border-b bg-panel px-2">
+      <Brand /><MainNav /><span className="ml-auto"><ThemeToggle /></span>
+    </header>}
     <main className="flex min-h-0 flex-1 flex-col"><Outlet /></main>
   </div>;
 }
