@@ -27,3 +27,13 @@ export const agentTurns = pgTable('agent_turns', {
   startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }).notNull(),
   finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'string' }),
 }, table => [index('agent_turns_prompt').on(table.promptKey, table.promptVersion)]);
+
+export const agentActions = pgTable('agent_actions', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  action: jsonb('action').notNull(),
+  state: text('state').notNull(),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+});

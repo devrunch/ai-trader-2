@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as schema from '../src/shared/database/schema';
 import { NotFoundError } from '../src/shared/errors';
 import { DrizzleThreadStore, DrizzleTurnStore } from '../src/modules/agent/infrastructure/drizzle-chat.stores';
+import { DrizzleActionStore } from '../src/modules/agent/infrastructure/drizzle-action.store';
 import { startPostgres } from './support/containers';
 
 describe('agent chat stores (FR-AG-9, turn records)', () => {
@@ -13,6 +14,7 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
   let pool: Pool;
   let threads: DrizzleThreadStore;
   let turns: DrizzleTurnStore;
+  let actions: DrizzleActionStore;
   const alice = randomUUID();
   const bob = randomUUID();
   beforeAll(async () => {
@@ -25,6 +27,7 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
     }
     threads = new DrizzleThreadStore(db);
     turns = new DrizzleTurnStore(db);
+    actions = new DrizzleActionStore(db);
   });
   afterAll(async () => { await pool.end(); await container.stop(); });
 
@@ -63,5 +66,16 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
     await turns.finish(id, { outcome: 'ok', tokens: 420, finishedAt: '2026-11-10T10:00:05.000Z' });
     const { rows } = await pool.query('SELECT prompt_version, model, outcome, tokens FROM agent_turns WHERE id = $1', [id]);
     expect(rows[0]).toEqual({ prompt_version: 3, model: 'xai/grok-4', outcome: 'ok', tokens: 420 });
+  });
+
+  it('action cards: owner-only reads and a compare-and-set on state (FR-AG-17)', async () => {
+    const card = { id: randomUUID(), userId: alice, action: { kind: 'add-indicator' as const, indicatorId: 'rsi', inputs: { length: 14 } }, state: 'pending' as const,
+      reason: null, createdAt: Date.parse('2026-11-10T10:00:00Z'), expiresAt: Date.parse('2026-11-10T10:15:00Z') };
+    await actions.create(card);
+    expect(await actions.get(alice, card.id)).toEqual(card);
+    expect(await actions.get(bob, card.id)).toBeNull();
+    expect(await actions.save({ ...card, state: 'dismissed' }, 'pending')).toBe(true);
+    expect(await actions.save({ ...card, state: 'applied' }, 'pending')).toBe(false);
+    expect((await actions.get(alice, card.id))?.state).toBe('dismissed');
   });
 });
