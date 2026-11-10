@@ -5,6 +5,7 @@ import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart } from '../../features/chart';
 import { IntervalPicker, SymbolHeader, Watchlist } from '../../features/terminal';
 import { PositionsPanel } from '../../features/paper';
+import { ChatPanel } from '../../features/chat';
 
 // Loaded on first visit to /terminal: the chart library and live client stay out of the initial bundle.
 function Placeholder({ title }: { title: string }) {
@@ -16,7 +17,7 @@ export function TerminalPage() {
   const [initial, setInitial] = useState<string | null>(null);
   const open = useCallback((value: string) => { setInitial((current) => current ?? value); }, []);
   useOpenOnType(open);
-  return <><TerminalLayout watchlist={<Watchlist />} chart={<div className="flex h-full flex-col gap-3"><div className="flex flex-wrap items-center gap-3"><SymbolHeader symbol={symbol} onSymbolClick={() => { open(''); }} /><IntervalPicker /><span className="ml-auto"><ConnectionIndicator /></span></div><div className="min-h-0 flex-1"><LiveChart symbol={symbol} interval={interval} /></div></div>} side={{ chat: <Placeholder title="Chat" />, positions: <PositionsPanel symbol={symbol} />, news: <Placeholder title="News" />, alerts: <Placeholder title="Alerts" /> }} />
+  return <><TerminalLayout watchlist={<Watchlist />} chart={<div className="flex h-full flex-col gap-3"><div className="flex flex-wrap items-center gap-3"><SymbolHeader symbol={symbol} onSymbolClick={() => { open(''); }} /><IntervalPicker /><span className="ml-auto"><ConnectionIndicator /></span></div><div className="min-h-0 flex-1"><LiveChart symbol={symbol} interval={interval} /></div></div>} side={{ chat: <ChatPanel />, positions: <PositionsPanel symbol={symbol} />, news: <Placeholder title="News" />, alerts: <Placeholder title="Alerts" /> }} />
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}
   </>;
 }
