@@ -91,11 +91,11 @@ it('applies a proposed indicator with the inputs the user edited, once (FR-AG-17
 
 it('opens a proposed symbol through the host screen', async () => {
   const openSymbol = vi.fn();
-  const open = card({ action: { kind: 'open-symbol', symbol: 'NSE:INFY', interval: '15' } });
+  let open = card({ action: { kind: 'open-symbol', symbol: 'NSE:INFY', interval: '15' } });
   server.use(
     http.post('/api/v1/agent/chat', () => sse(proposal(open))),
-    http.get(`/api/v1/agent/actions/${cardId}`, () => HttpResponse.json(open)),
-    http.post(`/api/v1/agent/actions/${cardId}/apply`, () => HttpResponse.json({ ...open, state: 'applied' })),
+    http.get(`/api/v1/agent/actions/${cardId}`, async () => { await new Promise(r => setTimeout(r, 50)); return HttpResponse.json(open); }),
+    http.post(`/api/v1/agent/actions/${cardId}/apply`, () => { open = { ...open, state: 'applied' }; return HttpResponse.json(open); }),
   );
   render(<Providers><ChatPanel actions={{ openSymbol }} /></Providers>);
   await ask('Show Infosys');

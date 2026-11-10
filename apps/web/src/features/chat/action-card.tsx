@@ -35,7 +35,10 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
     if (applied.kind === 'add-indicator') addIndicator(applied.indicatorId, applied.inputs);
     else host.openSymbol(applied.symbol, applied.interval);
   };
+  // A read still in flight from before the decision must not overwrite it.
+  const hold = () => client.cancelQueries({ queryKey: key(proposed.id) });
   const apply = useMutation({
+    onMutate: hold,
     mutationFn: () => apiFetch(`/v1/agent/actions/${proposed.id}/apply`, { schema: ActionCardSchema, method: 'POST', body: draft ? { action: draft } : {} }),
     onSuccess: next => {
       try { run(next.action); settle(next); }
@@ -45,7 +48,7 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
       }
     },
   });
-  const dismiss = useMutation({ mutationFn: () => apiFetch(`/v1/agent/actions/${proposed.id}/dismiss`, { schema: ActionCardSchema, method: 'POST' }), onSuccess: settle });
+  const dismiss = useMutation({ onMutate: hold, mutationFn: () => apiFetch(`/v1/agent/actions/${proposed.id}/dismiss`, { schema: ActionCardSchema, method: 'POST' }), onSuccess: settle });
   const pending = current.state === 'pending';
 
   return <div role="group" aria-label="Proposed change" className="space-y-2 rounded border p-2 text-xs">
