@@ -94,6 +94,9 @@ describe('durable jobs', () => {
     } finally { await events.close(); }
   });
   it('catches up a run missed within grace after restart', async () => {
+    // The cron fires every minute; starting near a boundary would add a legitimate scheduled run to the count.
+    const intoMinute = Date.now() % 60000;
+    if (intoMinute > 45000) await delay(61000 - intoMinute);
     const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);
     const job = spec(run, { cron: '* * * * *', graceMs: 120000 });
     await redis.set(`jobs:${job.name}:last`, JSON.stringify({ at: '2020-01-01T00:00:00Z', outcome: 'ok' }));
@@ -106,7 +109,7 @@ describe('durable jobs', () => {
     await first.onModuleDestroy(); instances.splice(instances.indexOf(first), 1);
     await scheduler().register(job); await delay(100);
     expect(run).toHaveBeenCalledTimes(1);
-  });
+  }, 45_000);
   it('lists registered jobs with their next run and knows which names exist', async () => {
     const instance = scheduler();
     const job = spec(vi.fn<JobSpec['run']>().mockResolvedValue(undefined));

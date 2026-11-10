@@ -1,8 +1,12 @@
-import type { AgentAction } from '@aitrader/contracts';
+import type { AgentAction, Drawing } from '@aitrader/contracts';
 
 export const CARD_TTL_MS = 15 * 60_000;
 type CardState = 'pending' | 'applied' | 'dismissed' | 'expired' | 'failed';
-export interface ActionCard { id: string; userId: string; action: AgentAction; state: CardState; reason: string | null; createdAt: number; expiresAt: number }
+export interface ActionCard {
+  id: string; userId: string; action: AgentAction; state: CardState; reason: string | null; createdAt: number; expiresAt: number;
+  /** Server-computed geometry for a `draw` action; null for other kinds. */
+  drawing: Drawing | null;
+}
 type CardRefusal = 'EXPIRED' | 'DISMISSED' | 'APPLIED' | 'FAILED' | 'KIND_CHANGED';
 type Decision = { ok: true; card: ActionCard } | { ok: false; reason: CardRefusal };
 

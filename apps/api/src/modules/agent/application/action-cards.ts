@@ -1,4 +1,4 @@
-import type { ActionCardDto, AgentAction, IndicatorDefinition } from '@aitrader/contracts';
+import type { ActionCardDto, AgentAction, Drawing, DrawingIntent, IndicatorDefinition } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { applyCard, CARD_TTL_MS, dismissCard, failCard, viewCard, type ActionCard } from '../domain/action-card';
 
@@ -29,18 +29,23 @@ function checkAction(action: AgentAction, indicators: IndicatorDefinition[]): st
   return null;
 }
 
-const dto = (card: ActionCard): ActionCardDto => ({ id: card.id, action: card.action, state: card.state, reason: card.reason, expiresAt: new Date(card.expiresAt).toISOString() });
+const dto = (card: ActionCard): ActionCardDto => ({ id: card.id, action: card.action, state: card.state, reason: card.reason,
+  expiresAt: new Date(card.expiresAt).toISOString(), drawing: card.drawing });
+
+export interface CardDeps { indicators: () => IndicatorDefinition[]; draw: (intent: DrawingIntent) => Promise<Drawing> }
 
 /** Proposed workspace changes the user confirms (FR-AG-17): pending, applied, dismissed, expired (15 min) or failed. */
 export class ActionCards {
-  constructor(private readonly store: ActionCardStore, private readonly indicators: () => IndicatorDefinition[],
+  constructor(private readonly store: ActionCardStore, private readonly deps: CardDeps,
     private readonly env: { now: () => number; id: () => string }) {}
 
   async propose(userId: string, action: AgentAction): Promise<ActionCardDto> {
-    const problem = checkAction(action, this.indicators());
+    const problem = checkAction(action, this.deps.indicators());
     if (problem) throw new ValidationError(problem);
+    // A drawing is computed now as a preview, so the assistant can describe real levels, and again on apply from fresh bars.
+    const drawing = action.kind === 'draw' ? await this.deps.draw(action.intent) : null;
     const now = this.env.now();
-    const card: ActionCard = { id: this.env.id(), userId, action, state: 'pending', reason: null, createdAt: now, expiresAt: now + CARD_TTL_MS };
+    const card: ActionCard = { id: this.env.id(), userId, action, state: 'pending', reason: null, createdAt: now, expiresAt: now + CARD_TTL_MS, drawing };
     await this.store.create(card);
     return dto(card);
   }
@@ -51,14 +56,17 @@ export class ActionCards {
 
   async apply(userId: string, id: string, edited?: AgentAction): Promise<ActionCardDto> {
     if (edited) {
-      const problem = checkAction(edited, this.indicators());
+      const problem = checkAction(edited, this.deps.indicators());
       if (problem) throw new ValidationError(problem);
     }
     const stored = await this.load(userId, id);
     const decision = applyCard(stored, this.env.now(), edited);
     if (!decision.ok) throw new ConflictError(`This card can no longer be applied (${decision.reason.toLowerCase().replace('_', ' ')})`, { reason: decision.reason });
-    if (decision.card !== stored) await this.commit(decision.card, stored.state);
-    return dto(decision.card);
+    if (decision.card === stored) return dto(stored);
+    const action = decision.card.action;
+    const applied = action.kind === 'draw' ? { ...decision.card, drawing: await this.deps.draw(action.intent) } : decision.card;
+    await this.commit(applied, stored.state);
+    return dto(applied);
   }
 
   async dismiss(userId: string, id: string): Promise<ActionCardDto> {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarsResponseSchema, type DataStatus, type Interval } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api/http';
 import { liveClient } from '../../shared/live/live-connection';
@@ -7,6 +7,8 @@ import { useThemeStore } from '../../shared/state';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { ChartAdapter } from './chart-adapter';
 import { exchangeTimeZone, readChartColors, readIndicatorColor } from './chart-theme';
+import { DrawingLayer } from './drawing-layer';
+import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { IndicatorLegend, useChartIndicators } from '../indicators';
 import { createLwcChart } from './lwc-chart';
@@ -18,6 +20,10 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   const container = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<ChartAdapter | null>(null);
   const layerRef = useRef<IndicatorLayer | null>(null);
+  const drawingRef = useRef<DrawingLayer | null>(null);
+  const allDrawings = useDrawingStore(s => s.items);
+  const clearDrawings = useDrawingStore(s => s.clear);
+  const drawings = useMemo(() => allDrawings.filter(d => d.drawing.symbol === symbol && d.drawing.interval === interval).map(d => d.drawing), [allDrawings, symbol, interval]);
   const lastBarTime = useRef<number | undefined>(undefined);
   // Changes once per new bar (never per tick), so indicators refresh on bar close.
   const [barEpoch, setBarEpoch] = useState(0);
@@ -34,6 +40,7 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     const adapter = new ChartAdapter(chart, readChartColors());
     adapterRef.current = adapter;
     layerRef.current = new IndicatorLayer(chart, token => readIndicatorColor(token));
+    drawingRef.current = new DrawingLayer(chart, token => readIndicatorColor(token));
     lastBarTime.current = undefined;
     const client = liveClient();
     const controller = new AbortController(); // E15: a late page for the previous symbol is never painted
@@ -63,16 +70,19 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
         .then(page => { if (!controller.signal.aborted) client.mergeHistory(symbol, interval, page.bars); })
         .catch(() => undefined); // scrolling left again retries; a failed page never blanks the chart
     });
-    return () => { controller.abort(); off(); layerRef.current?.destroy(); layerRef.current = null; adapter.destroy(); adapterRef.current = null; };
+    return () => { controller.abort(); off(); layerRef.current?.destroy(); layerRef.current = null; drawingRef.current?.destroy(); drawingRef.current = null; adapter.destroy(); adapterRef.current = null; };
   }, [symbol, interval]);
 
   useEffect(() => { adapterRef.current?.applyColors(readChartColors()); layerRef.current?.recolor(); }, [mode]);
   useEffect(() => { layerRef.current?.set(indicators.series); }, [indicators.series]);
+  useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;
   return <div className="relative h-full min-h-80 w-full">
     <div ref={container} className="absolute inset-0" data-testid="chart-canvas" />
     {loaded && <div className="pointer-events-none absolute left-3 top-12 z-10"><IndicatorLegend rows={indicators.rows} catalog={indicators.catalog.data} /></div>}
+    {loaded && drawings.length > 0 && <button type="button" className="absolute right-16 top-3 z-10 rounded border bg-panel px-2 py-1 text-xs"
+      onClick={() => { clearDrawings(symbol, interval); }}>Clear drawings ({drawings.reduce((n, d) => n + d.segments.length, 0)})</button>}
     {!loaded && <div role="status" aria-label="Loading chart" className="absolute inset-0 space-y-3 bg-background p-4"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-[70%] w-full" /></div>}
     {loaded && stale && <div role="status" className={`absolute left-3 top-3 rounded border bg-panel px-2 py-1 text-xs ${empty ? '' : 'opacity-90'}`}>{stale}{status?.state === 'stale' && status.detail ? ` · ${status.detail}` : ''}</div>}
     {loaded && empty && !stale && <div role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">No bars yet for {symbol}.</div>}

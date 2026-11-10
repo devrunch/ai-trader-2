@@ -34,6 +34,7 @@ export const agentActions = pgTable('agent_actions', {
   action: jsonb('action').notNull(),
   state: text('state').notNull(),
   reason: text('reason'),
+  drawing: jsonb('drawing'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
 });

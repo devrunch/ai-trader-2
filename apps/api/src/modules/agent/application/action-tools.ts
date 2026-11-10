@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentActionSchema, INTERVALS, IndicatorInputValuesSchema, type ActionCardDto, type AgentAction, type IndicatorComputeRequest, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
+import { ChartActionSchema, DrawingIntentSchema, INTERVALS, IndicatorInputValuesSchema, type ActionCardDto, type AgentAction, type IndicatorComputeRequest, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
 import { guardedTool, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
@@ -39,6 +39,9 @@ export function buildActionTools(cards: ActionCardPort, deps: GuardDeps): Array<
   return [
     guardedTool({ name: 'proposeChartAction',
       description: 'Propose a change to the user\'s chart for them to confirm: add an indicator (with inputs) or open a symbol. Nothing changes until the user applies the card.',
-      input: AgentActionSchema, run: (action, ctx) => cards.propose(ctx.userId, action) }, deps),
+      input: ChartActionSchema, run: (action, ctx) => cards.propose(ctx.userId, action) }, deps),
+    guardedTool({ name: 'proposeDrawing',
+      description: 'Propose chart drawings computed by the server from real bars: support/resistance levels, a trend line through recent swings, or the high/low of a time range. The result shows the computed prices; the user applies the card to draw them.',
+      input: DrawingIntentSchema, run: (intent, ctx) => cards.propose(ctx.userId, { kind: 'draw', intent }) }, deps),
   ];
 }

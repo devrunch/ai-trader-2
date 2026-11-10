@@ -53,7 +53,7 @@ it('sends only the new message and streams the answer with the data used and any
 
 const cardId = '00000000-0000-4000-8000-0000000000c1';
 const card = (patch: Record<string, unknown> = {}) => ({ id: cardId, action: { kind: 'add-indicator', indicatorId: 'rsi', inputs: { length: 14 } },
-  state: 'pending', reason: null, expiresAt: '2026-11-10T10:15:00.000Z', ...patch });
+  state: 'pending', reason: null, expiresAt: '2026-11-10T10:15:00.000Z', drawing: null, ...patch });
 const proposal = (output: unknown) => [
   { type: 'start', messageId: 'a2' }, { type: 'start-step' },
   { type: 'tool-input-available', toolCallId: 'p1', toolName: 'proposeChartAction', input: {} },
@@ -97,7 +97,7 @@ it('opens a proposed symbol through the host screen', async () => {
     http.get(`/api/v1/agent/actions/${cardId}`, async () => { await new Promise(r => setTimeout(r, 50)); return HttpResponse.json(open); }),
     http.post(`/api/v1/agent/actions/${cardId}/apply`, () => { open = { ...open, state: 'applied' }; return HttpResponse.json(open); }),
   );
-  render(<Providers><ChatPanel actions={{ openSymbol }} /></Providers>);
+  render(<Providers><ChatPanel actions={{ openSymbol, addDrawing: vi.fn() }} /></Providers>);
   await ask('Show Infosys');
   expect(await screen.findByText('Open NSE:INFY on 15')).toBeDefined();
   fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -115,4 +115,23 @@ it('shows an expired card without Apply', async () => {
   await ask('Add RSI');
   expect(await screen.findByText('expired')).toBeDefined();
   expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+});
+
+it('shows the server-computed levels before applying and draws them through the host (FR-AG-6)', async () => {
+  const addDrawing = vi.fn();
+  const drawing = { symbol: 'NSE:INFY', interval: '5', note: null, barsUsed: 300, lastBarTime: 2, status: { state: 'ok' },
+    segments: [{ from: { time: 1, price: 1510 }, to: { time: 2, price: 1510 }, label: 'Resistance 1510.00 · 3 touches' }] };
+  let current = card({ action: { kind: 'draw', intent: { kind: 'levels', symbol: 'NSE:INFY', interval: '5', bars: 300, count: 1 } }, drawing });
+  server.use(
+    http.post('/api/v1/agent/chat', () => sse(proposal(current))),
+    http.get(`/api/v1/agent/actions/${cardId}`, () => HttpResponse.json(current)),
+    http.post(`/api/v1/agent/actions/${cardId}/apply`, () => { current = { ...current, state: 'applied' }; return HttpResponse.json(current); }),
+  );
+  render(<Providers><ChatPanel actions={{ openSymbol: vi.fn(), addDrawing }} /></Providers>);
+  await ask('Mark resistance');
+  expect(await screen.findByText('Draw 1 support/resistance levels on NSE:INFY 5')).toBeDefined();
+  expect(screen.getByText('Resistance 1510.00 · 3 touches')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  await screen.findByText('applied');
+  expect(addDrawing).toHaveBeenCalledWith(cardId, expect.objectContaining({ segments: [expect.objectContaining({ label: 'Resistance 1510.00 · 3 touches' })] }));
 });

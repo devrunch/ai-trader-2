@@ -3,7 +3,7 @@ import { applyCard, dismissCard, failCard, viewCard, type ActionCard } from './a
 
 const t0 = Date.parse('2026-11-10T10:00:00Z');
 const card = (patch: Partial<ActionCard> = {}): ActionCard => ({
-  id: 'c1', userId: 'u1', action: { kind: 'add-indicator', indicatorId: 'rsi', inputs: { length: 14 } }, state: 'pending', reason: null,
+  id: 'c1', userId: 'u1', action: { kind: 'add-indicator', indicatorId: 'rsi', inputs: { length: 14 } }, state: 'pending', reason: null, drawing: null,
   createdAt: t0, expiresAt: t0 + 15 * 60_000, ...patch,
 });
 
