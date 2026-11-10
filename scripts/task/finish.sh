@@ -3,6 +3,10 @@
 set -euo pipefail
 id="${1:?usage: finish.sh <id> \"<commit message>\"}"; msg="${2:?usage: finish.sh <id> \"<commit message>\"}"
 root="$(git rev-parse --show-toplevel)"; cd "$root"
+# One gate at a time across all worktrees: parallel integration suites on one machine skew timing budgets.
+lock="$(git rev-parse --path-format=absolute --git-common-dir)/finish.lock"
+until mkdir "$lock" 2>/dev/null; do echo "another gate is running ($(cat "$lock/owner" 2>/dev/null || echo unknown)); waiting. Stale? remove $lock" >&2; sleep 30; done
+echo "$id $$" > "$lock/owner"; trap 'rm -rf "$lock"' EXIT
 source "$root/scripts/lib/node-env.sh"
 branch="$(git branch --show-current)"
 case "$branch" in task/${id}-*) ;; *) echo "not on task/${id}-* branch (on $branch)" >&2; exit 1;; esac
