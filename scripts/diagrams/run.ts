@@ -36,6 +36,9 @@ if (import.meta.main) {
   writeFileSync('architecture/model/generated.c4', generateC4(resolve('.')));
   mkdirSync('architecture/generated', { recursive: true });
   const expected = new Set<string>();
+  // An API module and a web feature may share a name (auth, indicators): the API one is written as `api-<name>`.
+  const webFeatures = new Set(existsSync('apps/web/src/features')
+    ? readdirSync('apps/web/src/features', { withFileTypes: true }).filter(entry => entry.isDirectory()).map(entry => entry.name) : []);
   for (const [directory, tsconfig] of [
     ['apps/api/src/modules', 'apps/api/tsconfig.json'],
     ['apps/web/src/features', 'apps/web/tsconfig.json'],
@@ -43,7 +46,7 @@ if (import.meta.main) {
     if (!directory || !tsconfig || !existsSync(directory)) continue;
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const outputPrefix = directory.endsWith('/modules') && entry.name === 'auth' ? 'api-' : '';
+      const outputPrefix = directory.endsWith('/modules') && webFeatures.has(entry.name) ? 'api-' : '';
       const output = `architecture/features/${outputPrefix}${entry.name}/classes.mmd`;
       if (expected.has(output)) throw new Error(`Duplicate API/web feature name: ${entry.name}`);
       expected.add(output);

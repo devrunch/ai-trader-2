@@ -1,0 +1,84 @@
+classDiagram
+  class BarKernel {
+    +update(bar: Bar, replace: boolean) PlotValues
+  }
+  class Builtin {
+    +definition: IndicatorDefinition
+    +pine: string
+    +warmup(inputs: ResolvedInputs, interval: Interval) number
+  }
+  class IndicatorInstance {
+    +close() void
+    +seed(bars: readonly Bar[]) Promise<PlotValues[]>
+    +update(bar: Bar, replace: boolean) Promise<PlotValues>
+  }
+  class IndicatorPoint {
+    +barTime: number
+    +values: Record<string, number | null>
+  }
+  class IndicatorRuntime {
+    +create(program: IndicatorProgram, context: RuntimeContext) IndicatorInstance
+    +name: string
+    +supports(program: IndicatorProgram) boolean
+  }
+  class IndicatorsController {
+    +compute(body: unknown) Promise<IndicatorResult>
+    +detail(ref: string) { definition: ReturnType<IndicatorService['get']>; pine: string }
+    +list() { indicators: ReturnType<IndicatorService['list']> }
+  }
+  class IndicatorService {
+    +compute(request: IndicatorComputeRequest) Promise<IndicatorResult>
+    +get(ref: string) IndicatorDefinition
+    +list() IndicatorDefinition[]
+    +open(request: IndicatorComputeRequest) Promise<{ result: IndicatorResult; stream: IndicatorStream }>
+    +source(ref: string) string
+  }
+  class IndicatorsModule {
+  }
+  class IndicatorsRateLimitGuard {
+    +canActivate(context: ExecutionContext) boolean
+  }
+  class IndicatorStream {
+    +close() void
+    +push(bar: Bar) Promise<IndicatorPoint | null>
+  }
+  class InvalidIndicatorInputError {
+    +code: "VALIDATION_FAILED"
+    +input: string
+  }
+  class MaKernel {
+    +update(value: number, bar: Bar, replace: boolean) number | null
+  }
+  class NativeRuntime {
+    +create(program: IndicatorProgram, context: RuntimeContext) IndicatorInstance
+    +name: "native"
+    +supports(program: IndicatorProgram) boolean
+  }
+  class OffsetStream {
+    +push(time: number, value: number | null, replace: boolean) { time: number; value: number | null } | null
+  }
+  class RollingWindow {
+    +update(value: number, replace: boolean) readonly number[] | null
+  }
+  class RuntimeContext {
+    +instrumentId: string
+    +interval: Interval
+    +timezone: string
+  }
+  class RuntimeResolver {
+    +resolve(program: IndicatorProgram) IndicatorRuntime
+  }
+  class SeriesKernel {
+    +update(value: number, replace: boolean) number | null
+  }
+  class UnknownIndicatorError {
+    +code: "NOT_FOUND"
+    +ref: string
+  }
+  class VolumeKernel {
+    +update(value: number, volume: number, replace: boolean) number | null
+  }
+  IndicatorRuntime <|.. NativeRuntime
+  IndicatorService --> RuntimeResolver
+  IndicatorStream --> IndicatorInstance
+  IndicatorsController --> IndicatorService
