@@ -20,6 +20,13 @@ Owner rule (2026-11-10): build everything that can be built now; anything that c
 | T12 | **Kite auto-login from a static IP** (CAPTCHA-free) | AWS deployment with an Elastic IP (Phase 10) | P2-10c |
 | T13 | **Closing-auction calendar change on 2026-12-07** (auction moves to 15:30–15:40) | That date; the 15:50 data report flags any drift | P3-7 |
 
+## Known bugs (found in the UI review, 2026-11-10)
+
+| # | Bug | Seen | Owner |
+|---|---|---|---|
+| B1 | Supertrend draws long diagonals across bars where the trend line should break | NSE:RELIANCE 5m | Worker (Phase 4) |
+| B2 | Indicators are computed on bars the chart does not show: Bollinger Bands bulge through a candle gap | MCX:GOLD1! 5m, 9 Nov 13:00 to 10 Nov evening | Worker (Phase 4) |
+
 ## Remaining build work
 
 | Area | Item | Status |
