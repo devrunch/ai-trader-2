@@ -41,7 +41,9 @@ export class ReadBars {
     const res = intervalMinutes(interval) === null ? '1d' : '1m';
     const earliest = await this.store.earliest(instrumentId, res === '1d', signal);
     const to = earliest === null ? first.end : Math.min(first.end, earliest);
-    const result = this.fill ? await this.fill.execute(instrumentId, res, first.from, to, signal)
+    // Latest read with nothing stored: reach back at least a week so a weekend or holiday never reads as "no data".
+    const fillFrom = earliest === null && 'latest' in cursor ? Math.min(first.from, first.end - 7 * day) : first.from;
+    const result = this.fill ? await this.fill.execute(instrumentId, res, fillFrom, to, signal)
       : { ok: false, reason: 'UNSUPPORTED' } satisfies ProviderResult<never>;
     const { page } = await this.read(instrumentId, interval, cursor, limit, signal);
     if (!result.ok) return page.bars.length ? { ...page, status: { ok: false, reason: result.reason,

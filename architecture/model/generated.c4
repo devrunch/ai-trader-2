@@ -39,6 +39,16 @@ model {
         description 'generated from code — do not edit'
       }
     }
+    mod_compute = component 'compute' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
     mod_health = component 'health' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
@@ -79,6 +89,22 @@ model {
       }
     }
     mod_market_data = component 'market-data' {
+      description 'generated from code — do not edit'
+      technology 'NestJS module'
+      api = component 'api' {
+        description 'generated from code — do not edit'
+      }
+      app = component 'application' {
+        description 'generated from code — do not edit'
+      }
+      domain = component 'domain' {
+        description 'generated from code — do not edit'
+      }
+      infra = component 'infrastructure' {
+        description 'generated from code — do not edit'
+      }
+    }
+    mod_paper_trading = component 'paper-trading' {
       description 'generated from code — do not edit'
       technology 'NestJS module'
       api = component 'api' {
@@ -150,6 +176,9 @@ model {
     feat_chart = component 'chart' {
       description 'generated from code — do not edit'
     }
+    feat_paper = component 'paper' {
+      description 'generated from code — do not edit'
+    }
     feat_symbol_search = component 'symbol-search' {
       description 'generated from code — do not edit'
     }
@@ -159,6 +188,9 @@ model {
     app = component 'app' {
       description 'generated from code — do not edit'
     }
+  }
+  pkg_compute_client = component 'compute-client' {
+    description 'generated from code — do not edit'
   }
   pkg_contracts = component 'contracts' {
     description 'generated from code — do not edit'
@@ -178,6 +210,9 @@ model {
   aitrader.api.mod_auth.app -[calls]-> aitrader.api.mod_auth.domain 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.app 'imports'
   aitrader.api.mod_auth.infra -[calls]-> aitrader.api.mod_auth.domain 'imports'
+  aitrader.api.mod_compute -[calls]-> pkg_compute_client 'imports'
+  aitrader.api.mod_compute -[calls]-> pkg_resilience 'imports'
+  aitrader.api.mod_compute.infra -[calls]-> aitrader.api.mod_compute.app 'imports'
   aitrader.api.mod_health.api -[calls]-> aitrader.api.mod_health.app 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_contracts 'imports'
   aitrader.api.mod_instruments -[calls]-> pkg_resilience 'imports'
@@ -198,6 +233,15 @@ model {
   aitrader.api.mod_market_data.app -[calls]-> aitrader.api.mod_market_data.domain 'imports'
   aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.app 'imports'
   aitrader.api.mod_market_data.infra -[calls]-> aitrader.api.mod_market_data.domain 'imports'
+  aitrader.api.mod_paper_trading -[calls]-> aitrader.api.mod_auth 'imports'
+  aitrader.api.mod_paper_trading -[calls]-> aitrader.api.mod_instruments 'imports'
+  aitrader.api.mod_paper_trading -[calls]-> aitrader.api.mod_market_data 'imports'
+  aitrader.api.mod_paper_trading -[calls]-> pkg_contracts 'imports'
+  aitrader.api.mod_paper_trading.api -[calls]-> aitrader.api.mod_paper_trading.app 'imports'
+  aitrader.api.mod_paper_trading.app -[calls]-> aitrader.api.mod_paper_trading.domain 'imports'
+  aitrader.api.mod_paper_trading.infra -[calls]-> aitrader.api.mod_paper_trading.app 'imports'
+  aitrader.api.mod_paper_trading.infra -[calls]-> aitrader.api.mod_paper_trading.domain 'imports'
+  aitrader.api.shared_database -[calls]-> pkg_contracts 'imports'
   aitrader.api.shared_database -[calls]-> pkg_resilience 'imports'
   aitrader.api.shared_errors -[calls]-> pkg_contracts 'imports'
   aitrader.api.shared_http -[calls]-> pkg_resilience 'imports'
@@ -212,6 +256,8 @@ model {
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_live 'imports'
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_state 'imports'
   aitrader.web.feat_chart -[calls]-> aitrader.web.shared_ui 'imports'
+  aitrader.web.feat_paper -[calls]-> aitrader.web.shared_api 'imports'
+  aitrader.web.feat_paper -[calls]-> aitrader.web.shared_ui 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_api 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_state 'imports'
   aitrader.web.feat_symbol_search -[calls]-> aitrader.web.shared_ui 'imports'
@@ -226,7 +272,7 @@ model {
 views {
   view api_code of aitrader.api {
     description 'generated from code — do not edit'
-    include aitrader.api.*, pkg_contracts, pkg_resilience
+    include aitrader.api.*, pkg_compute_client, pkg_contracts, pkg_resilience
   }
   view web_code of aitrader.web {
     description 'generated from code — do not edit'
@@ -244,6 +290,10 @@ views {
     description 'generated from code — do not edit'
     include aitrader.api.mod_auth.*
   }
+  view module_compute of aitrader.api.mod_compute {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_compute.*
+  }
   view module_health of aitrader.api.mod_health {
     description 'generated from code — do not edit'
     include aitrader.api.mod_health.*
@@ -259,5 +309,9 @@ views {
   view module_market_data of aitrader.api.mod_market_data {
     description 'generated from code — do not edit'
     include aitrader.api.mod_market_data.*
+  }
+  view module_paper_trading of aitrader.api.mod_paper_trading {
+    description 'generated from code — do not edit'
+    include aitrader.api.mod_paper_trading.*
   }
 }

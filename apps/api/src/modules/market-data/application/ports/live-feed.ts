@@ -1,4 +1,4 @@
-export interface Tick { instrumentId: string; at: number; price: number; cumVolume: number | null; seq?: number }
+export interface Tick { instrumentId: string; at: number; price: number; cumVolume: number | null; seq?: number; prevClose?: number }
 export type FeedState = 'connecting' | 'live' | 'reconnecting' | 'stale' | 'stopped';
 export interface LiveFeed {
   readonly name: 'kite' | 'deriv' | 'us-delayed';

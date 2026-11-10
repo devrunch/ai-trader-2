@@ -75,6 +75,14 @@ describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
     await read.execute('NSE:TEST', '5', { before: start + 20 * 60000 }, 2);
     expect(execute.mock.calls.some(call => call[2] === start + 20 * 60000)).toBe(false);
   });
+  it('with nothing stored, the first fill reaches back past a weekend (Monday morning, new symbol)', async () => {
+    const f = fixture(0);
+    const monday = Date.parse('2026-11-09T07:30:00+05:30'); // before the NSE open; the last session was Friday
+    const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'NO_DATA' });
+    await new ReadBars(f.store, f.redis, () => monday, { execute }).execute('NSE:TEST', '5', { latest: true }, 3);
+    const from = execute.mock.calls[0]?.[2] as number;
+    expect(from).toBeLessThanOrEqual(Date.parse('2026-11-06T09:15:00+05:30'));
+  });
   it('failed fill with existing bars returns stale with reason', async () => {
     const f = fixture(1); const execute = vi.fn().mockResolvedValue({ ok: false, reason: 'AUTH_EXPIRED' });
     const read = new ReadBars(f.store, f.redis, () => start + 60000, { execute });
