@@ -1,7 +1,7 @@
 import { numberInput, stringInput } from '../inputs';
 import { defineBuiltin, lengthInput, line, offsetInput, recursiveWarmup, sourceInputDef } from './define';
 
-export const BB_MA_TYPES = ['SMA', 'EMA', 'SMMA (RMA)', 'WMA', 'VWMA'];
+const BB_MA_TYPES = ['SMA', 'EMA', 'SMMA (RMA)', 'WMA', 'VWMA'];
 export const BB = defineBuiltin({
   id: 'bb', name: 'Bollinger Bands', shortName: 'BB', overlay: true,
   inputs: [
@@ -27,7 +27,7 @@ plot(basis + dev, "Upper", offset = offset)
 plot(basis - dev, "Lower", offset = offset)`,
 });
 
-export const ATR_SMOOTHINGS = ['RMA', 'SMA', 'EMA', 'WMA'];
+const ATR_SMOOTHINGS = ['RMA', 'SMA', 'EMA', 'WMA'];
 export const ATR = defineBuiltin({
   id: 'atr', name: 'Average True Range', shortName: 'ATR', overlay: false,
   inputs: [lengthInput(14), { id: 'smoothing', title: 'Smoothing', type: 'string', default: 'RMA', options: ATR_SMOOTHINGS }],

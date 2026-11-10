@@ -2,7 +2,7 @@ import type { Interval } from '@aitrader/contracts';
 import { stringInput } from '../inputs';
 import { defineBuiltin, line, offsetInput, sourceInputDef } from './define';
 
-export const VWAP_ANCHORS = ['Session', 'Week', 'Month', 'Quarter', 'Year'];
+const VWAP_ANCHORS = ['Session', 'Week', 'Month', 'Quarter', 'Year'];
 const anchorDays: Record<string, number> = { Session: 1, Week: 7, Month: 31, Quarter: 92, Year: 366 };
 const intervalDays: Record<Interval, number> = { '1': 1 / 1440, '3': 3 / 1440, '5': 5 / 1440, '15': 15 / 1440, '30': 30 / 1440,
   '60': 1 / 24, '240': 1 / 6, '1D': 1, '1W': 7, '1M': 31 };

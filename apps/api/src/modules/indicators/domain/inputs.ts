@@ -1,7 +1,7 @@
 import { PRICE_SOURCES, type IndicatorInputDef, type PriceSource } from '@aitrader/contracts';
 import { InvalidIndicatorInputError } from './errors';
 
-export type InputValue = number | boolean | string;
+type InputValue = number | boolean | string;
 export type ResolvedInputs = Readonly<Record<string, InputValue>>;
 
 /** Applies defaults and the definition's bounds; unknown keys are rejected so a typo never passes silently. */

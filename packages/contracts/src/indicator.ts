@@ -40,6 +40,8 @@ export const IndicatorDefinitionSchema = z.strictObject({
 });
 export type IndicatorDefinition = z.infer<typeof IndicatorDefinitionSchema>;
 export const IndicatorListResponseSchema = z.strictObject({ indicators: z.array(IndicatorDefinitionSchema) });
+/** Every built-in also exists as Pine; users can read and fork it (FR-IN-31). */
+export const IndicatorDetailResponseSchema = z.strictObject({ definition: IndicatorDefinitionSchema, pine: z.string() });
 
 export const IndicatorInputValuesSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200)]));
 export type IndicatorInputValues = z.infer<typeof IndicatorInputValuesSchema>;
