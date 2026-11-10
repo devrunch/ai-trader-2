@@ -1,9 +1,9 @@
 import type { AgentAction } from '@aitrader/contracts';
 
 export const CARD_TTL_MS = 15 * 60_000;
-export type CardState = 'pending' | 'applied' | 'dismissed' | 'expired' | 'failed';
+type CardState = 'pending' | 'applied' | 'dismissed' | 'expired' | 'failed';
 export interface ActionCard { id: string; userId: string; action: AgentAction; state: CardState; reason: string | null; createdAt: number; expiresAt: number }
-export type CardRefusal = 'EXPIRED' | 'DISMISSED' | 'APPLIED' | 'FAILED' | 'KIND_CHANGED';
+type CardRefusal = 'EXPIRED' | 'DISMISSED' | 'APPLIED' | 'FAILED' | 'KIND_CHANGED';
 type Decision = { ok: true; card: ActionCard } | { ok: false; reason: CardRefusal };
 
 /** The stored state, with a pending card past its deadline shown as expired. */
