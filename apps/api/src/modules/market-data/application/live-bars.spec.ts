@@ -4,15 +4,16 @@ import type { Tick, LiveFeed } from './ports/live-feed';
 import { historyFixture, historyBar } from './history.spec-helper';
 import type { FormingBarStore } from './ports/forming-bar-store';
 import type { BarPublisher } from './ports/bar-publisher';
+import type { PreviousCloseStore } from './ports/previous-close';
 
-function fixture(publisher?: BarPublisher, leader = true) {
+function fixture(publisher?: BarPublisher, leader = true, prevCloses?: PreviousCloseStore) {
   const { store } = historyFixture();
   const forming = { get: vi.fn<FormingBarStore['get']>().mockResolvedValue(null), set: vi.fn<FormingBarStore['set']>().mockResolvedValue(undefined), clear: vi.fn<FormingBarStore['clear']>().mockResolvedValue(undefined) };
   let listener: (tick: Tick) => void = () => {};
   const feed: LiveFeed = { name: 'kite', subscribe: async () => {}, unsubscribe: async () => {}, start: async () => {}, stop: async () => {}, onState: () => () => {}, onTick: cb => { listener = cb; return () => {}; } };
-  const bars = new LiveBars(store, forming, { clock: Date.now, log: vi.fn(), canPersist: () => Promise.resolve(leader) }, publisher); const detach = bars.attach(feed);
+  const bars = new LiveBars(store, forming, { clock: Date.now, log: vi.fn(), canPersist: () => Promise.resolve(leader), ...(prevCloses ? { prevCloses } : {}) }, publisher); const detach = bars.attach(feed);
   const tick = (offset: number, price = 10, seq?: number) => { listener({ instrumentId: 'NSE:TEST', at: historyBar.time + offset, price, cumVolume: 100 + offset, ...(seq === undefined ? {} : { seq }) }); };
-  const tickAt = (instrumentId: string, at: number, price = 10) => { listener({ instrumentId, at, price, cumVolume: 100 }); };
+  const tickAt = (instrumentId: string, at: number, price = 10, prevClose?: number) => { listener({ instrumentId, at, price, cumVolume: 100, ...(prevClose === undefined ? {} : { prevClose }) }); };
   return { store, forming, tick, tickAt, detach };
 }
 describe('FR-MD-2 E16 LiveBars', () => {
@@ -90,6 +91,17 @@ describe('FR-MD-2 E16 LiveBars', () => {
     const written = f.forming.set.mock.calls.map(call => call[0]);
     expect(written).toContain('NSE:NIFTYX2026');
     expect(written).not.toContain('NSE:RELIANCE');
+    f.detach();
+  });
+  it('saves the official previous close once per instrument and trading day (Kite ohlc.close)', async () => {
+    const at = Date.parse('2026-11-09T10:00:00+05:30');
+    vi.setSystemTime(at);
+    const set = vi.fn<PreviousCloseStore['set']>().mockResolvedValue(undefined);
+    const f = fixture(undefined, true, { get: vi.fn<PreviousCloseStore['get']>().mockResolvedValue(null), set });
+    f.tickAt('NSE:NIFTY', at, 24_900, 24_986.4); f.tickAt('NSE:NIFTY', at + 1000, 24_901, 24_986.4);
+    await vi.advanceTimersByTimeAsync(250);
+    expect(set).toHaveBeenCalledTimes(1);
+    expect(set).toHaveBeenCalledWith('NSE:NIFTY', 24_986.4, '2026-11-09');
     f.detach();
   });
 });

@@ -16,10 +16,13 @@ export class UsDelayedProvider implements MarketDataProvider {
   }
   async history(mapping: { providerSymbol: string }, res: '1m' | '1d', from: number, to: number, signal: AbortSignal): Promise<ProviderResult<Bar[]>> {
     signal.throwIfAborted();
-    if (res === '1m' && from < this.clock() - 30 * 86400000) return { ok: false, reason: 'NO_DATA', detail: 'yahoo keeps 30 days of 1m' };
-    const span = res === '1m' ? 7 * 86400000 : Math.max(1, to - from); const rows: Bar[] = [];
+    // Yahoo keeps about 30 days of 1m: fetch what it has instead of refusing the whole range.
+    const floor = res === '1m' ? this.clock() - 29 * 86400000 : -Infinity;
+    if (to <= floor) return { ok: false, reason: 'NO_DATA', detail: 'yahoo keeps 30 days of 1m' };
+    const first = Math.max(from, floor);
+    const span = res === '1m' ? 7 * 86400000 : Math.max(1, to - first); const rows: Bar[] = [];
     try {
-      for (let start = from; start < to; start += span) {
+      for (let start = first; start < to; start += span) {
         const chunk = await this.breaker.exec(() => withTimeout(async abort => yahooBars(await this.client.chart(yahooSymbol(mapping.providerSymbol),
           { interval: res, period1: new Date(start), period2: new Date(Math.min(start + span, to)) }, { fetchOptions: { signal: abort } })), 15000, signal));
         rows.push(...chunk);

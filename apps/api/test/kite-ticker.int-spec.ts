@@ -160,7 +160,7 @@ describe('FR-MD-2 E1 E2 E11 E12 Kite ticker integration', () => {
       await vi.waitFor(() => { expect(server.commands).toContainEqual({ a: 'mode', v: ['full', [256265]] }); });
       server.binary(Uint8Array.from(Buffer.from(live.indexFull.frames[0] ?? '', 'hex')).buffer);
       await vi.waitFor(() => { expect(ticks).toHaveBeenCalledOnce(); });
-      expect(ticks.mock.calls[0]?.[0]).toEqual([{ instrumentId: 'NSE:NIFTY', at: 1794210349000, price: 24892.95, cumVolume: null }]);
+      expect(ticks.mock.calls[0]?.[0]).toEqual([{ instrumentId: 'NSE:NIFTY', at: 1794210349000, price: 24892.95, cumVolume: null, prevClose: 24986.4 }]);
     } finally { client.close(); await server.stop(); }
   });
   it('reports an HTTP 403 handshake as AUTH_EXPIRED without leaking credentials (E3)', async () => {
