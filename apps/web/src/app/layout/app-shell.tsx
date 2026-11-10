@@ -3,7 +3,7 @@ import { House, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
-export function MainNav() {
+function MainNav() {
   const link = 'rounded px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground';
   return <nav aria-label="Main navigation" className="flex items-center gap-1 text-[12px]">
     <Link to="/" className={link} activeProps={{ className: 'text-foreground' }} activeOptions={{ exact: true }}>Home</Link>
