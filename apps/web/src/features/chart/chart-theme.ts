@@ -10,6 +10,11 @@ export function readChartColors(root: HTMLElement = document.documentElement): C
   };
 }
 
+/** An indicator colour token (contracts' INDICATOR_COLORS) as the theme's CSS value. */
+export function readIndicatorColor(token: string, root: HTMLElement = document.documentElement): string {
+  return getComputedStyle(root).getPropertyValue(`--ind-${token}`).trim() || getComputedStyle(root).getPropertyValue('--foreground').trim() || 'currentColor';
+}
+
 const ZONES: Record<string, string> = { NSE: 'Asia/Kolkata', BSE: 'Asia/Kolkata', MCX: 'Asia/Kolkata', NYSE: 'America/New_York', NASDAQ: 'America/New_York' };
 
 /** Axis times are shown in the exchange's zone, as on TradingView. */

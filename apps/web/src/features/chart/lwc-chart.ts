@@ -1,5 +1,5 @@
-import { CandlestickSeries, ColorType, HistogramSeries, createChart, type Time, type UTCTimestamp } from 'lightweight-charts';
-import type { ChartColors, ChartLike } from './chart-adapter';
+import { AreaSeries, CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, LineType, createChart, type IChartApi, type LineWidth, type Time, type UTCTimestamp } from 'lightweight-charts';
+import type { ChartColors, ChartLike, IndicatorSeriesLike, IndicatorSeriesOptions } from './chart-adapter';
 
 const ts = (seconds: number): UTCTimestamp => seconds as UTCTimestamp;
 const seconds = (time: Time): number => (typeof time === 'number' ? time : 0);
@@ -40,6 +40,22 @@ export function createLwcChart(container: HTMLElement, timeZone: string): ChartL
       });
       candles.applyOptions({ upColor: colors.up, downColor: colors.down, wickUpColor: colors.up, wickDownColor: colors.down });
     },
+    addIndicatorSeries: options => addIndicatorSeries(chart, options),
     remove: () => { chart.remove(); },
+  };
+}
+
+const width = (value: number): LineWidth => (value >= 4 ? 4 : value === 3 ? 3 : value === 2 ? 2 : 1);
+
+function addIndicatorSeries(chart: IChartApi, { kind, color, lineWidth, pane, title }: IndicatorSeriesOptions): IndicatorSeriesLike {
+  const common = { title, priceLineVisible: false, lastValueVisible: true };
+  const series = kind === 'histogram' ? chart.addSeries(HistogramSeries, { ...common, color }, pane)
+    : kind === 'area' ? chart.addSeries(AreaSeries, { ...common, lineColor: color, topColor: color, bottomColor: 'transparent', lineWidth: width(lineWidth) }, pane)
+    : chart.addSeries(LineSeries, { ...common, color, lineWidth: width(lineWidth), lineType: kind === 'step' ? LineType.WithSteps : LineType.Simple,
+      lineVisible: kind !== 'circles', pointMarkersVisible: kind === 'circles' }, pane);
+  return {
+    setData: points => { series.setData(points.map(p => ({ ...p, time: ts(p.time) }))); },
+    priceLine: (price, label, lineColor) => { series.createPriceLine({ price, title: label, color: lineColor, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false }); },
+    remove: () => { chart.removeSeries(series); },
   };
 }
