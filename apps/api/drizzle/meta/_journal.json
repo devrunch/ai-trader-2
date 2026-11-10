@@ -57,6 +57,13 @@
       "when": 1794300000000,
       "tag": "0010_paper_trading",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794300001000,
+      "tag": "0011_prompt_registry",
+      "breakpoints": true
     }
   ]
 }
