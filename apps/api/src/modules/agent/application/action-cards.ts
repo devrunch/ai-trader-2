@@ -10,7 +10,7 @@ export interface ActionCardStore {
 }
 
 /** Checks a proposed action against what exists (an indicator id and its inputs). Returns a reason, or null when valid. */
-export function checkAction(action: AgentAction, indicators: IndicatorDefinition[]): string | null {
+function checkAction(action: AgentAction, indicators: IndicatorDefinition[]): string | null {
   if (action.kind !== 'add-indicator') return null;
   const def = indicators.find(d => d.id === action.indicatorId);
   if (!def) return `Unknown indicator "${action.indicatorId}"`;
