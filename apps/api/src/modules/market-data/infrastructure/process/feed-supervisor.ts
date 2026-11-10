@@ -15,6 +15,7 @@ export class FeedSupervisor {
   private readonly states = new Map<FeedVendor, { state: FeedState; reason?: string; detail?: string }>();
   private started = false;
   private refresh: ReturnType<typeof setInterval> | undefined;
+  private heldRetry: ReturnType<typeof setTimeout> | undefined;
   constructor(private readonly deps: { feeds: LiveFeed[]; liveBars: Pick<LiveBars, 'attach' | 'closeDue'>; publisher: Pick<FeedStatePublisher, 'publish'>;
     requests: Pick<SubscriptionRequests, 'current' | 'onChange'>;
     held?: () => Promise<readonly string[]>; clock?: () => number; log?: (message: string) => void;
@@ -34,15 +35,7 @@ export class FeedSupervisor {
     for (const feed of this.deps.feeds) void feed.start().catch((error: unknown) => {
       this.deps.log?.(`Feed start failed for ${feed.name}: ${error instanceof Error ? error.message : 'unknown error'}`);
     });
-    let held: readonly string[] = [];
-    try { held = await this.deps.held?.() ?? []; }
-    catch { this.deps.log?.('Popular instruments unavailable; continuing without held subscriptions'); }
-    for (const id of held) this.heldIds.add(id);
-    const continuousIds = held.filter(id => id.endsWith('!'));
-    if (continuousIds.length && this.deps.resolveContinuous) {
-      await this.resolveHeldContinuous(continuousIds, false);
-      if (this.deps.scheduleDaily) await this.deps.scheduleDaily(() => this.resolveHeldContinuous(continuousIds, true));
-    }
+    await this.loadHeld(0, false);
     for (const [id, count] of await this.deps.requests.current()) this.counts.set(id, count);
     for (const id of new Set([...this.heldIds, ...this.counts.keys()])) await this.updateSubscription(id);
     this.refresh = setInterval(() => {
@@ -54,11 +47,32 @@ export class FeedSupervisor {
   }
   async stop(): Promise<void> {
     if (!this.started) return;
-    this.started = false; clearInterval(this.refresh);
+    this.started = false; clearInterval(this.refresh); clearTimeout(this.heldRetry);
     await this.deps.liveBars.closeDue(this.deps.clock?.() ?? Date.now());
     for (const feed of this.deps.feeds) await feed.stop();
     for (const feed of this.deps.feeds) await this.publish(feed.name, 'stopped');
     for (const detach of this.detach.splice(0)) detach();
+  }
+  /**
+   * The always-on (popular) instruments. A failure (e.g. a slow Redis at start) is retried with backoff, 5 s doubling
+   * to 60 s, instead of running without them until the next restart (live finding 2026-11-10).
+   */
+  private async loadHeld(attempt: number, subscribe: boolean): Promise<void> {
+    let held: readonly string[];
+    try { held = await this.deps.held?.() ?? []; }
+    catch {
+      this.deps.log?.('Popular instruments unavailable; retrying');
+      if (this.started) this.heldRetry = setTimeout(() => { void this.loadHeld(attempt + 1, true); }, Math.min(60_000, 5_000 * 2 ** attempt));
+      return;
+    }
+    if (!this.started) return;
+    for (const id of held) this.heldIds.add(id);
+    const continuousIds = held.filter(id => id.endsWith('!'));
+    if (continuousIds.length && this.deps.resolveContinuous) {
+      await this.resolveHeldContinuous(continuousIds, false);
+      if (this.deps.scheduleDaily) await this.deps.scheduleDaily(() => this.resolveHeldContinuous(continuousIds, true));
+    }
+    if (subscribe) for (const id of held) await this.updateSubscription(id);
   }
   private async applyRequest(id: string, count: number): Promise<void> {
     this.counts.set(id, count);
