@@ -1,6 +1,8 @@
 import { NotFoundError } from '../../../shared/errors';
 import { commit, lineDiff, revert, type DiffLine, type PromptVersion } from '../domain/prompt-history';
 
+export type { PromptVersion } from '../domain/prompt-history';
+
 /** Append-only version storage; `history` is newest first. */
 export interface PromptStore {
   history(key: string): Promise<PromptVersion[]>;

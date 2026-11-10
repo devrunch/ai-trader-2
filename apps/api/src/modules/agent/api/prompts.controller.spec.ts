@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { configureApp } from '../../../app.setup';
 import { GlobalExceptionFilter } from '../../../shared/errors';
 import { RolesGuard, SessionGuard } from '../../auth/api/index';
-import type { PromptVersion } from '../domain/prompt-history';
+import type { PromptVersion } from '../application/prompt-registry';
 import { PromptRegistry } from '../application/prompt-registry';
 import { PromptsController } from './prompts.controller';
 

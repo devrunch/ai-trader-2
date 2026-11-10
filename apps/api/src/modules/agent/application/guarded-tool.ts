@@ -2,8 +2,8 @@ import type { z } from 'zod';
 import { DomainError } from '../../../shared/errors';
 
 export interface ToolContext { userId: string; conversationId: string; turnId: string }
-export type ToolResult<T> = { ok: true; data: T } | { ok: false; reason: string; detail?: string };
-export interface ToolAudit {
+type ToolResult<T> = { ok: true; data: T } | { ok: false; reason: string; detail?: string };
+interface ToolAudit {
   userId: string; conversationId: string; turnId: string; tool: string; args: unknown; outcome: string; ms: number;
 }
 export interface GuardDeps {

@@ -9,12 +9,10 @@
     "dev": "vite"
   },
   "dependencies": {
-    "@ai-sdk/react": "4.0.159",
     "@aitrader/contracts": "workspace:*",
     "@aitrader/resilience": "workspace:*",
     "@tanstack/react-query": "5.107.1",
     "@tanstack/react-router": "1.170.46",
-    "ai": "7.0.155",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",
