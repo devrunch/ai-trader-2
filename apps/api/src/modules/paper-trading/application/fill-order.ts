@@ -15,7 +15,7 @@ export function workingOrder(order: OrderRecord, slippageRate: number): WorkingO
     placedAt: order.placedAt, tick: order.tick, slippageRate };
 }
 
-export function requireSegment(order: Pick<OrderRecord, 'segment' | 'id'>): Segment {
+function requireSegment(order: Pick<OrderRecord, 'segment' | 'id'>): Segment {
   if (order.segment === null) throw new Error(`Order ${order.id} has no segment`);
   return order.segment;
 }

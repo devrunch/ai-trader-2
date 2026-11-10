@@ -19,7 +19,7 @@ import type { Segment } from './segment';
  * - GST: 18% on brokerage, exchange charges and the SEBI fee.
  * Not modelled: DP charges on delivery sells, the NSE IPFT charge, and STT on exercise.
  */
-export const CHARGE_RATES = {
+const CHARGE_RATES = {
   brokerageRate: 0.0003,
   brokerageCap: 20,
   optionsBrokerage: 20,
