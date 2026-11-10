@@ -37,6 +37,33 @@ describe('FeedSupervisor (FR-MD-5, NFR-RB-7, E16)', () => {
     expect(deriv.calls.subscribe.mock.calls).toContainEqual([['OANDA:EURUSD']]);
     expect(us.calls.subscribe.mock.calls).toContainEqual([['NASDAQ:HELD']]); await h.supervisor.stop();
   });
+  it('retries the held list when it fails at start, then subscribes it (live finding 2026-11-10)', async () => {
+    vi.useFakeTimers();
+    try {
+      const deriv = feed('deriv');
+      const held = vi.fn().mockRejectedValueOnce(new Error('Command timed out')).mockResolvedValue(['FX:EURUSD']);
+      const log = vi.fn();
+      const supervisor = new FeedSupervisor({ feeds: [deriv.value], liveBars: { attach: vi.fn(() => vi.fn()), closeDue: vi.fn(() => Promise.resolve()) },
+        publisher: { publish: vi.fn(() => Promise.resolve()) }, requests: { current: () => Promise.resolve(new Map()), onChange: () => () => {} }, held, log });
+      await supervisor.start();
+      expect(deriv.calls.subscribe.mock.calls).not.toContainEqual([['FX:EURUSD']]);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(held).toHaveBeenCalledTimes(2);
+      expect(deriv.calls.subscribe.mock.calls).toContainEqual([['FX:EURUSD']]);
+      await supervisor.stop();
+    } finally { vi.useRealTimers(); }
+  });
+  it('stops retrying the held list once stopped', async () => {
+    vi.useFakeTimers();
+    try {
+      const held = vi.fn().mockRejectedValue(new Error('Command timed out'));
+      const supervisor = new FeedSupervisor({ feeds: [feed('kite').value], liveBars: { attach: vi.fn(() => vi.fn()), closeDue: vi.fn(() => Promise.resolve()) },
+        publisher: { publish: vi.fn(() => Promise.resolve()) }, requests: { current: () => Promise.resolve(new Map()), onChange: () => () => {} }, held });
+      await supervisor.start(); await supervisor.stop();
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(held).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
   it('unsubscribes when a request count drops to zero', async () => {
     const kite = feed('kite'); const h = harness([kite.value], [], new Map([['NSE:TEST', 1]])); await h.supervisor.start();
     h.requestChange('NSE:TEST', 0); await Promise.resolve();

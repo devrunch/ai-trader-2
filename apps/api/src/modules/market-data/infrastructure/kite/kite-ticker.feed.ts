@@ -7,7 +7,7 @@ import type { FillHistory } from '../../application/fill-history';
 import { calendarForInstrument } from '../../domain/calendar';
 import { ResilientFeed } from '../feed/resilient-feed';
 import { gapBackfill } from '../feed/gap-backfill';
-import { KiteTickerClient } from './kite-ticker.client';
+import { KiteTickerClient, isSessionError } from './kite-ticker.client';
 import type { TickerMapping } from './kite-ws.client';
 import { SubscriptionManager } from './subscription-manager';
 
@@ -29,7 +29,7 @@ export class KiteTickerFeed extends ResilientFeed {
     const manager = new SubscriptionManager(); const mappings = new Map<string, TickerMapping>();
     const clock = deps.clock ?? Date.now;
     const breaker = new CircuitBreaker({ failureThreshold: 3, openMs: 30000, now: clock,
-      isFailure: error => !(error instanceof Error && error.message === 'AUTH_EXPIRED') });
+      isFailure: error => !(error instanceof Error && error.message === 'AUTH_EXPIRED') && !isSessionError(error) });
     let refreshedToken: string | undefined;
     const accessToken = async (parent: AbortSignal) => {
       const token = refreshedToken; refreshedToken = undefined;
