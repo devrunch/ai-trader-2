@@ -1,4 +1,4 @@
-import { index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const agentThreads = pgTable('agent_threads', {
@@ -37,4 +37,22 @@ export const agentActions = pgTable('agent_actions', {
   drawing: jsonb('drawing'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+});
+
+export const agentTasks = pgTable('agent_tasks', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  threadId: uuid('thread_id').notNull(),
+  title: text('title').notNull(),
+  instruction: text('instruction').notNull(),
+  trigger: jsonb('trigger').notNull(),
+  state: text('state').notNull(),
+  runs: integer('runs').notNull().default(0),
+  maxRuns: integer('max_runs').notNull(),
+  armed: boolean('armed').notNull(),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true, mode: 'string' }),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true, mode: 'string' }),
+  lastError: text('last_error'),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
 });

@@ -55,3 +55,19 @@ export const ActionCardSchema = z.strictObject({
 export type ActionCardDto = z.infer<typeof ActionCardSchema>;
 /** Apply with the fields as the user edited them; the kind cannot change. */
 export const ActionApplyRequestSchema = z.strictObject({ action: AgentActionSchema.optional() });
+
+/** When a background task wakes the assistant: on a schedule, or when a price or indicator condition becomes true. */
+export const TaskTriggerSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('schedule'), cron: z.string().min(9).max(60), tz: z.string().max(40).default('Asia/Kolkata') }),
+  z.strictObject({ kind: z.literal('price'), symbol: SymbolId, op: z.enum(['above', 'below']), value: z.number().positive() }),
+  z.strictObject({ kind: z.literal('indicator'), symbol: SymbolId, interval: z.enum(INTERVALS), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/),
+    inputs: IndicatorInputValuesSchema.default({}), plot: z.string().max(40).optional(), op: z.enum(['above', 'below']), value: z.number() }),
+]);
+export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
+export const TASK_STATES = ['active', 'paused', 'done', 'cancelled', 'expired'] as const;
+export const AgentTaskSchema = z.strictObject({
+  id: z.uuid(), threadId: z.uuid(), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
+  runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
+  lastError: z.string().nullable(), expiresAt: z.string(), createdAt: z.string(),
+});
+export type AgentTaskDto = z.infer<typeof AgentTaskSchema>;

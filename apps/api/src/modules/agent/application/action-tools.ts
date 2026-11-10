@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ChartActionSchema, DrawingIntentSchema, INTERVALS, IndicatorInputValuesSchema, type ActionCardDto, type AgentAction, type IndicatorComputeRequest, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
-import { guardedTool, type GuardDeps, type GuardedTool } from './guarded-tool';
+import { guardedTool, orJsonString, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
 const TAIL_MAX = 300;
@@ -20,7 +20,7 @@ export function buildIndicatorTools(s: IndicatorToolServices, deps: GuardDeps): 
           ...('min' in rest ? { min: rest.min } : {}), ...('max' in rest ? { max: rest.max } : {}), ...('options' in rest ? { options: rest.options } : {}) })) }))) }, deps),
     guardedTool({ name: 'getIndicator', description: 'The latest values of one built-in indicator on one instrument and interval (at most 300 bars), computed by the server.',
       input: z.strictObject({ symbol: SYMBOL, interval: z.enum(INTERVALS), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/),
-        inputs: IndicatorInputValuesSchema.default({}), bars: z.number().int().min(1).max(TAIL_MAX).default(50) }),
+        inputs: orJsonString(IndicatorInputValuesSchema).default({}), bars: z.number().int().min(1).max(TAIL_MAX).default(50) }),
       run: async input => {
         const result = await s.compute({ symbol: input.symbol, interval: input.interval, indicator: { kind: 'builtin', id: input.indicatorId, inputs: input.inputs },
           range: { limit: Math.max(input.bars, 500) } });

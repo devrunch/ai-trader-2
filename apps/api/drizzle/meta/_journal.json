@@ -85,6 +85,13 @@
       "when": 1794300004000,
       "tag": "0014_agent_action_drawing",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1794300005000,
+      "tag": "0015_agent_tasks",
+      "breakpoints": true
     }
   ]
 }

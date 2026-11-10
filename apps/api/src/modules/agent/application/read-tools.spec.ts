@@ -40,13 +40,16 @@ describe('agent read tools (FR-AG-4, FR-AG-5)', () => {
     expect(s.bars).toHaveBeenCalledWith('NSE:RELIANCE', '5', { latest: true }, 300);
   });
 
-  it('no agent source file can reach order placement or Zerodha credentials', () => {
+  // Owner decision 2026-11-10: the assistant trades PAPER only. It may use the paper engine; it can never reach a broker.
+  it('no agent source file can reach a broker, a broker session or broker credentials', () => {
     const root = join(__dirname, '..');
     const files: string[] = [];
     const walk = (dir: string) => { for (const name of readdirSync(dir)) { const p = join(dir, name); if (statSync(p).isDirectory()) walk(p); else if (p.endsWith('.ts') && !p.endsWith('.spec.ts')) files.push(p); } };
     walk(root);
     for (const file of files) {
-      expect(readFileSync(file, 'utf8'), file).not.toMatch(/PlaceOrder|CancelOrder|KiteSessionService|ZERODHA_|placeOrder|getAccessToken/);
+      const source = readFileSync(file, 'utf8');
+      expect(source, file).not.toMatch(/KiteSessionService|ZERODHA_|placeOrder|getAccessToken|shared\/vendors|admin-ops/);
+      for (const [, from] of source.matchAll(/import\s[^;]*(?:PlaceOrder|CancelOrder)[^;]*from\s+'([^']+)'/g)) expect(from, file).toBe('../paper-trading/application/index');
     }
   });
 });

@@ -148,3 +148,20 @@ it('renders the assistant reply as markdown and never as raw HTML', async () => 
   expect(screen.getAllByRole('listitem').map(li => li.textContent)).toContain('one');
   expect(document.querySelector('img')).toBeNull();
 });
+
+it('lists background tasks with what wakes them, and pauses one', async () => {
+  const task = { id: '00000000-0000-4000-8000-0000000000t1'.replace('t1', 'a1'), threadId: '00000000-0000-4000-8000-0000000000b1', title: 'EURUSD vs EMA 20',
+    instruction: 'check', trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' }, state: 'active', runs: 1, maxRuns: 2,
+    lastRunAt: '2026-11-11T18:45:00.000Z', nextRunAt: '2026-11-11T18:50:00.000Z', lastError: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+  const verbs: string[] = [];
+  server.use(
+    http.get('/api/v1/agent/tasks', () => HttpResponse.json([task])),
+    http.post('/api/v1/agent/tasks/:id/:verb', ({ params }) => { verbs.push(String(params.verb)); return HttpResponse.json({ ...task, state: 'paused' }); }),
+  );
+  render(<Providers><ChatPanel /></Providers>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  expect(await screen.findByText('EURUSD vs EMA 20')).toBeDefined();
+  expect(screen.getByText(/on schedule \*\/5 \* \* \* \* \(Asia\/Kolkata\) · 1\/2 runs/)).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+  await vi.waitFor(() => { expect(verbs).toEqual(['pause']); });
+});

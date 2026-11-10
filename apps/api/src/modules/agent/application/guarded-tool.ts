@@ -1,5 +1,15 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 import { DomainError } from '../../../shared/errors';
+
+/**
+ * Some models send a nested object as a JSON string ("{\"kind\": ...}"). Accept both shapes for nested fields;
+ * the object form stays first so it is what the model is shown.
+ */
+export function orJsonString<T extends z.ZodType>(schema: T) {
+  return z.union([schema, z.string().transform((text, ctx) => {
+    try { return JSON.parse(text) as unknown; } catch { ctx.addIssue({ code: 'custom', message: 'expected an object, got text that is not JSON' }); return z.NEVER; }
+  }).pipe(schema)]);
+}
 
 export interface ToolContext { userId: string; conversationId: string; turnId: string }
 type ToolResult<T> = { ok: true; data: T } | { ok: false; reason: string; detail?: string };

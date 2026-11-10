@@ -66,7 +66,8 @@ export class MastraRunner implements AgentRunner {
       originalMessages: original,
       execute: async ({ writer }) => {
         const output = await this.agent.stream(original, {
-          requestContext, abortSignal: abort.signal, maxSteps: input.budget.remaining().rounds,
+          // One step past the budget, so running out of rounds ends with the budget notice instead of stopping silently.
+          requestContext, abortSignal: abort.signal, maxSteps: input.budget.remaining().rounds + 1,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
             tokens += used;

@@ -15,7 +15,7 @@ Read these before changing anything:
 
 ## Hard rules
 - **Secrets:** never open, print or copy `.env` files or tokens. Use `.env.example` for key names.
-- **The assistant never trades:** no tool or code path lets the agent place, modify or cancel orders, real or paper, or handle broker logins or tokens.
+- **The assistant trades paper only** (owner decision 2026-11-10): it may place, cancel and close PAPER orders, including from background tasks, through the paper engine and its risk limits. No code path lets it reach a broker, a broker session, or broker logins or tokens.
 - **Zerodha:** never script around its CAPTCHA or login limits.
 - **Numbers come from the server:** indicator values, levels and drawings are computed server-side from real bars, never by a model.
 - **Don't loosen tests or budgets** to pass. Find the cause.

@@ -44,6 +44,6 @@ const warn = (message: string, detail: Record<string, unknown>) => { logger.warn
     { provide: PaperJobsRegistration, inject: [JobScheduler, MatchOpenOrders, SquareOff],
       useFactory: (scheduler: JobScheduler, match: MatchOpenOrders, squareOff: SquareOff) => new PaperJobsRegistration(scheduler, match, squareOff) },
   ],
-  exports: [ReadPortfolio],
+  exports: [ReadPortfolio, PlaceOrder, CancelOrder],
 })
 export class PaperTradingModule {}
