@@ -1,4 +1,6 @@
 import type { UIMessage } from 'ai';
+import { ActionCardSchema } from '@aitrader/contracts';
+import { ActionCard } from './action-card';
 
 type Part = UIMessage['parts'][number];
 interface ToolLike { type: string; state?: string; input?: unknown; output?: unknown; errorText?: string }
@@ -12,9 +14,19 @@ export function MessageParts({ parts }: { parts: UIMessage['parts'] }) {
   return <div className="space-y-2">{parts.map((part, i) => {
     if (part.type === 'text') return <p key={i} className="whitespace-pre-wrap">{part.text}</p>;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
-    if (isTool(part)) return <ToolCard key={i} part={part} />;
+    if (isTool(part)) {
+      const proposed = part.type === 'tool-proposeChartAction' ? proposal(part.output) : null;
+      return proposed ? <ActionCard key={i} proposed={proposed} /> : <ToolCard key={i} part={part} />;
+    }
     return null;
   })}</div>;
+}
+
+/** A successful proposeChartAction result carries the card; anything else shows as a plain tool card. */
+function proposal(output: unknown) {
+  if (typeof output !== 'object' || output === null || !('ok' in output) || output.ok !== true || !('data' in output)) return null;
+  const parsed = ActionCardSchema.safeParse(output.data);
+  return parsed.success ? parsed.data : null;
 }
 
 function ToolCard({ part }: { part: ToolLike }) {

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { AgentStatusSchema, ThreadSummarySchema } from '@aitrader/contracts';
 import { API_HEADERS, apiFetch, apiUrl } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
+import { ChatActionsContext, type ChatActions } from './chat-actions';
 import { MessageParts } from './message-parts';
 
 const threadsSchema = z.array(ThreadSummarySchema);
@@ -13,7 +14,7 @@ const messagesSchema = z.array(z.looseObject({ id: z.string(), role: z.enum(['us
 const noContent = z.unknown();
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
-export function ChatPanel() {
+export function ChatPanel({ actions }: { actions?: ChatActions }) {
   const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }) });
   const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
   if (status.isPending) return <p className="text-sm text-muted-foreground">Loading assistant…</p>;
@@ -22,10 +23,11 @@ export function ChatPanel() {
     return <div className="space-y-2 text-sm"><h2 className="font-medium">Assistant</h2>
       <p className="text-muted-foreground">The assistant is not configured on this server. An admin sets <code>AGENT_MODEL</code> and its provider key in <code>apps/api/.env</code>.</p></div>;
   }
-  return <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
+  const body = <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
     <ThreadBar current={threadId} onSelect={setThreadId} />
     <Conversation key={threadId} threadId={threadId} model={status.data.model} />
   </div>;
+  return actions ? <ChatActionsContext value={actions}>{body}</ChatActionsContext> : body;
 }
 
 function ThreadBar({ current, onSelect }: { current: string; onSelect: (id: string) => void }) {

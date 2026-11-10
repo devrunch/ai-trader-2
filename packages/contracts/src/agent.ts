@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { IndicatorInputValuesSchema } from './indicator.js';
+import { INTERVALS } from './market-data.js';
 
 export const PROMPT_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
 export const PromptVersionSchema = z.strictObject({
@@ -19,3 +21,17 @@ export const ChatMessageSchema = z.looseObject({ id: z.string().min(1).max(100),
 export const ChatRequestSchema = z.strictObject({ id: z.uuid(), message: ChatMessageSchema.extend({ role: z.literal('user') }) });
 export const ThreadSummarySchema = z.strictObject({ id: z.uuid(), title: z.string(), updatedAt: z.string() });
 export const ThreadRenameRequestSchema = z.strictObject({ title: z.string().trim().min(1).max(120) });
+
+/** Changes the assistant may propose to the user's workspace (FR-AG-17). Each one waits for the user; none touches orders. */
+export const AgentActionSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('add-indicator'), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), inputs: IndicatorInputValuesSchema.default({}) }),
+  z.strictObject({ kind: z.literal('open-symbol'), symbol: z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/), interval: z.enum(INTERVALS).optional() }),
+]);
+export type AgentAction = z.infer<typeof AgentActionSchema>;
+export const ACTION_CARD_STATES = ['pending', 'applied', 'dismissed', 'expired', 'failed'] as const;
+export const ActionCardSchema = z.strictObject({
+  id: z.uuid(), action: AgentActionSchema, state: z.enum(ACTION_CARD_STATES), reason: z.string().nullable(), expiresAt: z.string(),
+});
+export type ActionCardDto = z.infer<typeof ActionCardSchema>;
+/** Apply with the fields as the user edited them; the kind cannot change. */
+export const ActionApplyRequestSchema = z.strictObject({ action: AgentActionSchema.optional() });
