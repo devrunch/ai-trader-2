@@ -1,0 +1,18 @@
+classDiagram
+  class ChartIndicator {
+    +id: string
+    +inputs: InputValues
+    +key: string
+  }
+  class ChartIndicatorSeries {
+    +definition: IndicatorDefinition
+    +key: string
+    +result: IndicatorResult
+  }
+  class IndicatorRow {
+    +definition: IndicatorDefinition | undefined
+    +error: string | undefined
+    +item: ChartIndicator
+    +loading: boolean
+    +result: IndicatorResult | undefined
+  }

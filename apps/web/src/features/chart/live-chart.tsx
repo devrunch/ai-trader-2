@@ -6,7 +6,9 @@ import { statusText } from '../../shared/live/status-text';
 import { useThemeStore } from '../../shared/state';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { ChartAdapter } from './chart-adapter';
-import { exchangeTimeZone, readChartColors } from './chart-theme';
+import { exchangeTimeZone, readChartColors, readIndicatorColor } from './chart-theme';
+import { IndicatorLayer } from './indicator-layer';
+import { IndicatorLegend, useChartIndicators } from '../indicators';
 import { createLwcChart } from './lwc-chart';
 
 const PAGE = 500;
@@ -15,6 +17,11 @@ const PAGE = 500;
 export function LiveChart({ symbol, interval }: { symbol: string; interval: Interval }) {
   const container = useRef<HTMLDivElement>(null);
   const adapterRef = useRef<ChartAdapter | null>(null);
+  const layerRef = useRef<IndicatorLayer | null>(null);
+  const lastBarTime = useRef<number | undefined>(undefined);
+  // Changes once per new bar (never per tick), so indicators refresh on bar close.
+  const [barEpoch, setBarEpoch] = useState(0);
+  const indicators = useChartIndicators(symbol, interval, barEpoch);
   const [loaded, setLoaded] = useState(false);
   const [empty, setEmpty] = useState(false);
   const [status, setStatus] = useState<DataStatus | undefined>(undefined);
@@ -23,14 +30,21 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   useEffect(() => {
     const el = container.current;
     if (!el) return;
-    const adapter = new ChartAdapter(createLwcChart(el, exchangeTimeZone(symbol)), readChartColors());
+    const chart = createLwcChart(el, exchangeTimeZone(symbol));
+    const adapter = new ChartAdapter(chart, readChartColors());
     adapterRef.current = adapter;
+    layerRef.current = new IndicatorLayer(chart, token => readIndicatorColor(token));
+    lastBarTime.current = undefined;
     const client = liveClient();
     const controller = new AbortController(); // E15: a late page for the previous symbol is never painted
     setLoaded(false); setEmpty(false); setStatus(undefined);
     const off = client.subscribe(symbol, interval, {
-      onReset: bars => { adapter.reset(bars); setLoaded(true); setEmpty(bars.length === 0); },
-      onUpdate: bar => { adapter.update(bar); },
+      onReset: bars => { adapter.reset(bars); lastBarTime.current = bars.at(-1)?.time; setLoaded(true); setEmpty(bars.length === 0); },
+      onUpdate: bar => {
+        adapter.update(bar);
+        if (lastBarTime.current !== undefined && bar.time > lastBarTime.current) setBarEpoch(epoch => epoch + 1);
+        lastBarTime.current = Math.max(lastBarTime.current ?? bar.time, bar.time);
+      },
       onStatus: setStatus,
     });
     const loadPage = (before?: number) => {
@@ -49,14 +63,16 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
         .then(page => { if (!controller.signal.aborted) client.mergeHistory(symbol, interval, page.bars); })
         .catch(() => undefined); // scrolling left again retries; a failed page never blanks the chart
     });
-    return () => { controller.abort(); off(); adapter.destroy(); adapterRef.current = null; };
+    return () => { controller.abort(); off(); layerRef.current?.destroy(); layerRef.current = null; adapter.destroy(); adapterRef.current = null; };
   }, [symbol, interval]);
 
-  useEffect(() => { adapterRef.current?.applyColors(readChartColors()); }, [mode]);
+  useEffect(() => { adapterRef.current?.applyColors(readChartColors()); layerRef.current?.recolor(); }, [mode]);
+  useEffect(() => { layerRef.current?.set(indicators.series); }, [indicators.series]);
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;
   return <div className="relative h-full min-h-80 w-full">
     <div ref={container} className="absolute inset-0" data-testid="chart-canvas" />
+    {loaded && <div className="pointer-events-none absolute left-3 top-12 z-10"><IndicatorLegend rows={indicators.rows} catalog={indicators.catalog.data} /></div>}
     {!loaded && <div role="status" aria-label="Loading chart" className="absolute inset-0 space-y-3 bg-background p-4"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-[70%] w-full" /></div>}
     {loaded && stale && <div role="status" className={`absolute left-3 top-3 rounded border bg-panel px-2 py-1 text-xs ${empty ? '' : 'opacity-90'}`}>{stale}{status?.state === 'stale' && status.detail ? ` · ${status.detail}` : ''}</div>}
     {loaded && empty && !stale && <div role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">No bars yet for {symbol}.</div>}

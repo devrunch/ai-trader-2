@@ -40,6 +40,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "socket.io": "4.8.4",
+    "trading-signals": "8.3.0",
     "undici": "8.12.4",
     "ws": "8.22.2",
     "yahoo-finance2": "4.0.6",
@@ -59,6 +60,7 @@
     "@types/supertest": "7.2.1",
     "@types/ws": "8.18.2",
     "drizzle-kit": "0.31.11",
+    "pinets": "0.13.1",
     "socket.io-client": "4.8.4",
     "supertest": "7.3.2",
     "vitest": "5.1.0"
