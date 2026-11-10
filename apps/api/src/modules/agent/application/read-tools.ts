@@ -24,10 +24,10 @@ export function buildReadTools(s: ReadToolServices, deps: GuardDeps): Array<Guar
       run: input => Promise.resolve(s.search.execute(input.query, { limit: input.limit })) }, deps),
     // The account is always the caller's own: the user id comes from the session, never from the model (FR-AG-5).
     guardedTool({ name: 'getPortfolio', description: "The user's own paper account: cash, positions with P&L, and open orders. Read-only.",
-      input: z.object({}).passthrough(), run: async (_input, ctx) => ({
+      input: z.looseObject({}), run: async (_input, ctx) => ({
         account: await s.portfolio.account(ctx.userId), positions: await s.portfolio.positions(ctx.userId),
         openOrders: await s.portfolio.orders(ctx.userId, { openOnly: true, limit: 50 }),
       }) }, deps),
   ];
-  return tools as Array<GuardedTool<unknown, unknown>>;
+  return tools;
 }
