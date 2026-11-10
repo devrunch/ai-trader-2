@@ -53,6 +53,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aitrader/compute-client':
+        specifier: workspace:*
+        version: link:../../packages/compute-client
       '@aitrader/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

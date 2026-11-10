@@ -12,6 +12,7 @@
     "admin:create": "pnpm build && node dist/cli/create-admin.js"
   },
   "dependencies": {
+    "@aitrader/compute-client": "workspace:*",
     "@aitrader/contracts": "workspace:*",
     "@aitrader/resilience": "workspace:*",
     "@date-fns/tz": "1.5.0",
