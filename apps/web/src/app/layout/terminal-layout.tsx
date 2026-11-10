@@ -1,27 +1,92 @@
-import type { ReactNode } from 'react';
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../../shared/ui/resizable';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../shared/ui/tabs';
+import { useState, type ReactNode } from 'react';
+import { Bell, ChevronDown, ChevronUp, List, MessageSquare, Newspaper, type LucideIcon } from 'lucide-react';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../shared/ui/resizable';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
 import { useIsDesktop } from './use-is-desktop';
-type Side = Record<'chat' | 'positions' | 'news' | 'alerts', ReactNode>;
-type Props = { watchlist: ReactNode; chart: ReactNode; side: Side };
-const sideNames = ['chat', 'positions', 'news', 'alerts'] as const;
-function ContentTabs({ entries }: { entries: { name: string; content: ReactNode }[] }) {
-  return <Tabs defaultValue={entries[0]?.name} className="flex h-full min-h-0 flex-col">
-    <TabsList className="group-data-[orientation=horizontal]/tabs:h-auto w-full flex-wrap justify-start rounded-none border-b bg-panel p-2">
-      {entries.map(({ name }) => <TabsTrigger key={name} value={name} className="capitalize">{name.charAt(0).toUpperCase() + name.slice(1)}</TabsTrigger>)}
-    </TabsList>
-    {entries.map(({ name, content }) => <TabsContent key={name} value={name} className="min-h-0 flex-1 overflow-auto p-4">{content}</TabsContent>)}
-  </Tabs>;
-}
-export function TerminalLayout({ watchlist, chart, side }: Props) {
+
+export type Widget = 'watchlist' | 'assistant' | 'alerts' | 'news';
+type Props = { toolbar: ReactNode; chart: ReactNode; bottom: ReactNode; widgets: Record<Widget, ReactNode> };
+
+const WIDGETS: Array<{ id: Widget; label: string; icon: LucideIcon }> = [
+  { id: 'watchlist', label: 'Watchlist', icon: List },
+  { id: 'assistant', label: 'Assistant', icon: MessageSquare },
+  { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'news', label: 'News', icon: Newspaper },
+];
+
+/** Toolbar on top; chart over a collapsible trading panel; one widget panel beside an icon rail (docs/design/terminal-ui.md). */
+export function TerminalLayout({ toolbar, chart, bottom, widgets }: Props) {
   const desktop = useIsDesktop();
-  const entries = sideNames.map((name) => ({ name, content: side[name] }));
-  if (!desktop) return <ContentTabs entries={[{ name: 'Chart', content: chart }, { name: 'Watchlist', content: watchlist }, ...entries]} />;
-  return <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 bg-panel">
-    <ResizablePanel defaultSize="18%" minSize="12%"><section data-testid="region-watchlist" aria-label="Watchlist" className="h-full overflow-auto p-4">{watchlist}</section></ResizablePanel>
-    <ResizableHandle withHandle />
-    <ResizablePanel defaultSize="56%" minSize="30%"><section data-testid="region-chart" aria-label="Chart" className="h-full overflow-auto p-4">{chart}</section></ResizablePanel>
-    <ResizableHandle withHandle />
-    <ResizablePanel defaultSize="26%" minSize="18%"><section data-testid="region-side" aria-label="Tools" className="h-full"><ContentTabs entries={entries} /></section></ResizablePanel>
-  </ResizablePanelGroup>;
+  const [widget, setWidget] = useState<Widget | null>('watchlist');
+  const [bottomOpen, setBottomOpen] = useState(true);
+  if (!desktop) return <PhoneLayout toolbar={toolbar} chart={chart} bottom={bottom} widgets={widgets} />;
+  const active = WIDGETS.find(w => w.id === widget);
+  const strip = <div className="flex h-7 shrink-0 items-center gap-2 border-t bg-panel px-2 text-[12px]">
+    <span className="font-semibold">Paper trading</span>
+    <button type="button" className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+      aria-label={bottomOpen ? 'Collapse trading panel' : 'Expand trading panel'} onClick={() => { setBottomOpen(open => !open); }}>
+      {bottomOpen ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
+    </button>
+  </div>;
+
+  return <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="flex h-10 shrink-0 items-center border-b bg-panel">{toolbar}</div>
+    <div className="flex min-h-0 flex-1">
+      {/* The group sizes itself to 100% of its parent; the wrapper keeps the rail on screen. */}
+      <div className="min-w-0 flex-1"><ResizablePanelGroup orientation="horizontal" className="h-full">
+        <ResizablePanel id="main" minSize="40%">
+          <div className="flex h-full flex-col">
+            {bottomOpen
+              ? <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+                <ResizablePanel id="chart" defaultSize="70%" minSize="30%">
+                  <section data-testid="region-chart" aria-label="Chart" className="h-full">{chart}</section>
+                </ResizablePanel>
+                <ResizableHandle />
+                <ResizablePanel id="bottom" defaultSize="30%" minSize="12%">
+                  <div className="flex h-full flex-col">{strip}
+                    <section data-testid="region-bottom" aria-label="Paper trading" className="min-h-0 flex-1 overflow-auto bg-panel">{bottom}</section>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+              : <><section data-testid="region-chart" aria-label="Chart" className="min-h-0 flex-1">{chart}</section>{strip}</>}
+          </div>
+        </ResizablePanel>
+        {active && <>
+          <ResizableHandle />
+          <ResizablePanel id="widget" defaultSize="24%" minSize="16%" maxSize="45%">
+            <section data-testid="region-side" aria-label={active.label} className="flex h-full flex-col border-l bg-panel">
+              <h2 className="flex h-8 shrink-0 items-center border-b px-3 text-[12px] font-semibold">{active.label}</h2>
+              <div className="min-h-0 flex-1 overflow-auto">{widgets[active.id]}</div>
+            </section>
+          </ResizablePanel>
+        </>}
+      </ResizablePanelGroup></div>
+      <nav aria-label="Widgets" className="flex w-11 shrink-0 flex-col items-center gap-1 border-l bg-panel py-2">
+        {WIDGETS.map(({ id, label, icon: Icon }) => <Tooltip key={id}><TooltipTrigger asChild>
+          <button type="button" aria-label={label} aria-pressed={widget === id}
+            className={`grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-accent' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            onClick={() => { setWidget(current => (current === id ? null : id)); }}><Icon className="size-4" /></button>
+        </TooltipTrigger><TooltipContent side="left">{label}</TooltipContent></Tooltip>)}
+      </nav>
+    </div>
+  </div>;
+}
+
+type PhoneTab = 'chart' | 'trade' | Widget;
+const PHONE_TABS: Array<{ id: PhoneTab; label: string }> = [
+  { id: 'chart', label: 'Chart' }, { id: 'watchlist', label: 'Watchlist' }, { id: 'trade', label: 'Trade' },
+  { id: 'assistant', label: 'Assistant' }, { id: 'alerts', label: 'Alerts' }, { id: 'news', label: 'News' },
+];
+
+function PhoneLayout({ toolbar, chart, bottom, widgets }: Props) {
+  const [tab, setTab] = useState<PhoneTab>('chart');
+  const content = tab === 'chart' ? chart : tab === 'trade' ? bottom : widgets[tab];
+  return <div className="flex min-h-0 flex-1 flex-col bg-background">
+    <div className="flex h-10 shrink-0 items-center overflow-x-auto border-b bg-panel">{toolbar}</div>
+    <section aria-label={PHONE_TABS.find(t => t.id === tab)?.label} className={`min-h-0 flex-1 ${tab === 'chart' ? '' : 'overflow-auto bg-panel'}`}>{content}</section>
+    <div role="tablist" aria-label="Sections" className="grid shrink-0 grid-cols-6 border-t bg-panel">
+      {PHONE_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
+        className={`h-11 text-[11px] ${tab === t.id ? 'text-accent' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
+    </div>
+  </div>;
 }

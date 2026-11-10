@@ -80,7 +80,7 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   const stale = status?.state === 'stale' ? statusText(status) : undefined;
   return <div className="relative h-full min-h-80 w-full">
     <div ref={container} className="absolute inset-0" data-testid="chart-canvas" />
-    {loaded && <div className="pointer-events-none absolute left-3 top-12 z-10"><IndicatorLegend rows={indicators.rows} catalog={indicators.catalog.data} /></div>}
+    {loaded && <div className="pointer-events-none absolute left-2 top-2 z-10"><IndicatorLegend rows={indicators.rows} /></div>}
     {loaded && drawings.length > 0 && <button type="button" className="absolute right-16 top-3 z-10 rounded border bg-panel px-2 py-1 text-xs"
       onClick={() => { clearDrawings(symbol, interval); }}>Clear drawings ({drawings.reduce((n, d) => n + d.segments.length, 0)})</button>}
     {!loaded && <div role="status" aria-label="Loading chart" className="absolute inset-0 space-y-3 bg-background p-4"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-[70%] w-full" /></div>}

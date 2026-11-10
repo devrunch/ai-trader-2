@@ -14,7 +14,7 @@ vi.mock('../../shared/live/live-connection', () => ({
   liveClient: () => ({ subscribe: (symbol: string) => { subscribed.push(symbol); return () => undefined; }, mergeHistory: () => undefined }),
 }));
 
-const { SymbolHeader, IntervalPicker, Watchlist } = await import('./index');
+const { InstrumentBadge, IntervalPicker, Watchlist } = await import('./index');
 const { Providers } = await import('../../app/providers');
 
 const quote = (id: string, price: number, change: number | null, status: object = { state: 'ok' }) =>
@@ -26,7 +26,10 @@ const popular = { query: '', results: [
 const server = setupServer(
   http.get('/api/v1/quote/:id', ({ params }) => HttpResponse.json(params.id === 'NSE:TCS' ? quote('NSE:TCS', 4000, -40) : quote(String(params.id), 1500, 30))),
   http.get('/api/v1/instruments/search', () => HttpResponse.json(popular)),
+  http.get('/api/v1/quotes', ({ request }) => { quoteBatches.push(new URL(request.url).searchParams.get('ids') ?? '');
+    return HttpResponse.json({ quotes: [quote('NSE:RELIANCE', 1500, 30), quote('NSE:TCS', 4000, -40)] }); }),
 );
+const quoteBatches: string[] = [];
 beforeAll(() => { server.listen(); });
 beforeEach(() => { subscribed.length = 0; });
 afterEach(() => { cleanup(); server.resetHandlers(); });
@@ -44,8 +47,8 @@ async function renderWith(node: React.ReactNode, path = '/terminal?symbol=NSE%3A
   return router;
 }
 
-it('symbol header shows the quote, then the live price with change from the previous close', async () => {
-  await renderWith(<SymbolHeader symbol="NSE:RELIANCE" />);
+it('instrument badge shows the quote, then the live price with change from the previous close', async () => {
+  await renderWith(<InstrumentBadge symbol="NSE:RELIANCE" />);
   expect(await screen.findByText('1,500.00')).toBeDefined();
   expect(screen.getByText('+30.00 (+2.04%)').getAttribute('data-tone')).toBe('up');
   act(() => { store.set('price:NSE:RELIANCE', 1460); scheduler.flush(); });
@@ -55,13 +58,13 @@ it('symbol header shows the quote, then the live price with change from the prev
 
 it('status badge says delayed or stale with the reason (FR-UI-7)', async () => {
   server.use(http.get('/api/v1/quote/:id', () => HttpResponse.json(quote('NSE:RELIANCE', 1500, 30, { state: 'stale', reason: 'MARKET_CLOSED' }))));
-  await renderWith(<SymbolHeader symbol="NSE:RELIANCE" />);
+  await renderWith(<InstrumentBadge symbol="NSE:RELIANCE" />);
   expect(await screen.findByText('Market closed')).toBeDefined();
 });
 
 it('quote errors show why and offer a retry', { timeout: 10_000 }, async () => {
   server.use(http.get('/api/v1/quote/:id', () => HttpResponse.json({ code: 'PROVIDER_DOWN', message: 'Data provider is down', requestId: 't' }, { status: 503 })));
-  await renderWith(<SymbolHeader symbol="NSE:RELIANCE" />);
+  await renderWith(<InstrumentBadge symbol="NSE:RELIANCE" />);
   expect(await screen.findByText('Data provider is down', {}, { timeout: 8_000 })).toBeDefined();
   expect(screen.getByRole('button', { name: 'Retry' })).toBeDefined();
 });
@@ -75,9 +78,12 @@ it('interval picker switches interval and keeps the symbol', async () => {
 
 it('watchlist streams live prices and opens a symbol on click', async () => {
   const router = await renderWith(<Watchlist />);
-  expect(await screen.findByText('NSE:TCS')).toBeDefined();
+  expect(await screen.findByText('TCS')).toBeDefined();
   expect(subscribed.sort()).toEqual(['NSE:RELIANCE', 'NSE:TCS']);
   expect(await screen.findByText('4,000.00')).toBeDefined();
+  expect(screen.getByText('−0.99%')).toBeDefined();
+  // One request for the whole list, not one per row.
+  expect(quoteBatches).toEqual(['NSE:RELIANCE,NSE:TCS']);
   act(() => { store.set('price:NSE:TCS', 4100); scheduler.flush(); });
   expect(screen.getByText('4,100.00')).toBeDefined();
   fireEvent.click(screen.getByRole('button', { name: /NSE:TCS/ }));

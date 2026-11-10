@@ -10,7 +10,7 @@ const LIMIT = 500;
 interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult }
 export interface IndicatorRow { item: ChartIndicator; definition: IndicatorDefinition | undefined; result: IndicatorResult | undefined; error: string | undefined; loading: boolean }
 
-function useIndicatorCatalog() {
+export function useIndicatorCatalog() {
   return useQuery({ queryKey: ['indicators'], staleTime: Infinity,
     queryFn: ({ signal }) => apiFetch('v1/indicators', { schema: IndicatorListResponseSchema, signal }).then(body => body.indicators) });
 }

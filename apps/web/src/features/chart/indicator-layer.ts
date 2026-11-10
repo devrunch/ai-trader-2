@@ -32,7 +32,8 @@ export class IndicatorLayer {
 
   private paint(item: Painted, pane: number) {
     const series = item.definition.plots.map(plot => {
-      const handle = this.chart.addIndicatorSeries({ kind: plot.kind, color: this.color(plot.color), lineWidth: plot.lineWidth, pane, title: plot.title });
+      // Names belong in the legend; the price axis shows values only.
+      const handle = this.chart.addIndicatorSeries({ kind: plot.kind, color: this.color(plot.color), lineWidth: plot.lineWidth, pane, title: '' });
       handle.setData(points(item.result, plot.id));
       return handle;
     });

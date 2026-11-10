@@ -14,36 +14,38 @@ export function PositionsPanel({ symbol }: { symbol: string }) {
   const account = usePaperAccount();
   const positions = usePaperPositions();
   const orders = useOpenPaperOrders();
-  return <div className="space-y-4 text-sm">
-    <section aria-label="Paper account"><h2 className="mb-2 font-medium">Paper account</h2>
+  return <div className="@container"><div className="grid gap-4 p-3 text-[12px] @3xl:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)_minmax(0,1fr)]">
+    <div className="space-y-4">
+    <section aria-label="Paper account"><h2 className="mb-2 font-semibold">Paper account</h2>
       <Loaded query={account}>{({ account: a }) => <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-        <dt className="text-muted-foreground">Available</dt><dd className="text-right font-mono tabular-nums">{formatRupees(a.available)}</dd>
-        <dt className="text-muted-foreground">Margin used</dt><dd className="text-right font-mono tabular-nums">{formatRupees(a.usedMargin)}</dd>
-        <dt className="text-muted-foreground">Realised</dt><dd className={`text-right font-mono tabular-nums ${tone(a.realisedPnl)}`}>{formatPnl(a.realisedPnl)}</dd>
-        <dt className="text-muted-foreground">Charges</dt><dd className="text-right font-mono tabular-nums">{formatRupees(a.charges)}</dd>
+        <dt className="text-muted-foreground">Available</dt><dd className="text-right num">{formatRupees(a.available)}</dd>
+        <dt className="text-muted-foreground">Margin used</dt><dd className="text-right num">{formatRupees(a.usedMargin)}</dd>
+        <dt className="text-muted-foreground">Realised</dt><dd className={`text-right num ${tone(a.realisedPnl)}`}>{formatPnl(a.realisedPnl)}</dd>
+        <dt className="text-muted-foreground">Charges</dt><dd className="text-right num">{formatRupees(a.charges)}</dd>
       </dl>}</Loaded>
     </section>
     <section aria-label="Order ticket"><OrderTicket symbol={symbol} /></section>
-    <section aria-label="Positions"><h2 className="mb-2 font-medium">Positions</h2>
+    </div>
+    <section aria-label="Positions"><h2 className="mb-2 font-semibold">Positions</h2>
       <Loaded query={positions} empty="No positions yet. Place a paper order to start." isEmpty={d => d.positions.length === 0}>
         {d => <ul className="divide-y">{d.positions.map(p => <PositionRow key={`${p.instrumentId}:${p.product}`} position={p} />)}</ul>}
       </Loaded>
     </section>
-    <section aria-label="Open orders"><h2 className="mb-2 font-medium">Open orders</h2>
+    <section aria-label="Open orders"><h2 className="mb-2 font-semibold">Open orders</h2>
       <Loaded query={orders} empty="No working orders." isEmpty={d => d.orders.length === 0}>
         {d => <ul className="divide-y">{d.orders.map(o => <OrderRow key={o.id} order={o} />)}</ul>}
       </Loaded>
     </section>
-  </div>;
+  </div></div>;
 }
 
 function PositionRow({ position: p }: { position: PaperPosition }) {
   return <li className="grid grid-cols-[1fr_auto] gap-x-2 py-1.5">
     <span className="truncate font-medium">{p.instrumentId} <span className="text-xs text-muted-foreground">{p.product}</span></span>
-    <span className={`text-right font-mono tabular-nums ${p.unrealisedPnl === null ? 'text-muted-foreground' : tone(p.unrealisedPnl)}`}>
+    <span className={`text-right num ${p.unrealisedPnl === null ? 'text-muted-foreground' : tone(p.unrealisedPnl)}`}>
       {p.unrealisedPnl === null ? 'no price' : formatPnl(p.unrealisedPnl)}</span>
     <span className="text-xs text-muted-foreground">{p.quantity === 0 ? 'closed' : `${String(p.quantity)} @ ${formatRupees(p.averagePrice)}`}</span>
-    <span className={`text-right font-mono text-xs tabular-nums ${tone(p.realisedPnl)}`}>{p.realisedPnl === 0 ? '' : `realised ${formatPnl(p.realisedPnl)}`}</span>
+    <span className={`text-right text-xs num ${tone(p.realisedPnl)}`}>{p.realisedPnl === 0 ? '' : `realised ${formatPnl(p.realisedPnl)}`}</span>
   </li>;
 }
 
