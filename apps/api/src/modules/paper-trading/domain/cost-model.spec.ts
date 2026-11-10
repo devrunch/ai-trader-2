@@ -28,12 +28,12 @@ describe('Indian cost model FR-PT-6', () => {
 
   it('itemises a futures sell', () => {
     expect(chargesFor({ segment: 'futures', product: 'NRML', side: 'sell', exchange: 'NFO', price: 2000, quantity: 50 }))
-      .toEqual({ brokerage: 20, stt: 20, exchange: 1.73, sebi: 0.1, stamp: 0, gst: 3.93, total: 45.76 });
+      .toEqual({ brokerage: 20, stt: 50, exchange: 1.73, sebi: 0.1, stamp: 0, gst: 3.93, total: 75.76 }); // STT 0.05% from 2026-04-01
   });
 
   it('charges options a flat 20 brokerage and STT on the sold premium', () => {
     const sell = chargesFor({ segment: 'options', product: 'NRML', side: 'sell', exchange: 'NFO', price: 120, quantity: 75 });
-    expect(sell).toEqual({ brokerage: 20, stt: 9, exchange: 3.15, sebi: 0.01, stamp: 0, gst: 4.17, total: 36.33 });
+    expect(sell).toEqual({ brokerage: 20, stt: 13.5, exchange: 3.15, sebi: 0.01, stamp: 0, gst: 4.17, total: 40.83 }); // STT 0.15% from 2026-04-01
     const buy = chargesFor({ segment: 'options', product: 'NRML', side: 'buy', exchange: 'NFO', price: 120, quantity: 75 });
     expect(buy.stt).toBe(0);
     expect(buy.stamp).toBe(0.27);

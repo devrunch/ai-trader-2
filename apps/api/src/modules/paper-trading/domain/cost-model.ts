@@ -8,8 +8,8 @@ import type { Segment } from './segment';
  *
  * Sources (rates as published for 2024-10-01 onward; re-check against a current contract note before relying on them):
  * - Brokerage: zerodha.com/charges (equity delivery free; intraday and futures 0.03% capped at ₹20; options flat ₹20).
- * - STT: Finance (No. 2) Act 2024, effective 2024-10-01 (futures 0.02% sell; options 0.1% of premium sell;
- *   delivery 0.1% both sides; intraday 0.025% sell). Exercised options are out of scope.
+ * - STT: Union Budget 2026 (Finance Act 2026), effective 2026-04-01: futures 0.05% sell (was 0.02%), options 0.15% of
+ *   premium sell (was 0.1%); delivery 0.1% both sides and intraday 0.025% sell unchanged. Exercised options are out of scope.
  * - Exchange transaction charges: the uniform per-exchange rates NSE and BSE adopted on 2024-10-01 under SEBI's
  *   true-to-label rule, as listed on zerodha.com/charges (NSE cash 0.00297%, futures 0.00173%, options 0.03503%;
  *   BSE cash 0.00375%, options 0.0325%, futures 0).
@@ -26,8 +26,8 @@ const CHARGE_RATES = {
   stt: {
     equityDelivery: { buy: 0.001, sell: 0.001 },
     equityIntraday: { buy: 0, sell: 0.00025 },
-    futures: { buy: 0, sell: 0.0002 },
-    options: { buy: 0, sell: 0.001 },
+    futures: { buy: 0, sell: 0.0005 },
+    options: { buy: 0, sell: 0.0015 },
   },
   exchange: {
     NSE: { equity: 0.0000297, futures: 0.0000173, options: 0.0003503 },
