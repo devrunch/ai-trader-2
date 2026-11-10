@@ -31,7 +31,7 @@ exclude-newer = "2026-10-26T00:00:00Z"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q --strict-markers"
+addopts = "--strict-markers"
 
 [tool.ruff]
 line-length = 120
