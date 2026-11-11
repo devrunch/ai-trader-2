@@ -5,7 +5,7 @@ interface CandlePoint { time: number; open: number; high: number; low: number; c
 export type VolumePoint = { time: number; value: number; color: string } | { time: number };
 export type LinePoint = { time: number; value: number } | { time: number };
 export interface IndicatorSeriesOptions { kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'; color: string; lineWidth: number; pane: number; title: string }
-export interface IndicatorSeriesLike { setData: (points: LinePoint[]) => void; priceLine: (value: number, title: string, color: string) => void; remove: () => void }
+export interface IndicatorSeriesLike { setData: (points: LinePoint[]) => void; update: (point: LinePoint) => void; priceLine: (value: number, title: string, color: string) => void; remove: () => void }
 
 /** The slice of the charting library we use, so the adapter is testable without a canvas. */
 export interface ChartLike {

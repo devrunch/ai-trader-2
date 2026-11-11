@@ -3,15 +3,19 @@ import { http, HttpResponse, delay } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import type { Bar, DataStatus } from '@aitrader/contracts';
-import type { SeriesHandlers } from '../../shared/live';
+import type { IndicatorHandlers, SeriesHandlers } from '../../shared/live';
 import type { ChartLike } from './chart-adapter';
 
 const subscriptions: Array<{ symbol: string; interval: string; handlers: SeriesHandlers; off: ReturnType<typeof vi.fn> }> = [];
 const mergeHistory = vi.fn();
+const watches: Array<{ instanceId: string; spec: unknown; handlers: IndicatorHandlers; stop: ReturnType<typeof vi.fn> }> = [];
 vi.mock('../../shared/live/live-connection', () => ({
   liveClient: () => ({
     subscribe: (symbol: string, interval: string, handlers: SeriesHandlers) => {
       const off = vi.fn(); subscriptions.push({ symbol, interval, handlers, off }); return off;
+    },
+    watchIndicator: (_symbol: string, _interval: string, instanceId: string, spec: unknown, handlers: IndicatorHandlers) => {
+      const stop = vi.fn(); watches.push({ instanceId, spec, handlers, stop }); return stop;
     },
     mergeHistory,
   }),
@@ -20,6 +24,7 @@ vi.mock('../../shared/live/live-connection', () => ({
 
 let scroll: ((from: number | null) => void) | undefined;
 const charts: ChartLike[] = [];
+const indicatorUpdates: Array<ReturnType<typeof vi.fn>> = [];
 const candleUpdates: Array<ReturnType<typeof vi.fn>> = [];
 vi.mock('./lwc-chart', () => ({
   createLwcChart: (): ChartLike => {
@@ -27,7 +32,7 @@ vi.mock('./lwc-chart', () => ({
     const chart: ChartLike = {
       candles: { setData: vi.fn(), update }, volume: { setData: vi.fn(), update: vi.fn() },
       onCrosshair: () => () => undefined, onVisibleRange: cb => { scroll = cb; return () => undefined; }, applyColors: vi.fn(), remove: vi.fn(),
-      addIndicatorSeries: () => ({ setData: vi.fn(), priceLine: vi.fn(), remove: vi.fn() }),
+      addIndicatorSeries: () => { const update = vi.fn(); indicatorUpdates.push(update); return { setData: vi.fn(), update, priceLine: vi.fn(), remove: vi.fn() }; },
     };
     charts.push(chart);
     return chart;
@@ -103,15 +108,15 @@ it('market closed or provider down says why instead of an empty canvas (FR-UI-7)
   expect(screen.getByText(/Market closed/)).toBeDefined();
 });
 
-it('refreshes indicators once per new bar, never per tick (FR-CH-2)', async () => {
-  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+it('indicators load once over HTTP, then each tick arrives over the socket straight to the chart (FR-IN-5)', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: { length: 2 } }] });
   render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
   act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(1)]); });
   await vi.waitFor(() => { expect(computes).toHaveLength(1); });
-  act(() => { subscriptions[0]?.handlers.onUpdate(bar(1)); subscriptions[0]?.handlers.onUpdate(bar(1)); });
-  await new Promise(resolve => setTimeout(resolve, 50));
-  expect(computes).toHaveLength(1);
-  act(() => { subscriptions[0]?.handlers.onUpdate(bar(2)); });
-  await vi.waitFor(() => { expect(computes).toHaveLength(2); });
+  expect(watches.map(w => [w.instanceId, w.spec])).toEqual([['k', { kind: 'builtin', id: 'sma', inputs: { length: 2 } }]]);
   expect(await screen.findAllByTestId('indicator-legend-row')).toHaveLength(1);
+  act(() => { subscriptions[0]?.handlers.onUpdate(bar(2)); watches[0]?.handlers.onUpdate({ barTime: 120_000, values: { ma: 7 } }); });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(computes).toHaveLength(1); // no refetch per bar
+  expect(indicatorUpdates.at(-1)).toHaveBeenCalledWith({ time: 120, value: 7 });
 });

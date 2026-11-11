@@ -15,15 +15,18 @@ export function useIndicatorCatalog() {
     queryFn: ({ signal }) => apiFetch('v1/indicators', { schema: IndicatorListResponseSchema, signal }).then(body => body.indicators) });
 }
 
+/** The query key of one chart indicator's series; live resets from the socket write the fresh series here. */
+export const indicatorQueryKey = (symbol: string, interval: Interval, item: ChartIndicator) => ['indicator', symbol, interval, item.id, item.inputs] as const;
+
 /**
- * Computes every chart indicator on the server engine (FR-IN-1). `barEpoch` changes once per new bar, so values
- * refresh on bar close; per-tick values arrive with the indicator socket (P4-5). Earlier values stay on screen while refetching.
+ * The first paint of every chart indicator, computed on the server engine over HTTP (FR-IN-1), so it shows even when the
+ * socket is down. Per-tick values then come over the socket (P4-5) and go straight to the chart.
  */
-export function useChartIndicators(symbol: string, interval: Interval, barEpoch: number) {
+export function useChartIndicators(symbol: string, interval: Interval) {
   const items = useIndicatorStore(s => s.items);
   const catalog = useIndicatorCatalog();
   const results = useQueries({ queries: items.map(item => ({
-    queryKey: ['indicator', symbol, interval, item.id, item.inputs, barEpoch],
+    queryKey: indicatorQueryKey(symbol, interval, item),
     placeholderData: keepPreviousData,
     queryFn: ({ signal }: { signal: AbortSignal }) => apiFetch('v1/indicators/compute', { method: 'POST', schema: IndicatorResultSchema, signal,
       body: { symbol, interval, indicator: { kind: 'builtin', id: item.id, inputs: item.inputs }, range: { limit: LIMIT } } }),

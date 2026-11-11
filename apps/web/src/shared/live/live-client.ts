@@ -1,4 +1,5 @@
-import { LiveAckSchema, LiveBarSchema, LiveResyncSchema, LiveSnapshotSchema, LiveStatusSchema, type Bar, type DataStatus, type Interval } from '@aitrader/contracts';
+import { IndicatorSubscribeAckSchema, LiveAckSchema, LiveBarSchema, LiveIndicatorSchema, LiveResyncSchema, LiveSnapshotSchema, LiveStatusSchema,
+  type Bar, type DataStatus, type IndicatorResult, type IndicatorSpec, type Interval } from '@aitrader/contracts';
 import { backoffDelay } from '@aitrader/resilience';
 import { setConnection } from './connection-store';
 import { ServerClock } from './server-clock';
@@ -12,6 +13,9 @@ export interface SocketLike {
   disconnect(): void;
 }
 export interface SeriesHandlers { onReset(bars: Bar[]): void; onUpdate(bar: Bar): void; onStatus(status: DataStatus): void }
+/** Live indicator values for one chart indicator: the full series on (re)subscribe, then one point per tick. */
+export interface IndicatorHandlers { onReset(result: IndicatorResult): void; onUpdate(point: { barTime: number; values: Record<string, number | null> }): void; onError(message: string): void }
+interface IndicatorWatch { spec: IndicatorSpec; handlers: IndicatorHandlers }
 export interface LiveClientDeps {
   socket: SocketLike;
   store: { set(key: string, value: number): void };
@@ -39,6 +43,7 @@ const ORPHAN_TTL_MS = 10_000;
  */
 export class LiveClient {
   private readonly series = new Map<string, Series>();
+  private readonly indicatorWatches = new Map<string, Map<string, IndicatorWatch>>();
   private readonly byId = new Map<string, Series>();
   private readonly orphans = new Map<string, { at: number; events: Array<[string, unknown]> }>();
   private readonly clock: ServerClock;
@@ -57,7 +62,7 @@ export class LiveClient {
     socket.on('disconnect', () => { this.scheduleReconnect(); });
     socket.on('connect_error', (error: unknown) => { this.onConnectError(error); });
     socket.on('session_expired', () => { this.unauthorized = true; setConnection({ state: 'unauthorized' }); });
-    for (const event of ['snapshot', 'bar', 'status', 'resync']) socket.on(event, (payload: unknown) => { this.route(event, payload); });
+    for (const event of ['snapshot', 'bar', 'status', 'resync', 'indicator']) socket.on(event, (payload: unknown) => { this.route(event, payload); });
     doc?.addEventListener('visibilitychange', () => { this.onVisibility(); });
     win?.addEventListener('online', () => { this.onOnline(); });
     win?.addEventListener('offline', () => { setConnection({ state: 'offline' }); });
@@ -75,6 +80,45 @@ export class LiveClient {
   }
 
   serverNow(): number { return this.clock.now(); }
+
+  /**
+   * Live values for one indicator on a series the screen already subscribes. Sent once the series has a server
+   * subscription and again after every resubscribe (reconnect, gap, wake), so the indicator never drifts from the bars.
+   */
+  watchIndicator(symbol: string, interval: Interval, instanceId: string, spec: IndicatorSpec, handlers: IndicatorHandlers): () => void {
+    const key = `${symbol}|${interval}`;
+    const watches = this.indicatorWatches.get(key) ?? new Map<string, IndicatorWatch>();
+    watches.set(instanceId, { spec, handlers });
+    this.indicatorWatches.set(key, watches);
+    const entry = this.series.get(key);
+    if (entry?.id) this.sendIndicators(entry, [instanceId]);
+    return () => {
+      const current = this.indicatorWatches.get(key);
+      if (current?.get(instanceId)?.handlers !== handlers) return;
+      current.delete(instanceId);
+      if (current.size === 0) this.indicatorWatches.delete(key);
+      const live = this.series.get(key);
+      if (live?.id && this.deps.socket.connected) this.deps.socket.emit('unsubscribeIndicators', { subscriptionId: live.id, instanceIds: [instanceId] });
+    };
+  }
+
+  private sendIndicators(entry: Series, only?: string[]): void {
+    const watches = this.indicatorWatches.get(`${entry.symbol}|${entry.interval}`);
+    const subscriptionId = entry.id;
+    if (!watches || !subscriptionId) return;
+    const indicators = [...watches].filter(([id]) => !only || only.includes(id)).map(([instanceId, w]) => ({ instanceId, indicator: w.spec }));
+    for (let i = 0; i < indicators.length; i += 10) {
+      this.deps.socket.emit('subscribeIndicators', { subscriptionId, indicators: indicators.slice(i, i + 10) }, (raw: unknown) => {
+        const ack = IndicatorSubscribeAckSchema.safeParse(raw);
+        if (!ack.success || entry.id !== subscriptionId) return;
+        if (!ack.data.ok) { for (const { instanceId } of indicators) watches.get(instanceId)?.handlers.onError(ack.data.message); return; }
+        for (const r of ack.data.results) {
+          const watch = this.indicatorWatches.get(`${entry.symbol}|${entry.interval}`)?.get(r.instanceId);
+          if ('result' in r) watch?.handlers.onReset(r.result); else watch?.handlers.onError(r.error.message);
+        }
+      });
+    }
+  }
 
   subscribe(symbol: string, interval: Interval, handlers: SeriesHandlers): () => void {
     const key = `${symbol}|${interval}`;
@@ -184,6 +228,7 @@ export class LiveClient {
       if (this.series.get(`${entry.symbol}|${entry.interval}`) !== entry) { this.deps.socket.emit('unsubscribe', { subscriptionId: ack.data.subscriptionId }); return; }
       entry.id = ack.data.subscriptionId;
       this.byId.set(entry.id, entry);
+      this.sendIndicators(entry);
       const early = this.orphans.get(entry.id);
       this.orphans.delete(entry.id);
       for (const [event, payload] of early?.events ?? []) this.route(event, payload);
@@ -212,6 +257,9 @@ export class LiveClient {
     } else if (event === 'bar') {
       const update = LiveBarSchema.parse(payload);
       if (entry.sync.applyBar(update.seq, update.bar) === 'gap') this.resync(entry);
+    } else if (event === 'indicator') {
+      const update = LiveIndicatorSchema.safeParse(payload);
+      if (update.success) this.indicatorWatches.get(`${entry.symbol}|${entry.interval}`)?.get(update.data.instanceId)?.handlers.onUpdate(update.data);
     } else if (event === 'status') {
       this.setStatus(entry, LiveStatusSchema.parse(payload).status);
     } else if (LiveResyncSchema.safeParse(payload).success) {

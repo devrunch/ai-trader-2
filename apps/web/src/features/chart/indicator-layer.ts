@@ -25,6 +25,18 @@ export class IndicatorLayer {
     });
   }
 
+  /** One live point for one indicator (FR-IN-5): straight to its series, never through React. */
+  update(key: string, point: { barTime: number; values: Record<string, number | null> }): void {
+    const entry = this.painted.find(e => e.item.key === key);
+    if (!entry) return;
+    entry.item.definition.plots.forEach((plot, i) => {
+      const value = point.values[plot.id];
+      const time = point.barTime / 1000;
+      // An offset plot can report a time before the series' last point; the chart only accepts the last or a newer one.
+      try { entry.series[i]?.update(value === null || value === undefined ? { time } : { time, value }); } catch { /* older than the last point */ }
+    });
+  }
+
   /** Theme change: every series is created again with the new colours. */
   recolor(): void { const items = this.painted.map(entry => entry.item); this.clear(); this.set(items); }
 
