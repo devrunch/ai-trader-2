@@ -8,10 +8,10 @@ User=aitrader
 WorkingDirectory=/srv/aitrader2/current/apps/api
 EnvironmentFile=/srv/aitrader2/shared/api.env
 Environment=MD_INSTANCE_ID=md-1
-ExecStart=/opt/node/bin/node --max-old-space-size=256 dist/market-data.main.js
+ExecStart=/opt/node/bin/node --max-old-space-size=192 dist/market-data.main.js
 Restart=always
 RestartSec=3
-MemoryMax=420M
+MemoryMax=320M
 TimeoutStopSec=20
 
 [Install]
