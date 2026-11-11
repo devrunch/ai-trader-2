@@ -6,7 +6,7 @@ import type { SearchIndex } from './ports/search-index.js';
 export type ResolvedInstrument = { instrument: Instrument; via?: 'renamed' | 'continuous'; resolvedFrom?: string };
 
 export class ResolveInstrument {
-  constructor(private readonly repository: InstrumentRepository, private readonly index: SearchIndex,
+  constructor(private readonly repository: InstrumentRepository, private readonly index: Pick<SearchIndex, 'suggest'>,
     private readonly clock: () => Date = () => new Date()) {}
 
   async execute(raw: string, today?: string): Promise<ResolvedInstrument> {

@@ -18,6 +18,7 @@ export function repository() {
     findLastChange: vi.fn<InstrumentRepository['findLastChange']>().mockResolvedValue(null),
     findRenameSuccessor: vi.fn<InstrumentRepository['findRenameSuccessor']>().mockResolvedValue(null),
     listForIndex: vi.fn<InstrumentRepository['listForIndex']>().mockResolvedValue([]),
+    activeAmong: vi.fn<InstrumentRepository['activeAmong']>().mockResolvedValue(new Set()),
     listContinuousCandidates: vi.fn<InstrumentRepository['listContinuousCandidates']>().mockResolvedValue([]),
     setSourceStatus: vi.fn<InstrumentRepository['setSourceStatus']>().mockResolvedValue(undefined),
     purgeExpired: vi.fn<InstrumentRepository['purgeExpired']>().mockResolvedValue(0),

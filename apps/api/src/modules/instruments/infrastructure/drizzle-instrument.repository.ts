@@ -126,6 +126,12 @@ export class DrizzleInstrumentRepository implements InstrumentRepository {
       and(eq(instruments.status, 'expired'), gte(instruments.expiry, cutoff.toISOString().slice(0, 10))))), signal);
     return rows.map(fromRow);
   }
+  async activeAmong(ids: readonly string[], signal?: AbortSignal): Promise<Set<string>> {
+    if (!ids.length) return new Set();
+    const rows = await this.read(() => this.db.select({ id: instruments.id }).from(instruments)
+      .where(and(inArray(instruments.id, [...ids]), eq(instruments.status, 'active'))), signal);
+    return new Set(rows.map(row => row.id));
+  }
   async listContinuousCandidates(root: string, exchange: string, signal?: AbortSignal): Promise<Instrument[]> {
     const rows = await this.read(() => this.db.select().from(instruments).where(and(eq(instruments.exchange, exchange),
       inArray(instruments.type, ['futures', 'commodity']), inArray(instruments.status, ['active', 'suspended']))), signal);

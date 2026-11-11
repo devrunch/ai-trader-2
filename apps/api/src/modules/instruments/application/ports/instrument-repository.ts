@@ -9,6 +9,7 @@ export interface InstrumentRepository {
   findLastChange(id: string): Promise<InstrumentChange | null>;
   findRenameSuccessor(id: string): Promise<string | null>;
   listForIndex(signal?: AbortSignal): Promise<Instrument[]>;
+  activeAmong(ids: readonly string[], signal?: AbortSignal): Promise<Set<string>>;
   listContinuousCandidates(underlyingOrRoot: string, exchange: string): Promise<Instrument[]>;
   setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }): Promise<void>;
   purgeExpired(before: string): Promise<number>;
