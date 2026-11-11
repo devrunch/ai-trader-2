@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, PAPER_PRODUCTS, TaskTriggerSchema, type AlertCreate, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, type AlertCreate, type CalendarQuery, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { calculate, CalcError } from '../domain/calculator';
 import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
@@ -180,4 +180,14 @@ export function buildMemoryTools(memory: MemoryDesk, deps: GuardDeps): Array<Gua
     guardedTool({ name: 'forget', description: 'Delete a remembered fact by the id shown in brackets in "What you remember about this user".',
       input: z.strictObject({ id: z.string().min(8).max(40) }), run: async (o, ctx) => { await memory.forget(ctx.userId, o.id); return { forgotten: o.id }; } }, deps),
   ];
+}
+
+export interface CalendarDesk { list(query: CalendarQuery): Promise<unknown> }
+
+/** Scheduled releases (CPI, payrolls, Fed, ECB…) with what each usually moves; times are UTC ISO, say them in IST. */
+export function buildCalendarTools(calendar: CalendarDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+  return [guardedTool({ name: 'getEconomicCalendar',
+    description: 'Upcoming economic releases and central-bank events (title, country, time, impact, forecast, previous, what it usually moves). '
+      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters.',
+    input: CalendarQuerySchema, run: input => calendar.list(input) }, deps)];
 }

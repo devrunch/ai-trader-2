@@ -33,6 +33,18 @@ describe('ChatService (FR-AG-1..3, FR-AG-9)', () => {
     await expect(service.start(turn, new AbortController().signal)).rejects.toBeInstanceOf(UnavailableError);
   });
 
+  it('writes the pre-market brief in a thread of its own, dated in IST', async () => {
+    const runner: AgentRunner & { last?: RunInput } = { model: 'm/x', run(input) {
+      runner.last = input;
+      return { stream: new ReadableStream({ start(c) { c.enqueue({ type: 'text-delta', delta: '- NIFTY 25,255 ' }); c.enqueue({ type: 'text-delta', delta: 'bias up' }); c.close(); } }),
+        done: Promise.resolve({ outcome: 'ok', tokens: 1, messages: [] }) };
+    } };
+    const { service } = setup(runner);
+    const result = await service.brief('u1');
+    expect(result).toEqual({ threadId: 'turn-1', text: '- NIFTY 25,255 bias up', error: null });
+    expect(JSON.stringify(runner.last?.messages.at(-1))).toContain('Pre-market brief, Wed, 11 Nov 2026.');
+  });
+
   it('adds what it remembers about the user to the system prompt', async () => {
     const runner = fakeRunner();
     const block = '\n\n## What you remember about this user\n- [abcd1234] Risks 1% per trade';

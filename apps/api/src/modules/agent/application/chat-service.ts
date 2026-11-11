@@ -19,6 +19,9 @@ export interface ChatOptions { dailyTurns: number; maxRounds: number; turnTimeou
 export interface ChatTurn { userId: string; threadId: string; message: unknown }
 
 const SYSTEM_PROMPT = 'system';
+const BRIEF = 'Use the day-trader skill. Cover: overnight US and Asia, crude, gold, the dollar (USD/INR), today\'s high-impact economic events '
+  + 'with IST times and what they move (getEconomicCalendar), the headlines that matter (getNews), and NIFTY and BANKNIFTY levels to watch from the data. '
+  + 'Under 250 words, bullet points with the numbers from the tools; end with one line of bias and what would change it.';
 const DAY_MS = 86_400_000;
 const IST_OFFSET_MS = 19_800_000;
 
@@ -64,6 +67,14 @@ export class ChatService {
   }
 
   /** A background run (a fired task): the same turn as a chat message, read to the end with nobody listening. */
+  /** The pre-market brief (SRD N1) in a thread of its own, so the user can ask follow-ups there. */
+  async brief(userId: string): Promise<{ threadId: string; text: string; error: string | null }> {
+    const date = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }).format(this.env.now());
+    const threadId = this.env.id();
+    const { error, reply } = await this.runInBackground(userId, threadId, `Pre-market brief, ${date}. ${BRIEF}`);
+    return { threadId, text: reply.trim(), error };
+  }
+
   async runInBackground(userId: string, threadId: string, text: string): Promise<{ error: string | null; reply: string }> {
     let reply = '';
     try {

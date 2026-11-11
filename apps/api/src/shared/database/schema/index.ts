@@ -8,3 +8,4 @@ export { agentThreads, agentMessages, agentTurns, agentActions, agentTasks, agen
 export { newsItems } from './news';
 export { notifications } from './notifications';
 export { watchlists } from './watchlists';
+export { economicEvents } from './calendar';
