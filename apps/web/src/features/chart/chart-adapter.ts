@@ -37,6 +37,14 @@ export class ChartAdapter {
 
   onNeedOlder(cb: (before: number) => void): void { this.needOlder = cb; }
 
+  /** Times (ms) inside the span the chart holds that it has no bar for; older ones are just not paged in yet. */
+  missingTimes(times: readonly number[]): number[] {
+    const oldest = this.bars[0]?.time;
+    if (oldest === undefined) return [];
+    const held = new Set(this.bars.map(b => b.time));
+    return times.filter(time => time >= oldest && !held.has(time));
+  }
+
   /** The bar under the pointer (or null when not hovering) and the newest bar, for the OHLC legend. */
   onLegend(cb: (hovered: { bar: Bar; prevClose: number | undefined } | null) => void): () => void {
     return this.chart.onCrosshair(time => {

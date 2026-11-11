@@ -47,6 +47,7 @@ const t0 = Date.UTC(2026, 10, 9, 3, 45);
 const bar = (minute: number): Bar => ({ time: t0 + minute * 60_000, open: 10, high: 11, low: 9, close: 10.5, volume: 2 });
 const page = (bars: Bar[]) => ({ instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', bars, nextBefore: null, status: { state: 'ok' } });
 let pageDelay = 0;
+let computeTimes = [t0];
 const requested: string[] = [];
 const computes: unknown[] = [];
 const sma = { ref: 'builtin:sma@1', id: 'sma', version: 1, name: 'SMA', shortName: 'SMA', overlay: true, levels: [], inputs: [],
@@ -58,10 +59,10 @@ const server = setupServer(http.get('/api/v1/bars', async ({ request }) => {
 }), http.get('/api/v1/indicators', () => HttpResponse.json({ indicators: [sma] })),
 http.post('/api/v1/indicators/compute', async ({ request }) => {
   computes.push(await request.json());
-  return HttpResponse.json({ instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', ref: 'builtin:sma@1', inputs: {}, times: [t0], plots: [{ id: 'ma', values: [1] }], status: { state: 'ok' } });
+  return HttpResponse.json({ instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', ref: 'builtin:sma@1', inputs: {}, times: computeTimes, plots: [{ id: 'ma', values: computeTimes.map(() => 1) }], status: { state: 'ok' } });
 }));
 beforeAll(() => { server.listen(); });
-beforeEach(() => { computes.length = 0; useIndicatorStore.setState({ items: [] }); subscriptions.length = 0; charts.length = 0; candleUpdates.length = 0; requested.length = 0; mergeHistory.mockReset(); pageDelay = 0; });
+beforeEach(() => { computeTimes = [t0]; computes.length = 0; useIndicatorStore.setState({ items: [] }); subscriptions.length = 0; charts.length = 0; candleUpdates.length = 0; requested.length = 0; mergeHistory.mockReset(); pageDelay = 0; });
 afterEach(() => { cleanup(); });
 afterAll(() => { server.close(); });
 
@@ -119,4 +120,22 @@ it('indicators load once over HTTP, then each tick arrives over the socket strai
   await new Promise(resolve => setTimeout(resolve, 50));
   expect(computes).toHaveLength(1); // no refetch per bar
   expect(indicatorUpdates.at(-1)).toHaveBeenCalledWith({ time: 120, value: 7 });
+});
+
+// B2: bars the indicator was computed on but the chart lacks (e.g. history filled after the chart's page was read) are fetched.
+it('refetches the latest page when an indicator holds bars the chart does not', async () => {
+  computeTimes = [t0, t0 + 5 * 60_000, t0 + 10 * 60_000];
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: { length: 2 } }] });
+  render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(10)]); });
+  await vi.waitFor(() => { expect(requested.filter(search => !search.includes('before='))).toHaveLength(2); });
+});
+
+it('does not refetch when the chart holds every bar the indicator was computed on', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: { length: 2 } }] });
+  render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(1)]); });
+  await vi.waitFor(() => { expect(computes).toHaveLength(1); });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(requested.filter(search => !search.includes('before='))).toHaveLength(1);
 });
