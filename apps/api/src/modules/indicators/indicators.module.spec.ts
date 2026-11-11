@@ -3,6 +3,10 @@ import { Global, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { describe, expect, it } from 'vitest';
 import type { BarsResponse, IndicatorComputeRequest } from '@aitrader/contracts';
+import { DB } from '../../shared/database';
+import { AuthModule } from '../auth/auth.module';
+import { CsrfHeaderGuard, SessionGuard } from '../auth/api/index';
+import { CurrentUser } from '../auth/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { MarketDataService } from '../market-data/application/index';
 import { BUILTINS } from './domain/catalog';
@@ -16,9 +20,12 @@ const market = { bars: (symbol: string, interval: BarsResponse['interval'], _cur
 
 @Global() @Module({ providers: [{ provide: MarketDataService, useValue: market }], exports: [MarketDataService] })
 class FakeMarketDataModule {}
+@Global() @Module({ providers: [{ provide: DB, useValue: {} }, { provide: CurrentUser, useValue: {} }, SessionGuard, CsrfHeaderGuard], exports: [DB, CurrentUser, SessionGuard, CsrfHeaderGuard] })
+class FakeAuthModule {}
 
 async function service(): Promise<IndicatorService> {
-  const module = await Test.createTestingModule({ imports: [IndicatorsModule] }).overrideModule(MarketDataModule).useModule(FakeMarketDataModule).compile();
+  const module = await Test.createTestingModule({ imports: [IndicatorsModule] }).overrideModule(MarketDataModule).useModule(FakeMarketDataModule)
+    .overrideModule(AuthModule).useModule(FakeAuthModule).compile();
   return module.get(IndicatorService);
 }
 const request = (id: string, limit = 5000): IndicatorComputeRequest => ({ symbol: 'NSE:TEST', interval: '1', indicator: { kind: 'builtin', id, inputs: {} }, range: { limit } });

@@ -5,7 +5,7 @@ import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search'
 import { Brand, CompactNav } from '../layout/app-shell';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
-import { IndicatorPicker } from '../../features/indicators';
+import { IndicatorPicker, IndicatorTemplatesMenu } from '../../features/indicators';
 import { InstrumentBadge, IntervalPicker, Watchlist, useWatchlistEdit } from '../../features/terminal';
 import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
@@ -35,7 +35,7 @@ export function TerminalPage() {
       <span className="hidden shrink-0 items-center xl:flex"><Brand /><Divider /></span>
       <span className="shrink-0"><InstrumentBadge symbol={symbol} onSymbolClick={() => { open(''); }} /></span><Divider />
       <span className="shrink-0"><IntervalPicker /></span><Divider />
-      <span className="shrink-0"><IndicatorPicker /></span>
+      <span className="shrink-0"><IndicatorPicker /></span><span className="shrink-0"><IndicatorTemplatesMenu /></span>
     </div>
     <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
   </div>;

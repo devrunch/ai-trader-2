@@ -22,6 +22,8 @@ const rsi: IndicatorDefinition = {
 const bodies: unknown[] = [];
 const server = setupServer(
   http.get('/api/v1/indicators', () => HttpResponse.json({ indicators: [sma, rsi] })),
+  http.get('/api/v1/indicators/presets', () => HttpResponse.json({ presets: [] })),
+  http.get('/api/v1/indicators/templates', () => HttpResponse.json({ templates: [] })),
   http.post('/api/v1/indicators/compute', async ({ request }) => {
     const body: unknown = await request.json();
     bodies.push(body);

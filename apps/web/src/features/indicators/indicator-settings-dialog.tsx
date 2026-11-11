@@ -4,7 +4,9 @@ import { Button } from '../../shared/ui/button';
 import { Dialog } from '../../shared/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../shared/ui/tabs';
 import { InputsTab } from './inputs-tab';
+import { IndicatorPresetBar } from './indicator-preset-bar';
 import { draftFrom, readDraft, type Draft } from './input-draft';
+import { defaultOf, useIndicatorPresets } from './use-indicator-library';
 import type { SourceOption } from './source-refs';
 import type { InputValues } from './state/indicator-store';
 import type { Presentation } from './style';
@@ -17,6 +19,7 @@ type TabName = 'inputs' | 'style' | 'visibility';
 export function IndicatorSettingsDialog({ definition, inputs, presentation, chained, sources, onApply, onClose }:
   { definition: IndicatorDefinition; inputs: InputValues; presentation: Presentation; /** Takes its source from another indicator, so the pane can be chosen. */ chained: boolean;
     /** Other indicators' plots usable as source (FR-IN-13). */ sources: readonly SourceOption[]; onApply: (values: InputValues, presentation: Presentation) => void; onClose: () => void }) {
+  const presets = useIndicatorPresets();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(definition.inputs, inputs));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [style, setStyle] = useState(presentation.style);
@@ -34,12 +37,16 @@ export function IndicatorSettingsDialog({ definition, inputs, presentation, chai
         <TabsList><TabsTrigger value="inputs">Inputs</TabsTrigger><TabsTrigger value="style">Style</TabsTrigger><TabsTrigger value="visibility">Visibility</TabsTrigger></TabsList>
         <TabsContent value="inputs">
           <InputsTab defs={definition.inputs} draft={draft} errors={errors} sources={sources}
-            onChange={(id, value) => { setDraft(current => ({ ...current, [id]: value })); }} onReset={() => { setDraft(draftFrom(definition.inputs, {})); setErrors({}); }} />
+            onChange={(id, value) => { setDraft(current => ({ ...current, [id]: value })); }} onReset={() => { setDraft(draftFrom(definition.inputs, defaultOf(presets.data, definition.id)?.inputs ?? {})); setErrors({}); }} />
         </TabsContent>
         <TabsContent value="style"><StyleTab definition={definition} style={style} chained={chained} onChange={setStyle} /></TabsContent>
         <TabsContent value="visibility"><VisibilityTab visibility={visibility} onChange={setVisibility} /></TabsContent>
       </Tabs>
-      <div className="flex justify-end gap-2 pt-3"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit">Ok</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
+        <IndicatorPresetBar indicatorId={definition.id} current={() => { const read = readDraft(definition.inputs, draft); if (!read.ok) setErrors(read.errors); return read.ok ? read.values : null; }}
+          onApply={values => { setDraft(draftFrom(definition.inputs, values)); setErrors({}); }} />
+        <span className="flex gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit">Ok</Button></span>
+      </div>
     </form>
   </Dialog>;
 }
