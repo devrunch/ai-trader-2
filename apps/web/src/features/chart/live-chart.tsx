@@ -11,6 +11,7 @@ import { DrawingLayer } from './drawing-layer';
 import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { OhlcLegend } from './ohlc-legend';
+import { ReplayControls, type ReplayTarget } from './replay-controls';
 import { IndicatorLegend, indicatorLabel, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
 import { useQueryClient } from '@tanstack/react-query';
 import { createLwcChart } from './lwc-chart';
@@ -41,6 +42,18 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   const [empty, setEmpty] = useState(false);
   const [status, setStatus] = useState<DataStatus | undefined>(undefined);
   const mode = useThemeStore(s => s.mode);
+  // Bar replay: 'pick' waits for a click on the chart to choose the starting bar.
+  const [replay, setReplay] = useState<{ phase: 'pick' } | { phase: 'on'; at: number | null } | null>(null);
+  const replayTarget = useMemo<ReplayTarget>(() => ({
+    step: direction => { const at = adapterRef.current?.replayStep(direction) ?? null; layerRef.current?.clip(at); return at; },
+    atEnd: () => adapterRef.current?.replayAtEnd() ?? true,
+    stop: () => { adapterRef.current?.replayStop(); layerRef.current?.clip(null); setReplay(null); },
+  }), []);
+  const startReplay = (time: number) => {
+    const at = adapterRef.current?.replayFrom(time) ?? null;
+    layerRef.current?.clip(at);
+    setReplay({ phase: 'on', at });
+  };
 
   useEffect(() => {
     const el = container.current;
@@ -86,6 +99,7 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
         .then(page => { if (!controller.signal.aborted) client.mergeHistory(symbol, interval, page.bars); })
         .catch(() => undefined); // scrolling left again retries; a failed page never blanks the chart
     });
+    setReplay(null);
     return () => { cancelAnimationFrame(frame); offLegend(); controller.abort(); off(); layerRef.current?.destroy(); layerRef.current = null; drawingRef.current?.destroy(); drawingRef.current = null; adapter.destroy(); adapterRef.current = null; };
   }, [symbol, interval]);
 
@@ -117,11 +131,18 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;
   return <div className="relative h-full min-h-80 w-full">
-    <div ref={container} className="absolute inset-0" data-testid="chart-canvas" />
+    <div ref={container} className={`absolute inset-0 ${replay?.phase === 'pick' ? 'cursor-crosshair' : ''}`} data-testid="chart-canvas"
+      onClick={() => { if (replay?.phase === 'pick' && hovered) startReplay(hovered.bar.time); }} />
     {loaded && <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-col items-start gap-1.5">
       <OhlcLegend symbol={symbol} interval={INTERVAL_LABEL[interval] ?? interval} bar={hovered?.bar ?? newest.bar}
         previousClose={hovered ? hovered.prevClose : newest.prevClose} />
       <IndicatorLegend rows={indicators.rows} />
+    </div>}
+    {loaded && !empty && <div className="absolute right-16 top-10 z-10 flex justify-end">
+      {replay === null && <button type="button" className="rounded border bg-panel px-2 py-1 text-xs" onClick={() => { setReplay({ phase: 'pick' }); }}>Replay</button>}
+      {replay?.phase === 'pick' && <span role="status" className="rounded border bg-panel px-2 py-1 text-xs">Click a bar to start the replay ·{' '}
+        <button type="button" className="underline" onClick={() => { setReplay(null); }}>cancel</button></span>}
+      {replay?.phase === 'on' && <ReplayControls key={replay.at ?? 0} target={replayTarget} at={replay.at} />}
     </div>}
     {loaded && drawings.length > 0 && <button type="button" className="absolute right-16 top-3 z-10 rounded border bg-panel px-2 py-1 text-xs"
       onClick={() => { clearDrawings(symbol, interval); }}>Clear drawings ({drawings.reduce((n, d) => n + d.segments.length, 0)})</button>}

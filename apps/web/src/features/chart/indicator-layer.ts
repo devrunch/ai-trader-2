@@ -10,6 +10,8 @@ const TRANSPARENT = 'transparent';
 /** Paints indicator plots imperatively: overlays on the price pane, the rest on their own panes; levels as price lines. */
 export class IndicatorLayer {
   private painted: { item: Painted; pane: number; series: IndicatorSeriesLike[]; data: LinePoint[][] }[] = [];
+  /** Bar replay: nothing after this time (seconds) is painted. */
+  private cutoff: number | null = null;
 
   constructor(private readonly chart: Pick<ChartLike, 'addIndicatorSeries'>, private readonly color: (token: string) => string) {}
 
@@ -25,7 +27,7 @@ export class IndicatorLayer {
       if (!item || item.result === entry.item.result) return;
       entry.item = item;
       entry.data = item.definition.plots.map(plot => points(item.result, plot.id));
-      entry.series.forEach((series, p) => { series.setData(bridged(entry.data[p] ?? [], item.definition.plots[p]?.kind)); });
+      entry.series.forEach((series, p) => { series.setData(bridged(this.visible(entry.data[p] ?? []), item.definition.plots[p]?.kind)); });
     });
   }
 
@@ -39,6 +41,7 @@ export class IndicatorLayer {
       const data = entry.data[i];
       if (!series || !data) return;
       const time = point.barTime / 1000;
+      if (this.cutoff !== null && time > this.cutoff) return;
       const next: LinePoint = value === null || value === undefined ? { time } : { time, value };
       const last = data.at(-1);
       // An offset plot can report a time before the series' last point; the chart only accepts the last or a newer one.
@@ -54,6 +57,19 @@ export class IndicatorLayer {
     });
   }
 
+  /** Bar replay: hide everything after `time` (ms), or show all again with null. */
+  clip(time: number | null): void {
+    this.cutoff = time === null ? null : time / 1000;
+    for (const entry of this.painted) {
+      entry.series.forEach((series, p) => { series.setData(bridged(this.visible(entry.data[p] ?? []), entry.item.definition.plots[p]?.kind)); });
+    }
+  }
+
+  private visible(data: LinePoint[]): LinePoint[] {
+    const cutoff = this.cutoff;
+    return cutoff === null ? data : data.filter(point => point.time <= cutoff);
+  }
+
   /** Theme change: every series is created again with the new colours. */
   recolor(): void { const items = this.painted.map(entry => entry.item); this.clear(); this.set(items); }
 
@@ -64,7 +80,7 @@ export class IndicatorLayer {
     const series = item.definition.plots.map((plot, p) => {
       // Names belong in the legend; the price axis shows values only.
       const handle = this.chart.addIndicatorSeries({ kind: plot.kind, color: this.color(plot.color), lineWidth: plot.lineWidth, pane, title: '' });
-      handle.setData(bridged(data[p] ?? [], plot.kind));
+      handle.setData(bridged(this.visible(data[p] ?? []), plot.kind));
       return handle;
     });
     for (const level of item.definition.levels) series[0]?.priceLine(level.value, level.title, this.color('gray'));
