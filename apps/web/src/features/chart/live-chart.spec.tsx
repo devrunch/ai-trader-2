@@ -120,3 +120,14 @@ it('indicators load once over HTTP, then each tick arrives over the socket strai
   expect(computes).toHaveLength(1); // no refetch per bar
   expect(indicatorUpdates.at(-1)).toHaveBeenCalledWith({ time: 120, value: 7 });
 });
+
+it('watches a Pine item with its source over the socket (P4-12)', async () => {
+  const definition = { ref: 'pine:ab12cd34ef56@1', id: 'ab12cd34ef56', version: 1, name: 'Band', shortName: 'Band', overlay: false, levels: [], inputs: [],
+    plots: [{ id: 'p0', title: 'Band', kind: 'line' as const, color: 'blue' as const, lineWidth: 1 }] };
+  useIndicatorStore.setState({ items: [], presentation: {} });
+  useIndicatorStore.getState().addPine('//@version=5\nindicator("Band")', definition, {});
+  render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([bar(0), bar(1)]); });
+  await vi.waitFor(() => { expect(watches.some(w => w.instanceId !== 'k')).toBe(true); });
+  expect(watches.find(w => w.instanceId !== 'k')?.spec).toEqual({ kind: 'pine', source: '//@version=5\nindicator("Band")', inputs: {} });
+});
