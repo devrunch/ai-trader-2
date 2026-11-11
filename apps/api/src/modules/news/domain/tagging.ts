@@ -1,7 +1,7 @@
 /** Words and names that tie a headline to an instrument. Matched as whole words, case-insensitively. */
 export interface TagRule { symbol: string; terms: string[] }
 
-export const DEFAULT_RULES: TagRule[] = [
+const DEFAULT_RULES: TagRule[] = [
   { symbol: 'NSE:NIFTY', terms: ['nifty', 'nifty 50', 'nifty50'] },
   { symbol: 'NSE:BANKNIFTY', terms: ['bank nifty', 'banknifty', 'nifty bank'] },
   { symbol: 'BSE:SENSEX', terms: ['sensex'] },
