@@ -15,6 +15,7 @@ import { KiteTickerFeed } from './modules/market-data/infrastructure/kite/kite-t
 import { DerivFeed } from './modules/market-data/infrastructure/deriv/deriv.feed';
 import { UsDelayedFeed } from './modules/market-data/infrastructure/us/us-delayed.feed';
 import { LiveBars } from './modules/market-data/application/live-bars';
+import { SecondsBars } from './modules/market-data/application/seconds-bars';
 import { FeedSupervisor } from './modules/market-data/infrastructure/process/feed-supervisor';
 import { FeedStatePublisher } from './modules/market-data/infrastructure/process/feed-state.publisher';
 import { SubscriptionRequests } from './modules/market-data/infrastructure/process/subscription-requests';
@@ -39,7 +40,7 @@ export async function startMarketDataProcess(config: AppConfig = loadRuntimeConf
   const requests = new SubscriptionRequests(redis);
   const resolveInstrument = app.get(ResolveInstrument);
   const scheduler = app.get(JobScheduler);
-  const supervisor = new FeedSupervisor({ feeds: [app.get(KiteTickerFeed), app.get(DerivFeed), app.get(UsDelayedFeed)], liveBars: bars,
+  const supervisor = new FeedSupervisor({ feeds: [app.get(KiteTickerFeed), app.get(DerivFeed), app.get(UsDelayedFeed)], liveBars: bars, seconds: app.get(SecondsBars),
     publisher, requests, held: () => app.get(InstrumentHistory).heldForFeeds(AbortSignal.timeout(5000)),
     resolveContinuous: async id => String((await resolveInstrument.execute(id)).instrument.id),
     scheduleDaily: run => scheduler.register({ name: 'continuous-instrument-roll', cron: '5 0 * * *', tz: 'Asia/Kolkata',

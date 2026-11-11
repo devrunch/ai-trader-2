@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { BarsResponseSchema, type Bar, type DataStatus, type Interval } from '@aitrader/contracts';
+import { BarsResponseSchema, isSecondInterval, type Bar, type DataStatus, type Interval } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api/http';
 import { liveClient } from '../../shared/live/live-connection';
 import { statusText } from '../../shared/live/status-text';
@@ -19,7 +19,7 @@ import { createLwcChart } from './lwc-chart';
 const PAGE = 500;
 
 /** A live candlestick chart: snapshot plus sequenced updates from LiveClient, older pages on scroll (FR-CH-1, FR-CH-5). */
-const INTERVAL_LABEL: Record<string, string> = { '1': '1m', '3': '3m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', '240': '4h', '1D': '1D', '1W': '1W', '1M': '1M' };
+const INTERVAL_LABEL: Record<string, string> = { '1': '1m', '3': '3m', '5': '5m', '15': '15m', '30': '30m', '60': '1h', '240': '4h', '1D': '1D', '1W': '1W', '1M': '1M', '1S': '1s', '5S': '5s', '15S': '15s', '30S': '30s' };
 
 export function LiveChart({ symbol, interval }: { symbol: string; interval: Interval }) {
   const container = useRef<HTMLDivElement>(null);
@@ -148,6 +148,7 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
       onClick={() => { clearDrawings(symbol, interval); }}>Clear drawings ({drawings.reduce((n, d) => n + d.segments.length, 0)})</button>}
     {!loaded && <div role="status" aria-label="Loading chart" className="absolute inset-0 space-y-3 bg-background p-4"><Skeleton className="h-6 w-1/3" /><Skeleton className="h-[70%] w-full" /></div>}
     {loaded && stale && <div role="status" className={`absolute left-3 top-3 rounded border bg-panel px-2 py-1 text-xs ${empty ? '' : 'opacity-90'}`}>{stale}{status?.state === 'stale' && status.detail ? ` · ${status.detail}` : ''}</div>}
-    {loaded && empty && !stale && <div role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">No bars yet for {symbol}.</div>}
+    {loaded && empty && isSecondInterval(interval) && <div role="status" className="absolute inset-0 grid place-items-center px-6 text-center text-sm text-muted-foreground">Seconds bars start when the market streams; no history.</div>}
+    {loaded && empty && !stale && !isSecondInterval(interval) && <div role="status" className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">No bars yet for {symbol}.</div>}
   </div>;
 }

@@ -42,6 +42,8 @@ describe('live socket integration (FR-LS-1, FR-LS-2, FR-LS-4, E10, E11, E16, E24
       current: id => seq.current(id), replay: (id, after) => seq.replay(id, after),
       watch: (id, listener) => { if (!bus) throw new Error('Live update bus unavailable'); return bus.watch(id, listener); },
       acquire: id => requests.acquire(id), release: id => requests.release(id),
+      acquireSeconds: (id, interval) => requests.acquireSeconds(id, interval), releaseSeconds: (id, interval) => requests.releaseSeconds(id, interval),
+      watchSeconds: (id, interval, listener) => { if (!bus) throw new Error('Live update bus unavailable'); return bus.watchSeconds(id, interval, listener); },
       aggregate: (bars, interval, id) => new AggregateLiveBars().execute(bars, interval, id),
     };
     const streams = new LiveSubscriptions(data);

@@ -109,6 +109,12 @@ it('market closed or provider down says why instead of an empty canvas (FR-UI-7)
   expect(screen.getByText(/Market closed/)).toBeDefined();
 });
 
+it('an empty seconds chart says seconds bars start when the market streams (FR-CH-8)', () => {
+  render(<Providers><LiveChart symbol="NSE:A" interval="5S" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([]); });
+  expect(screen.getByText('Seconds bars start when the market streams; no history.')).toBeDefined();
+});
+
 it('indicators load once over HTTP, then each tick arrives over the socket straight to the chart (FR-IN-5)', async () => {
   useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: { length: 2 } }] });
   render(<Providers><LiveChart symbol="NSE:A" interval="1" /></Providers>);

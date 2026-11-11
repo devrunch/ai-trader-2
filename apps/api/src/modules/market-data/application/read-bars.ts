@@ -5,10 +5,11 @@ import { calendarForInstrument } from '../domain/calendar';
 import { bucketStart } from '../domain/grid';
 import { tailGap } from '../domain/tail-gap';
 import { dateAt, periodStart } from '../domain/calendars/time';
-import { intervalMinutes, type Interval } from '../domain/interval';
+import { intervalMinutes, isSecondInterval, type Interval } from '../domain/interval';
 import type { Bar } from '../domain/bar';
 import type { CandleStore } from './ports/candle-store';
 import type { FormingBarStore } from './ports/forming-bar-store';
+import type { SecondsStore } from './ports/seconds-store';
 import { sessionCache } from './session-cache';
 import type { FillHistory } from './fill-history';
 import type { ProviderReason, ProviderResult } from './ports/market-data-provider';
@@ -27,11 +28,13 @@ export class ReadBars {
   /** Tail ends the vendor had nothing for (e.g. the closing-auction minutes); not asked again until new minutes are due. */
   private readonly tailSettled = new Map<string, number>();
   constructor(private readonly store: CandleStore, private readonly forming: FormingBarStore,
-    private readonly clock: () => number = Date.now, private readonly fill?: Pick<FillHistory, 'execute'>) {}
+    private readonly clock: () => number = Date.now, private readonly fill?: Pick<FillHistory, 'execute'>,
+    private readonly seconds?: SecondsStore) {}
 
   async execute(instrumentId: string, interval: Interval, cursor: BarsCursor, limit: number,
     signal: AbortSignal = new AbortController().signal): Promise<BarsPage | Extract<ProviderResult<never>, { ok: false }>> {
     signal.throwIfAborted();
+    if (isSecondInterval(interval)) return this.readSeconds(instrumentId, interval, cursor, limit);
     const tail = 'before' in cursor ? null : await this.fillTail(instrumentId, interval, signal);
     const first = await this.read(instrumentId, interval, cursor, limit, signal);
     if (first.page.complete) {
@@ -49,6 +52,15 @@ export class ReadBars {
     if (!result.ok) return page.bars.length ? { ...page, status: { ok: false, reason: result.reason,
       ...(result.detail === undefined ? {} : { detail: result.detail }) } } : result;
     return page.bars.length ? page : { ok: false, reason: 'NO_DATA' };
+  }
+
+  /** Second bars come only from the in-memory ring; an empty ring is an empty page, never a backfill. */
+  private async readSeconds(instrumentId: string, interval: Parameters<SecondsStore['read']>[1], cursor: BarsCursor, limit: number): Promise<BarsPage> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 5000) throw new ValidationError('Limit must be an integer from 1 to 5000');
+    if (!InstrumentId.tryParse(instrumentId)) throw new ValidationError('Invalid instrument ID');
+    const read = (before?: number) => this.seconds?.read(instrumentId, interval, limit, before) ?? Promise.resolve([]);
+    const bars = 'since' in cursor ? (await read()).filter(b => b.time >= cursor.since) : await read('before' in cursor ? cursor.before : undefined);
+    return { bars, nextBefore: bars[0]?.time ?? null, complete: true, status: { ok: true } };
   }
 
   /**
