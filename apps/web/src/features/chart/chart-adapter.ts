@@ -13,6 +13,8 @@ export interface ChartLike {
   volume: { setData(points: VolumePoint[]): void; update(point: VolumePoint): void };
   /** Calls back with the visible range's left logical index (null when empty); returns an unsubscribe. */
   onVisibleRange(cb: (from: number | null) => void): () => void;
+  /** Calls back with the hovered bar's time in seconds, or null when the pointer leaves; returns an unsubscribe. */
+  onCrosshair(cb: (time: number | null) => void): () => void;
   applyColors(colors: ChartColors): void;
   /** Pane 0 is the price pane, 1 volume; indicator panes follow. */
   addIndicatorSeries(options: IndicatorSeriesOptions): IndicatorSeriesLike;
@@ -34,6 +36,16 @@ export class ChartAdapter {
   }
 
   onNeedOlder(cb: (before: number) => void): void { this.needOlder = cb; }
+
+  /** The bar under the pointer (or null when not hovering) and the newest bar, for the OHLC legend. */
+  onLegend(cb: (hovered: { bar: Bar; prevClose: number | undefined } | null) => void): () => void {
+    return this.chart.onCrosshair(time => {
+      const i = time === null ? -1 : this.bars.findIndex(b => b.time === time * 1000);
+      const bar = this.bars[i];
+      cb(bar ? { bar, prevClose: this.bars[i - 1]?.close } : null);
+    });
+  }
+
 
   reset(bars: Bar[]): void {
     this.bars = bars;

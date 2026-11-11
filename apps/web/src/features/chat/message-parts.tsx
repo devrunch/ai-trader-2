@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai';
 import { ActionCardSchema } from '@aitrader/contracts';
 import { ActionCard } from './action-card';
+import { ChatMarkdown } from './markdown';
 
 type Part = UIMessage['parts'][number];
 interface ToolLike { type: string; state?: string; input?: unknown; output?: unknown; errorText?: string }
@@ -10,12 +11,12 @@ const isTool = (part: Part): part is Part & ToolLike => part.type.startsWith('to
 const isNotice = (part: Part): part is Part & NoticeLike => part.type === 'data-notice';
 
 /** Text, the data the assistant used (tool cards), and budget notices. */
-export function MessageParts({ parts }: { parts: UIMessage['parts'] }) {
+export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role: UIMessage['role'] }) {
   return <div className="space-y-2">{parts.map((part, i) => {
-    if (part.type === 'text') return <p key={i} className="whitespace-pre-wrap">{part.text}</p>;
+    if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
     if (isTool(part)) {
-      const proposed = part.type === 'tool-proposeChartAction' ? proposal(part.output) : null;
+      const proposed = part.type === 'tool-proposeChartAction' || part.type === 'tool-proposeDrawing' ? proposal(part.output) : null;
       return proposed ? <ActionCard key={i} proposed={proposed} /> : <ToolCard key={i} part={part} />;
     }
     return null;

@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { Providers } from '../../app/providers';
-import { PositionsPanel } from './index';
+import { OrderDialog, TradingPanel } from './index';
 
 const account = { id: 'a', currency: 'INR', initialCash: 1e6, cash: 999_970, usedMargin: 3000, available: 996_970, realisedPnl: 0, charges: 30 };
 const order = (patch: Record<string, unknown> = {}) => ({
@@ -31,28 +31,39 @@ afterEach(() => { cleanup(); server.resetHandlers(); });
 afterAll(() => { server.close(); });
 
 it('shows the paper account, positions with P&L and working orders (FR-PT-1)', async () => {
-  render(<Providers><PositionsPanel symbol="NSE:INFY" /></Providers>);
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
   expect(await screen.findByText('₹9,96,970.00')).toBeDefined();
-  expect(await screen.findByText('+100.00')).toBeDefined();
-  expect(screen.getByText('10 @ ₹1,490.00')).toBeDefined();
-  expect(await screen.findByText(/limit ₹1,490.00/)).toBeDefined();
+  const row = await screen.findByRole('row', { name: /NSE:INFY MIS 10/ });
+  expect(row.textContent).toContain('₹1,490.00');
+  expect(row.textContent).toContain('+100.00');
+  expect(screen.getAllByText('+100.00').length).toBeGreaterThan(1); // the row and the unrealised P&L total
+  fireEvent.click(screen.getByRole('tab', { name: 'Orders 1' }));
+  expect(await screen.findByRole('row', { name: /NSE:INFY Buy limit 10 ₹1,490.00/ })).toBeDefined();
+});
+
+it('opens the order ticket on the side the user picked', () => {
+  const onTrade = vi.fn();
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={onTrade} /></Providers>);
+  fireEvent.click(screen.getByRole('button', { name: 'Sell INFY' }));
+  expect(onTrade).toHaveBeenCalledWith('sell');
 });
 
 it('says why there is nothing to show', async () => {
   server.use(http.get('/api/v1/paper/positions', () => HttpResponse.json({ positions: [] })), http.get('/api/v1/paper/orders', () => HttpResponse.json({ orders: [] })));
-  render(<Providers><PositionsPanel symbol="NSE:INFY" /></Providers>);
-  expect(await screen.findByText('No positions yet. Place a paper order to start.')).toBeDefined();
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  expect(await screen.findByText('No positions yet. Use Buy or Sell to place a paper order.')).toBeDefined();
+  fireEvent.click(screen.getByRole('tab', { name: 'Orders' }));
   expect(await screen.findByText('No working orders.')).toBeDefined();
 });
 
 it('shows the reason and a retry when the account fails to load', async () => {
   server.use(http.get('/api/v1/paper/account', () => HttpResponse.json({ code: 'UNAVAILABLE', message: 'Database unavailable', requestId: 'r' }, { status: 503 })));
-  render(<Providers><PositionsPanel symbol="NSE:INFY" /></Providers>);
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
   expect(await screen.findByText('Database unavailable', {}, { timeout: 5000 })).toBeDefined();
 });
 
 it('places a market order with a client id, keeps that id until answered, and explains a rejection (FR-PT-3, E9)', async () => {
-  render(<Providers><PositionsPanel symbol="NSE:INFY" /></Providers>);
+  render(<Providers><OrderDialog symbol="NSE:INFY" side="buy" onClose={vi.fn()} /></Providers>);
   fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '5' } });
   fireEvent.click(screen.getByRole('button', { name: 'Place paper buy' }));
   expect(await screen.findByText('Buy 10 NSE:INFY rejected: the market is closed.')).toBeDefined();
@@ -64,7 +75,8 @@ it('places a market order with a client id, keeps that id until answered, and ex
 });
 
 it('cancels a working order', async () => {
-  render(<Providers><PositionsPanel symbol="NSE:INFY" /></Providers>);
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'Orders 1' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
   await waitFor(() => { expect(cancelled).toBe(1); });
 });

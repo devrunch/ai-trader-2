@@ -30,7 +30,7 @@ describe('loadConfig', () => {
   it('treats blank agent keys as unset and validates the provider/model form', () => {
     const blank = loadConfig({ ...required, AGENT_MODEL: '', ANTHROPIC_API_KEY: '', AWS_REGION: '', BEDROCK_BASE_URL: '' });
     expect(blank.AGENT_MODEL).toBeUndefined();
-    expect(blank.AGENT_MAX_ROUNDS).toBe(6);
+    expect(blank.AGENT_MAX_ROUNDS).toBe(15);
     expect(blank.AGENT_DAILY_TURNS).toBe(200);
     expect(loadConfig({ ...required, AGENT_MODEL: 'bedrock-mantle/deepseek.v3.2' }).AGENT_MODEL).toBe('bedrock-mantle/deepseek.v3.2');
     expect(() => loadConfig({ ...required, AGENT_MODEL: 'deepseek' })).toThrow(ConfigError);

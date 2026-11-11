@@ -8,7 +8,7 @@ import { setupServer } from 'msw/node';
 // Routing tests: no canvas in jsdom and no real socket, so the chart and the connection are stand-ins.
 vi.mock('../../features/chart/lwc-chart', () => ({ createLwcChart: () => ({
   candles: { setData: () => undefined, update: () => undefined }, volume: { setData: () => undefined, update: () => undefined },
-  onVisibleRange: () => () => undefined, applyColors: () => undefined, remove: () => undefined,
+  onVisibleRange: () => () => undefined, onCrosshair: () => () => undefined, applyColors: () => undefined, remove: () => undefined,
 }) }));
 vi.mock('../../shared/live/live-connection', async () => {
   const { LiveStore } = await import('../../shared/live/live-store');

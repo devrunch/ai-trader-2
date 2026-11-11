@@ -8,6 +8,7 @@ import { API_HEADERS, apiFetch, apiUrl } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { ChatActionsContext, type ChatActions } from './chat-actions';
 import { MessageParts } from './message-parts';
+import { TasksList } from './tasks-list';
 
 const threadsSchema = z.array(ThreadSummarySchema);
 const messagesSchema = z.array(z.looseObject({ id: z.string(), role: z.enum(['user', 'assistant', 'system']), parts: z.array(z.looseObject({ type: z.string() })) }));
@@ -17,6 +18,7 @@ const noContent = z.unknown();
 export function ChatPanel({ actions }: { actions?: ChatActions }) {
   const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }) });
   const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
+  const [view, setView] = useState<'chat' | 'tasks'>('chat');
   if (status.isPending) return <p className="text-sm text-muted-foreground">Loading assistant…</p>;
   if (status.isError) return <p role="alert" className="text-sm text-down">The assistant is unreachable. Try again shortly.</p>;
   if (!status.data.enabled) {
@@ -24,8 +26,14 @@ export function ChatPanel({ actions }: { actions?: ChatActions }) {
       <p className="text-muted-foreground">The assistant is not configured on this server. An admin sets <code>AGENT_MODEL</code> and its provider key in <code>apps/api/.env</code>.</p></div>;
   }
   const body = <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
-    <ThreadBar current={threadId} onSelect={setThreadId} />
-    <Conversation key={threadId} threadId={threadId} model={status.data.model} />
+    <div role="tablist" aria-label="Assistant" className="flex gap-1 border-b">
+      {(['chat', 'tasks'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => { setView(v); }}
+        className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{v}</button>)}
+    </div>
+    {view === 'tasks' ? <div className="min-h-0 flex-1 overflow-auto"><TasksList onOpenThread={id => { setThreadId(id); setView('chat'); }} /></div> : <>
+      <ThreadBar current={threadId} onSelect={setThreadId} />
+      <Conversation key={threadId} threadId={threadId} model={status.data.model} />
+    </>}
   </div>;
   return actions ? <ChatActionsContext value={actions}>{body}</ChatActionsContext> : body;
 }
@@ -89,7 +97,7 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
     <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-auto">
       {chat.messages.length === 0 && <li className="text-muted-foreground">Ask about a symbol, your paper positions or a setup. The assistant reads data only and never places orders.</li>}
       {chat.messages.map(m => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
-        <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} />
+        <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} role={m.role} />
       </li>)}
       {chat.status === 'submitted' && <li className="text-muted-foreground">Thinking…</li>}
     </ol>

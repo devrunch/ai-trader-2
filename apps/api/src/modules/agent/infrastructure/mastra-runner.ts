@@ -5,6 +5,7 @@ import { toAISdkStream } from '@mastra/ai-sdk';
 import { createUIMessageStream, type LanguageModel, type UIMessage } from 'ai';
 import type { AgentRunner, RunDone, RunInput } from '../application/chat-service';
 import type { GuardedTool, ToolContext } from '../application/guarded-tool';
+import { SpecialTokenFilter } from './special-tokens';
 
 type Model = Exclude<LanguageModel, string>;
 const TOOL_CONTEXT = 'tool-context';
@@ -65,7 +66,8 @@ export class MastraRunner implements AgentRunner {
       originalMessages: original,
       execute: async ({ writer }) => {
         const output = await this.agent.stream(original, {
-          requestContext, abortSignal: abort.signal, maxSteps: input.budget.remaining().rounds,
+          // One step past the budget, so running out of rounds ends with the budget notice instead of stopping silently.
+          requestContext, abortSignal: abort.signal, maxSteps: input.budget.remaining().rounds + 1,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
             tokens += used;
@@ -75,13 +77,22 @@ export class MastraRunner implements AgentRunner {
         });
         const reader = toAISdkStream(output, { from: 'agent', version: 'v7' }).getReader();
         // The finish chunk closes the message, so a budget notice must go out before it.
+        const filters = new Map<string, SpecialTokenFilter>();
         let finish: (typeof writer.write extends (chunk: infer C) => void ? C : never) | null = null;
         try {
           for (;;) {
             const next = await reader.read();
             if (next.done) break;
-            if (next.value.type === 'finish') finish = next.value;
-            else writer.write(next.value);
+            const chunk = next.value;
+            if (chunk.type === 'finish') finish = chunk;
+            else if (chunk.type === 'text-delta') {
+              const delta = (filters.get(chunk.id) ?? filters.set(chunk.id, new SpecialTokenFilter()).get(chunk.id))?.push(chunk.delta) ?? chunk.delta;
+              if (delta) writer.write({ ...chunk, delta });
+            } else if (chunk.type === 'text-end') {
+              const rest = filters.get(chunk.id)?.flush();
+              if (rest) writer.write({ type: 'text-delta', id: chunk.id, delta: rest });
+              writer.write(chunk);
+            } else writer.write(chunk);
           }
         } catch (error) {
           if (!exceeded && !input.signal.aborted) throw error;

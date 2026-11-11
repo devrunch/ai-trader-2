@@ -38,7 +38,7 @@ export const AppConfigSchema = z.object({
   AWS_ACCESS_KEY_ID: unsetIfBlank(secret),
   AWS_SECRET_ACCESS_KEY: unsetIfBlank(secret),
   AWS_SESSION_TOKEN: unsetIfBlank(secret),
-  AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(20)).default(6),
+  AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(40)).default(15),
   AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
   AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),

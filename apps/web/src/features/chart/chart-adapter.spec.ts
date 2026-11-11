@@ -11,7 +11,7 @@ function fakeChart() {
   const chart = {
     candles: { setData: vi.fn(), update: vi.fn() },
     volume: { setData: vi.fn(), update: vi.fn() },
-    onVisibleRange: vi.fn((cb: (from: number | null) => void) => { rangeListener = cb; return vi.fn(); }),
+    onCrosshair: () => () => undefined, onVisibleRange: vi.fn((cb: (from: number | null) => void) => { rangeListener = cb; return vi.fn(); }),
     applyColors: vi.fn(),
     addIndicatorSeries: vi.fn(() => ({ setData: vi.fn(), priceLine: vi.fn(), remove: vi.fn() })),
     remove: vi.fn(),

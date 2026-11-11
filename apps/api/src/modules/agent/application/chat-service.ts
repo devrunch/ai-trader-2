@@ -62,6 +62,19 @@ export class ChatService {
     return stream;
   }
 
+  /** A background run (a fired task): the same turn as a chat message, read to the end with nobody listening. */
+  async runInBackground(userId: string, threadId: string, text: string): Promise<string | null> {
+    try {
+      const stream = await this.start({ userId, threadId, message: { id: this.env.id(), role: 'user', parts: [{ type: 'text', text }] } },
+        AbortSignal.timeout(this.opts.turnTimeoutMs + 5000));
+      const reader = stream.getReader();
+      for (;;) { if ((await reader.read()).done) break; }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'background run failed';
+    }
+  }
+
   private async record(turnId: string, turn: ChatTurn, done: Promise<RunDone>): Promise<void> {
     let result: { outcome: string; tokens: number };
     try {
