@@ -43,18 +43,41 @@ export const IndicatorListResponseSchema = z.strictObject({ indicators: z.array(
 /** Every built-in also exists as Pine; users can read and fork it (FR-IN-31). */
 export const IndicatorDetailResponseSchema = z.strictObject({ definition: IndicatorDefinitionSchema, pine: z.string() });
 
+const instanceId = z.string().min(1).max(100);
+
+/** A `source` input fed by another indicator's plot on the same chart (FR-IN-13); a price source stays a plain string. */
+export const IndicatorSourceRefSchema = z.strictObject({ from: instanceId, plot: id });
+export type IndicatorSourceRef = z.infer<typeof IndicatorSourceRefSchema>;
+/** Longest chain A -> B -> C the server computes, the target included. */
+export const INDICATOR_CHAIN_MAX = 5;
+
 export const IndicatorInputValuesSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200)]));
 export type IndicatorInputValues = z.infer<typeof IndicatorInputValuesSchema>;
+/** Input values of an indicator on a chart: plain values, or a `source` pointing at another indicator (FR-IN-13). */
+export const IndicatorChartInputsSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200), IndicatorSourceRefSchema]));
+export type IndicatorChartInputs = z.infer<typeof IndicatorChartInputsSchema>;
+
+export function isSourceRef(value: unknown): value is IndicatorSourceRef {
+  return IndicatorSourceRefSchema.safeParse(value).success;
+}
 
 export const IndicatorSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('builtin'), id: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), version: z.number().int().positive().optional(),
-    inputs: IndicatorInputValuesSchema.default({}) }),
+    inputs: IndicatorChartInputsSchema.default({}) }),
   z.strictObject({ kind: z.literal('pine'), source: z.string().min(1).max(100_000), inputs: IndicatorInputValuesSchema.default({}) }),
 ]);
 export type IndicatorSpec = z.infer<typeof IndicatorSpecSchema>;
 
+/** An indicator on the chart, named so another one's `source` can point at it. `label` is for messages ("RSI 14"). */
+export const IndicatorChartInstanceSchema = z.strictObject({ instanceId, label: z.string().max(80).optional(), indicator: IndicatorSpecSchema });
+export type IndicatorChartInstance = z.infer<typeof IndicatorChartInstanceSchema>;
+
 export const IndicatorComputeRequestSchema = z.strictObject({
   symbol: z.string().trim().min(3).max(80), interval: z.enum(INTERVALS), indicator: IndicatorSpecSchema,
+  /** The target's own id and label, needed when its inputs point at `others`. */
+  instanceId: instanceId.optional(), label: z.string().max(80).optional(),
+  /** The other indicators on the chart; only those the target reaches through source refs are computed. */
+  others: z.array(IndicatorChartInstanceSchema).max(30).optional(),
   range: z.strictObject({ limit: z.number().int().min(1).max(5000).default(500), before: z.number().int().nonnegative().optional() }).default({ limit: 500 }),
 });
 export type IndicatorComputeRequest = z.infer<typeof IndicatorComputeRequestSchema>;
@@ -64,7 +87,7 @@ export type IndicatorPlotSeries = z.infer<typeof IndicatorPlotSeriesSchema>;
 
 /** Columnar: `plots[i].values[j]` belongs to `times[j]`; `null` where Pine has `na`. */
 export const IndicatorResultSchema = z.strictObject({
-  instrumentId: z.string(), resolvedId: z.string(), interval: z.enum(INTERVALS), ref: z.string(), inputs: IndicatorInputValuesSchema,
+  instrumentId: z.string(), resolvedId: z.string(), interval: z.enum(INTERVALS), ref: z.string(), inputs: IndicatorChartInputsSchema,
   times: z.array(z.number().int()), plots: z.array(IndicatorPlotSeriesSchema), status: DataStatusSchema,
 }).refine(result => result.plots.every(plot => plot.values.length === result.times.length), { message: 'One value per bar time', path: ['plots'] });
 export type IndicatorResult = z.infer<typeof IndicatorResultSchema>;
@@ -77,7 +100,7 @@ export type IndicatorUpdate = z.infer<typeof IndicatorUpdateSchema>;
 /** Live indicators on a bar subscription the socket already holds (FR-IN-5). Instance ids are the client's own. */
 export const IndicatorSubscribeSchema = z.strictObject({
   subscriptionId: z.uuid(),
-  indicators: z.array(z.strictObject({ instanceId: z.string().min(1).max(100), indicator: IndicatorSpecSchema })).min(1).max(10),
+  indicators: z.array(IndicatorChartInstanceSchema).min(1).max(10),
 });
 export const IndicatorUnsubscribeSchema = z.strictObject({ subscriptionId: z.uuid(), instanceIds: z.array(z.string().min(1).max(100)).max(50).optional() });
 export const IndicatorSubscribeAckSchema = z.discriminatedUnion('ok', [

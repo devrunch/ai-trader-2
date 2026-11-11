@@ -15,7 +15,7 @@ export interface SocketLike {
 export interface SeriesHandlers { onReset(bars: Bar[]): void; onUpdate(bar: Bar): void; onStatus(status: DataStatus): void }
 /** Live indicator values for one chart indicator: the full series on (re)subscribe, then one point per tick. */
 export interface IndicatorHandlers { onReset(result: IndicatorResult): void; onUpdate(point: { barTime: number; values: Record<string, number | null> }): void; onError(message: string): void }
-interface IndicatorWatch { spec: IndicatorSpec; handlers: IndicatorHandlers }
+interface IndicatorWatch { spec: IndicatorSpec; handlers: IndicatorHandlers; label: string | undefined }
 export interface LiveClientDeps {
   socket: SocketLike;
   store: { set(key: string, value: number): void };
@@ -85,10 +85,10 @@ export class LiveClient {
    * Live values for one indicator on a series the screen already subscribes. Sent once the series has a server
    * subscription and again after every resubscribe (reconnect, gap, wake), so the indicator never drifts from the bars.
    */
-  watchIndicator(symbol: string, interval: Interval, instanceId: string, spec: IndicatorSpec, handlers: IndicatorHandlers): () => void {
+  watchIndicator(symbol: string, interval: Interval, instanceId: string, spec: IndicatorSpec, handlers: IndicatorHandlers, label?: string): () => void {
     const key = `${symbol}|${interval}`;
     const watches = this.indicatorWatches.get(key) ?? new Map<string, IndicatorWatch>();
-    watches.set(instanceId, { spec, handlers });
+    watches.set(instanceId, { spec, handlers, label });
     this.indicatorWatches.set(key, watches);
     const entry = this.series.get(key);
     if (entry?.id) this.sendIndicators(entry, [instanceId]);
@@ -106,7 +106,7 @@ export class LiveClient {
     const watches = this.indicatorWatches.get(`${entry.symbol}|${entry.interval}`);
     const subscriptionId = entry.id;
     if (!watches || !subscriptionId) return;
-    const indicators = [...watches].filter(([id]) => !only || only.includes(id)).map(([instanceId, w]) => ({ instanceId, indicator: w.spec }));
+    const indicators = [...watches].filter(([id]) => !only || only.includes(id)).map(([instanceId, w]) => ({ instanceId, indicator: w.spec, ...(w.label && { label: w.label }) }));
     for (let i = 0; i < indicators.length; i += 10) {
       this.deps.socket.emit('subscribeIndicators', { subscriptionId, indicators: indicators.slice(i, i + 10) }, (raw: unknown) => {
         const ack = IndicatorSubscribeAckSchema.safeParse(raw);
