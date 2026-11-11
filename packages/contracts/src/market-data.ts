@@ -1,7 +1,13 @@
 import { z } from 'zod';
 
-export const INTERVALS = ['1', '3', '5', '15', '30', '60', '240', '1D', '1W', '1M'] as const;
+export const SECOND_INTERVALS = ['1S', '5S', '15S', '30S'] as const;
+export const INTERVALS = [...SECOND_INTERVALS, '1', '3', '5', '15', '30', '60', '240', '1D', '1W', '1M'] as const;
 export type Interval = (typeof INTERVALS)[number];
+export type SecondInterval = (typeof SECOND_INTERVALS)[number];
+/** Second intervals exist only live, built from ticks into a bounded ring; they are never stored. */
+export const isSecondInterval = (interval: Interval): interval is SecondInterval => (SECOND_INTERVALS as readonly string[]).includes(interval);
+export const intervalSeconds = (interval: SecondInterval): number => Number.parseInt(interval, 10);
+export const SECOND_BAR_RING = 2000;
 export const PROVIDER_REASONS = ['NO_DATA', 'MARKET_CLOSED', 'UNSUPPORTED', 'RATE_LIMITED', 'PROVIDER_DOWN', 'AUTH_EXPIRED'] as const;
 export type ProviderReason = (typeof PROVIDER_REASONS)[number];
 

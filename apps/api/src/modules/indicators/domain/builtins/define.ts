@@ -17,7 +17,7 @@ export function defineBuiltin({ pine, warmup, plotOffsets, levels = [], ...defin
   return { definition: { ...definition, ref: `builtin:${definition.id}@1`, version: 1, levels }, pine, warmup, ...(plotOffsets && { plotOffsets }) };
 }
 
-const DAYS_PER_BAR: Record<Interval, number> = { '1': 1 / 1440, '3': 3 / 1440, '5': 5 / 1440, '15': 15 / 1440, '30': 30 / 1440,
+const DAYS_PER_BAR: Record<Interval, number> = { '1S': 1 / 86400, '5S': 5 / 86400, '15S': 15 / 86400, '30S': 30 / 86400, '1': 1 / 1440, '3': 3 / 1440, '5': 5 / 1440, '15': 15 / 1440, '30': 30 / 1440,
   '60': 1 / 24, '240': 1 / 6, '1D': 1, '1W': 7, '1M': 31 };
 
 /** Bars that cover `days` calendar days on `interval`. */

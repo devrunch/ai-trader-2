@@ -41,6 +41,10 @@ it('validates query params', async () => {
   await request(app.getHttpServer()).get('/api/v1/bars?symbol=NSE:X&interval=1').expect(200);
   expect(bars).toHaveBeenCalledWith('NSE:X', '1', { latest: true }, 500);
 });
+it('accepts second intervals on /v1/bars (FR-CH-8)', async () => {
+  await request(app.getHttpServer()).get('/api/v1/bars?symbol=NSE:X&interval=5S&limit=100').expect(200);
+  expect(bars).toHaveBeenCalledWith('NSE:X', '5S', { latest: true }, 100);
+});
 it('rejects before and since together', async () => {
   await request(app.getHttpServer()).get('/api/v1/bars?symbol=NSE:X&interval=1&before=2&since=1').expect(422);
 });

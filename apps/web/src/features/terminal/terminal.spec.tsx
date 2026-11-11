@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -79,6 +79,16 @@ it('interval picker switches interval and keeps the symbol', async () => {
   fireEvent.click(await screen.findByRole('button', { name: '15m' }));
   await vi.waitFor(() => { expect(router.state.location.search).toMatchObject({ symbol: 'NSE:RELIANCE', interval: '15' }); });
   await vi.waitFor(() => { expect(screen.getByRole('button', { name: '15m' }).getAttribute('aria-pressed')).toBe('true'); });
+});
+
+it('interval picker offers seconds in a small menu and selects 5s', async () => {
+  const router = await renderWith(<IntervalPicker />);
+  const menu = await screen.findByRole('combobox', { name: 'Seconds' });
+  expect(within(menu).getAllByRole('option', { hidden: true }).map(option => option.textContent)).toEqual(['s', '1s', '5s', '15s', '30s']);
+  fireEvent.change(menu, { target: { value: '5S' } });
+  await vi.waitFor(() => { expect(router.state.location.search).toMatchObject({ symbol: 'NSE:RELIANCE', interval: '5S' }); });
+  await vi.waitFor(() => { expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Seconds' }).value).toBe('5S'); });
+  expect(screen.getByRole('button', { name: '5m' }).getAttribute('aria-pressed')).toBe('false');
 });
 
 it('watchlist streams live prices and opens a symbol on click', async () => {

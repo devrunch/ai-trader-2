@@ -34,6 +34,9 @@ import { UsDelayedProvider } from './infrastructure/us/us-delayed.provider';
 import { UsDelayedFeed } from './infrastructure/us/us-delayed.feed';
 import { RequestSubscription } from './application/request-subscription';
 import { RedisSubscriptionLeases } from './infrastructure/redis-subscription-leases';
+import { RedisSecondsDemand, RedisSecondsLeases } from './infrastructure/redis-seconds-demand';
+import { RedisSecondsStore } from './infrastructure/redis-seconds-store';
+import { SecondsBars } from './application/seconds-bars';
 import { z } from 'zod';
 import { RedisBarPublisher } from './infrastructure/redis-bar-publisher';
 import { RedisBarSequenceStore } from './infrastructure/redis-bar-sequence-store';
@@ -51,7 +54,14 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     { provide: CheckSessionCoverage, inject: [DrizzleCandleStore, FillHistory], useFactory: (store: DrizzleCandleStore, fill: FillHistory) => new CheckSessionCoverage(store, fill) },
     { provide: GetFeedOverview, inject: [RedisFeedStateStore, REDIS], useFactory: (states: RedisFeedStateStore, redis: Redis) => new GetFeedOverview(states, new RedisFeedLeadership(redis)) },
     { provide: RedisSubscriptionLeases, inject: [REDIS, APP_CONFIG], useFactory: (redis: Redis, config: AppConfig) => new RedisSubscriptionLeases(redis, config.API_INSTANCE_ID) },
-    { provide: RequestSubscription, inject: [RedisSubscriptionLeases], useFactory: (leases: RedisSubscriptionLeases) => new RequestSubscription(leases) },
+    { provide: RedisSecondsLeases, inject: [REDIS, APP_CONFIG], useFactory: (redis: Redis, config: AppConfig) => new RedisSecondsLeases(redis, config.API_INSTANCE_ID) },
+    { provide: RequestSubscription, inject: [RedisSubscriptionLeases, RedisSecondsLeases],
+      useFactory: (leases: RedisSubscriptionLeases, seconds: RedisSecondsLeases) => new RequestSubscription(leases, seconds) },
+    { provide: RedisSecondsStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisSecondsStore(redis) },
+    { provide: SecondsBars, inject: [RedisSecondsStore, REDIS], useFactory: (store: RedisSecondsStore, redis: Redis) => {
+      const logger = new Logger('SecondsBars');
+      return new SecondsBars(store, new RedisSecondsDemand(redis), { clock: Date.now, log: (reason, error) => { logger.warn({ reason, code: error instanceof Error ? error.name : 'UNKNOWN' }); } });
+    } },
     { provide: MarketDataService, inject: [ResolveInstrument, ReadBars, RedisFeedStateStore],
       useFactory: (resolve: ResolveInstrument, read: ReadBars, feeds: RedisFeedStateStore) => new MarketDataService(resolve, read, feeds) },
     { provide: RedisPreviousCloseStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisPreviousCloseStore(redis) },
@@ -110,13 +120,13 @@ const BarPublisherToken = 'BAR_PUBLISHER';
         const logger = new Logger('LiveBars');
         return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); }, prevCloses }, publisher);
       } },
-    { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory],
-      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, fill: FillHistory) => new ReadBars(store, forming, Date.now, fill) },
+    { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory, RedisSecondsStore],
+      useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, fill: FillHistory, seconds: RedisSecondsStore) => new ReadBars(store, forming, Date.now, fill, seconds) },
     { provide: PartitionJob, inject: [DB, JobScheduler, ReadinessRegistry],
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
+  exports: [ReadBars, SecondsBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;

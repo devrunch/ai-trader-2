@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { BarUpdate } from '@aitrader/contracts';
-import { LiveSubscribeSchema, LiveUnsubscribeSchema, LiveAckSchema, LiveSnapshotSchema, LiveBarSchema, LiveStatusSchema, LiveResyncSchema } from '@aitrader/contracts';
+import { isSecondInterval, LiveSubscribeSchema, LiveUnsubscribeSchema, LiveAckSchema, LiveSnapshotSchema, LiveBarSchema, LiveStatusSchema, LiveResyncSchema } from '@aitrader/contracts';
 import type { LiveBar, LiveChange, LiveData, Interval } from './ports/live-data';
 
 type Emit = (event: string, payload: unknown) => boolean;
@@ -8,13 +8,14 @@ interface Client { userId: string; emit: Emit; subscriptionIds: Set<string>; pen
 interface Subscription {
   id: string; socketId: string; instrumentId: string; interval: Interval; emit: Emit;
   buffering: boolean; pending: BarUpdate[]; rawBucket: Map<number, LiveBar>; bucket: number | undefined;
-  lastSeq: number; resyncSent: boolean; unwatch: () => void;
+  lastSeq: number; resyncSent: boolean; unwatch: () => void; pendingSeconds: Array<{ kind: 'forming' | 'closed'; bar: LiveBar }>;
 }
 type LiveAck = ReturnType<typeof LiveAckSchema.parse>;
 export interface SubscriptionRef { id: string; socketId: string; instrumentId: string; interval: Interval }
 /** Listens to every bar a subscription sends and to its end (unsubscribe, disconnect or resync): live indicators ride on it. */
 export interface BarTap { bar(sub: SubscriptionRef, bar: LiveBar, seq: number): void; ended(subscriptionId: string): void }
 const MAX_PENDING = 2000;
+const SECONDS_SNAPSHOT = 500;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX = 20;
 
@@ -57,12 +58,27 @@ export class LiveSubscriptions {
     const id = randomUUID();
     const sub: Subscription = { id, socketId, instrumentId, interval: parsed.data.interval, emit: client.emit,
       buffering: true, pending: [], rawBucket: new Map(), bucket: undefined, lastSeq: parsed.data.afterSeq ?? 0,
-      resyncSent: false, unwatch: () => undefined };
+      resyncSent: false, unwatch: () => undefined, pendingSeconds: [] };
     const subs = this.byInstrument.get(instrumentId) ?? new Set<string>();
     subs.add(id); this.byInstrument.set(instrumentId, subs); this.subscriptions.set(id, sub); client.subscriptionIds.add(id);
     sub.unwatch = this.data.watch(instrumentId, change => { this.changed(sub, change); });
+    const seconds = isSecondInterval(sub.interval) ? sub.interval : undefined;
+    if (seconds) {
+      const offBars = this.data.watchSeconds(instrumentId, seconds, (kind, bar) => { this.changedSeconds(sub, kind, bar); });
+      const offStatus = sub.unwatch;
+      sub.unwatch = () => { offStatus(); offBars(); };
+    }
     try {
       await this.data.acquire(instrumentId);
+      if (seconds) {
+        await this.data.acquireSeconds(instrumentId, seconds);
+        const page = await this.data.read(instrumentId, seconds, SECONDS_SNAPSHOT);
+        sub.emit('snapshot', LiveSnapshotSchema.parse({ subscriptionId: id, instrumentId, interval: sub.interval, bars: page.bars, seq: 0, status: page.status }));
+        sub.lastSeq = 0;
+        for (const item of sub.pendingSeconds.splice(0)) this.sendSeconds(sub, item.kind, item.bar);
+        sub.buffering = false;
+        return success(id);
+      }
       if (parsed.data.afterSeq !== undefined) {
         const replay = await this.data.replay(instrumentId, parsed.data.afterSeq);
         if (replay !== null) {
@@ -115,6 +131,7 @@ export class LiveSubscriptions {
     if (!this.subscriptions.has(sub.id) || sub.resyncSent) return;
     if (change.type === 'reconnect') { this.resync(sub, 'UPSTREAM_RECONNECT'); return; }
     if (change.type === 'status') { sub.emit('status', LiveStatusSchema.parse({ subscriptionId: sub.id, status: change.status })); return; }
+    if (isSecondInterval(sub.interval)) return;
     if (sub.buffering) {
       if (sub.pending.length >= MAX_PENDING) { this.resync(sub, 'SLOW_CONSUMER'); sub.pending.length = 0; return; }
       sub.pending.push(change.update); return;
@@ -127,15 +144,30 @@ export class LiveSubscriptions {
     if (previous !== undefined && update.seq <= previous) return;
     if (previous !== undefined && update.seq > previous + 1) {
       for (const id of this.byInstrument.get(instrumentId) ?? []) {
-        const sub = this.subscriptions.get(id); if (sub) this.resync(sub, 'SEQ_GAP');
+        const sub = this.subscriptions.get(id); if (sub && !isSecondInterval(sub.interval)) this.resync(sub, 'SEQ_GAP');
       }
       this.lastSeq.set(instrumentId, update.seq); return;
     }
     this.lastSeq.set(instrumentId, update.seq);
     for (const id of this.byInstrument.get(instrumentId) ?? []) {
       const sub = this.subscriptions.get(id);
-      if (sub && !sub.buffering) { sub.lastSeq = update.seq; this.sendUpdate(sub, update, true); }
+      if (sub && !sub.buffering && !isSecondInterval(sub.interval)) { sub.lastSeq = update.seq; this.sendUpdate(sub, update, true); }
     }
+  }
+
+  private changedSeconds(sub: Subscription, kind: 'forming' | 'closed', bar: LiveBar): void {
+    if (!this.subscriptions.has(sub.id) || sub.resyncSent) return;
+    if (sub.buffering) {
+      if (sub.pendingSeconds.length >= MAX_PENDING) { this.resync(sub, 'SLOW_CONSUMER'); sub.pendingSeconds.length = 0; return; }
+      sub.pendingSeconds.push({ kind, bar }); return;
+    }
+    this.sendSeconds(sub, kind, bar);
+  }
+
+  /** Second bars have no cross-process sequence: the subscription numbers its own, and a resubscribe always gets a fresh snapshot. */
+  private sendSeconds(sub: Subscription, kind: 'forming' | 'closed', bar: LiveBar): void {
+    sub.lastSeq += 1;
+    this.emitBar(sub, { instrumentId: sub.instrumentId, seq: sub.lastSeq, kind, bar, at: this.clock() });
   }
 
   private sendUpdate(sub: Subscription, update: BarUpdate, checkGap: boolean): void {
@@ -201,6 +233,7 @@ export class LiveSubscriptions {
     if (!sub || (ownerSocketId !== undefined && sub.socketId !== ownerSocketId)) return;
     this.subscriptions.delete(id); sub.unwatch(); this.tap?.ended(id);
     const client = this.clients.get(sub.socketId); client?.subscriptionIds.delete(id);
+    if (isSecondInterval(sub.interval)) await this.data.releaseSeconds(sub.instrumentId, sub.interval).catch(() => undefined);
     const ids = this.byInstrument.get(sub.instrumentId); ids?.delete(id);
     if (ids?.size === 0) { this.byInstrument.delete(sub.instrumentId); this.lastSeq.delete(sub.instrumentId); await this.data.release(sub.instrumentId); }
   }
