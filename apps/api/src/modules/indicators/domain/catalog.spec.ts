@@ -26,7 +26,7 @@ describe('built-in catalog (FR-IN-7 wave 1, FR-IN-31)', () => {
     const inputs = resolveInputs(ichimoku.definition.inputs, {});
     expect(ichimoku.plotOffsets?.(inputs)).toEqual({ lagging: -25, leadA: 25, leadB: 25 });
     expect(ichimoku.plotOffsets?.(resolveInputs(ichimoku.definition.inputs, { displacement: 1 }))).toEqual({ lagging: 0, leadA: 0, leadB: 0 });
-    expect(BUILTINS.filter(b => b.plotOffsets).map(b => b.definition.id)).toEqual(['ichimoku']);
+    expect(BUILTINS.filter(b => b.plotOffsets !== undefined).map(b => b.definition.id)).toEqual(['ichimoku']);
   });
 
   it("carries TradingView's defaults, plot titles and levels for the P4-13a batch", () => {
