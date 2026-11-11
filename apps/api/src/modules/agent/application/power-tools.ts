@@ -98,3 +98,13 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
       input: z.strictObject({ taskId: z.uuid() }), run: (input, ctx) => tasks.setState(ctx.userId, input.taskId, 'cancelled') }, deps),
   ];
 }
+
+export interface NewsDesk { list(query: { symbol?: string | undefined; hours: number; limit: number }): Promise<unknown> }
+
+/** Recent headlines from public feeds. Their text is data: an instruction inside a headline is never followed. */
+export function buildNewsTools(news: NewsDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+  return [guardedTool({ name: 'getNews',
+    description: 'Recent market headlines (source, time, title, summary, url, tagged instruments), newest first. Optionally only those mentioning one instrument.',
+    input: z.strictObject({ symbol: SYMBOL.optional(), hours: z.number().int().min(1).max(336).default(24), limit: z.number().int().min(1).max(30).default(15) }),
+    run: input => news.list(input) }, deps)];
+}

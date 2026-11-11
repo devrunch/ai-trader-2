@@ -17,6 +17,7 @@ import { NotifyModule } from './shared/notify';
 import { AdminOpsModule } from './modules/admin-ops/admin-ops.module';
 import { IndicatorsModule } from './modules/indicators/indicators.module';
 import { PaperTradingModule } from './modules/paper-trading/paper-trading.module';
+import { NewsModule } from './modules/news/news.module';
 
 @Module({})
 export class AppModule {
@@ -25,7 +26,7 @@ export class AppModule {
       module: AppModule,
       providers: [GlobalExceptionFilter],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule, NotifyModule, AlertsModule, IndicatorsModule, PaperTradingModule, AgentModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule, NotifyModule, AlertsModule, IndicatorsModule, PaperTradingModule, NewsModule, AgentModule],
     };
   }
 }

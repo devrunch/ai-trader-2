@@ -10,3 +10,4 @@ export * from './live.js';
 export * from './indicator.js';
 export * from './paper.js';
 export * from './agent.js';
+export * from './news.js';
