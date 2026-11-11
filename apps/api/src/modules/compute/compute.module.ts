@@ -8,7 +8,7 @@ import { lambdaUrlRegion, sigv4Fetch } from './infrastructure/sigv4-fetch';
 /** RunBacktest, or null when COMPUTE_URL is not set (backtesting is then off and the assistant says so). */
 export const BACKTEST = Symbol('BACKTEST');
 
-export function backtestFor(config: AppConfig): RunBacktest | null {
+function backtestFor(config: AppConfig): RunBacktest | null {
   if (!config.COMPUTE_URL) return null;
   const region = lambdaUrlRegion(config.COMPUTE_URL);
   if (region && !(config.AWS_ACCESS_KEY_ID && config.AWS_SECRET_ACCESS_KEY)) {

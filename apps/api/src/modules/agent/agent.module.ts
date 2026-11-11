@@ -16,7 +16,7 @@ import { NewsService } from '../news/application/index';
 import { NewsModule } from '../news/news.module';
 import { EconomicCalendar } from '../calendar/application/index';
 import { BACKTEST, ComputeModule } from '../compute/compute.module';
-import type { RunBacktest } from '../compute/application/run-backtest';
+import type { RunBacktest } from '../compute/application/index';
 import { buildBacktestTools } from './application/backtest-tools';
 import { CalendarModule } from '../calendar/calendar.module';
 import { Watchlists } from '../watchlists/application/index';
