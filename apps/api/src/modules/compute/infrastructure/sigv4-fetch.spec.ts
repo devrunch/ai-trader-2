@@ -8,7 +8,7 @@ describe('Lambda Function URL signing', () => {
   });
 
   it('signs with SigV4 for the lambda service, keeping the body and content type', async () => {
-    const base = vi.fn((_url: URL, _init: RequestInit) => Promise.resolve(new Response('{}')));
+    const base = vi.fn<(url: URL, init: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response('{}')));
     const signed = sigv4Fetch('ap-south-1', { accessKeyId: 'AKIDEXAMPLE', secretAccessKey: 'secret' }, base as unknown as typeof fetch);
     await signed('https://abc.lambda-url.ap-south-1.on.aws/compute/v1/backtest', { method: 'POST', body: '{"a":1}', headers: { 'content-type': 'application/json' } });
     const [url, init] = base.mock.calls[0] ?? [];
