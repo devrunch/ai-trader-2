@@ -39,7 +39,7 @@ export class IndicatorService {
   /** Computes the range, then keeps the instance for live updates from saved state. The caller closes the stream. */
   async open(request: IndicatorComputeRequest): Promise<{ result: IndicatorResult; stream: IndicatorStream }> {
     const chain = resolveChain(request);
-    const { program, ref, offsets, plots, inputs } = plan(chain.spec, request.interval, chain);
+    const { ref, offsets, plots, inputs } = plan(chain.spec, request.interval, chain);
     const warmup = chainWarmup(chain, request.interval);
     const { limit, before } = request.range;
     const page = await this.market.bars(request.symbol, request.interval, before === undefined ? { latest: true } : { before },
@@ -73,7 +73,7 @@ function chainWarmup(node: ChainNode, interval: Interval): number {
 }
 
 function plan(spec: IndicatorSpec, interval: Interval, node: ChainNode): Plan {
-  if (spec.kind === 'pine') return { program: { kind: 'pine', source: spec.source, inputs: plainInputs(spec.inputs) }, ref: 'pine', warmup: PINE_WARMUP, offsets: {}, plots: null, inputs: spec.inputs };
+  if (spec.kind === 'pine') return { program: { kind: 'pine', source: spec.source, inputs: spec.inputs }, ref: 'pine', warmup: PINE_WARMUP, offsets: {}, plots: null, inputs: spec.inputs };
   const builtin = domain(() => findBuiltin(spec.id, spec.version));
   const inputs = domain(() => resolveInputs(builtin.definition.inputs, spec.inputs));
   const shared = typeof inputs.offset === 'number' ? inputs.offset : 0;
@@ -82,10 +82,6 @@ function plan(spec: IndicatorSpec, interval: Interval, node: ChainNode): Plan {
   return { program: { kind: 'builtin', builtin, inputs }, ref: builtin.definition.ref, warmup: builtin.warmup(inputs, interval),
     offsets: Object.fromEntries(plots.map(id => [id, shared + (own[id] ?? 0)])), plots,
     inputs: node.parent ? { ...inputs, [node.parent.inputId]: node.parent.ref } : inputs };
-}
-
-function plainInputs(inputs: Record<string, unknown>): Record<string, number | boolean | string> {
-  return Object.fromEntries(Object.entries(inputs).flatMap(([id, value]) => (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'string' ? [[id, value]] : [])));
 }
 
 function domain<T>(run: () => T): T {

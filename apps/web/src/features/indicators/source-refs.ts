@@ -14,9 +14,11 @@ export function decodeRef(text: string): IndicatorSourceRef | undefined {
 export function indicatorLabel(definition: IndicatorDefinition | undefined, item: ChartIndicator): string {
   if (!definition) return item.id;
   const numbers = definition.inputs.filter(def => (def.type === 'int' || def.type === 'float') && def.id !== 'offset')
-    .map(def => String(item.inputs[def.id] ?? def.default));
+    .map(def => String(numberOr(item.inputs[def.id], def.default)));
   return [definition.shortName, ...numbers].join(' ');
 }
+
+const numberOr = (value: unknown, fallback: unknown): unknown => (typeof value === 'number' ? value : fallback);
 
 const parentOf = (item: ChartIndicator): IndicatorSourceRef | undefined => Object.values(item.inputs).find(isSourceRef);
 

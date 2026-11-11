@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Bar, BarsResponse, IndicatorChartInstance, IndicatorComputeRequest } from '@aitrader/contracts';
-import { NativeRuntime } from '../infrastructure/native/native-runtime';
-import { fixtureBars } from '../infrastructure/native/bars.spec-helper';
-import { IndicatorService } from './indicator.service';
-import { RuntimeResolver } from './runtime-resolver';
-import { SourcedInstance } from './sourced-instance';
-import type { IndicatorInstance, PlotValues } from './ports/indicator-runtime';
+import { NativeRuntime } from './native-runtime';
+import { fixtureBars } from './bars.spec-helper';
+import { IndicatorService } from '../../application/indicator.service';
+import { RuntimeResolver } from '../../application/runtime-resolver';
+import { SourcedInstance } from '../../application/sourced-instance';
+import type { IndicatorInstance, PlotValues } from '../../application/ports/indicator-runtime';
 
 const history = fixtureBars(300);
 const service = () => new IndicatorService(

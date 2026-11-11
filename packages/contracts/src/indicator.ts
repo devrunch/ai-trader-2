@@ -51,8 +51,11 @@ export type IndicatorSourceRef = z.infer<typeof IndicatorSourceRefSchema>;
 /** Longest chain A -> B -> C the server computes, the target included. */
 export const INDICATOR_CHAIN_MAX = 5;
 
-export const IndicatorInputValuesSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200), IndicatorSourceRefSchema]));
+export const IndicatorInputValuesSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200)]));
 export type IndicatorInputValues = z.infer<typeof IndicatorInputValuesSchema>;
+/** Input values of an indicator on a chart: plain values, or a `source` pointing at another indicator (FR-IN-13). */
+export const IndicatorChartInputsSchema = z.record(z.string().max(40), z.union([z.number(), z.boolean(), z.string().max(200), IndicatorSourceRefSchema]));
+export type IndicatorChartInputs = z.infer<typeof IndicatorChartInputsSchema>;
 
 export function isSourceRef(value: unknown): value is IndicatorSourceRef {
   return IndicatorSourceRefSchema.safeParse(value).success;
@@ -60,7 +63,7 @@ export function isSourceRef(value: unknown): value is IndicatorSourceRef {
 
 export const IndicatorSpecSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('builtin'), id: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), version: z.number().int().positive().optional(),
-    inputs: IndicatorInputValuesSchema.default({}) }),
+    inputs: IndicatorChartInputsSchema.default({}) }),
   z.strictObject({ kind: z.literal('pine'), source: z.string().min(1).max(100_000), inputs: IndicatorInputValuesSchema.default({}) }),
 ]);
 export type IndicatorSpec = z.infer<typeof IndicatorSpecSchema>;
@@ -84,7 +87,7 @@ export type IndicatorPlotSeries = z.infer<typeof IndicatorPlotSeriesSchema>;
 
 /** Columnar: `plots[i].values[j]` belongs to `times[j]`; `null` where Pine has `na`. */
 export const IndicatorResultSchema = z.strictObject({
-  instrumentId: z.string(), resolvedId: z.string(), interval: z.enum(INTERVALS), ref: z.string(), inputs: IndicatorInputValuesSchema,
+  instrumentId: z.string(), resolvedId: z.string(), interval: z.enum(INTERVALS), ref: z.string(), inputs: IndicatorChartInputsSchema,
   times: z.array(z.number().int()), plots: z.array(IndicatorPlotSeriesSchema), status: DataStatusSchema,
 }).refine(result => result.plots.every(plot => plot.values.length === result.times.length), { message: 'One value per bar time', path: ['plots'] });
 export type IndicatorResult = z.infer<typeof IndicatorResultSchema>;

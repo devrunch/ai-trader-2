@@ -12,7 +12,7 @@ const sma = { kind: 'builtin' as const, id: 'sma', inputs: { length: 2 } };
 
 function setup() {
   const closed = vi.fn();
-  const open = vi.fn((): ReturnType<IndicatorEngine['open']> => {
+  const open = vi.fn<IndicatorEngine['open']>(() => {
     const result: IndicatorResult = { instrumentId: 'NSE:INFY', resolvedId: 'NSE:INFY', interval: '5', ref: 'builtin:sma@1', inputs: { length: 2 },
       times: [1000, 2000], plots: [{ id: 'ma', values: [null, 10] }], status: { state: 'ok' } };
     return Promise.resolve({ result, stream: { push: (b: Bar) => Promise.resolve({ barTime: b.time, values: { ma: b.close } }), close: closed } });

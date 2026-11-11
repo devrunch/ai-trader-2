@@ -32,7 +32,6 @@ function visit(entry: Entry, others: readonly Entry[], path: readonly Entry[]): 
   const first = refs[0];
   if (!first) return { spec: entry.indicator, label };
   if (refs.length > 1) throw new ValidationError(`${label}: only one input can take another indicator`, { reason: 'SOURCE_INVALID', inputs: refs.map(([id]) => id) });
-  if (entry.indicator.kind !== 'builtin') throw new ValidationError(`${label}: Pine scripts cannot take another indicator as source yet`, { reason: 'UNSUPPORTED' });
   const [inputId, ref] = first;
   const parent = others.find(other => other.instanceId === ref.from);
   if (!parent) throw new ValidationError(`${label}: source unavailable, indicator "${ref.from}" is not on the chart`, { reason: 'SOURCE_UNAVAILABLE', input: inputId, from: ref.from });

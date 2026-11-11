@@ -31,6 +31,9 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   // Changes once per new bar (never per tick), so indicators refresh on bar close.
   const indicators = useChartIndicators(symbol, interval);
   const indicatorItems = useIndicatorStore(s => s.items);
+  // Labels are only for the server's messages, so a catalog that arrives later must not resubscribe.
+  const catalogRef = useRef(indicators.catalog.data);
+  useEffect(() => { catalogRef.current = indicators.catalog.data; }, [indicators.catalog.data]);
   const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState<{ bar: Bar; prevClose: number | undefined } | null>(null);
@@ -95,9 +98,9 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
       onUpdate: point => { layerRef.current?.update(item.key, point); },
       onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item, indicatorItems), result); },
       onError: () => undefined, // the HTTP series and its error stay on screen; the legend shows that error
-    }, indicatorLabel(indicators.catalog.data?.find(d => d.id === item.id), item)));
+    }, indicatorLabel(catalogRef.current?.find(d => d.id === item.id), item)));
     return () => { for (const stop of stops) stop(); };
-  }, [symbol, interval, indicatorItems, indicators.catalog.data, queryClient]);
+  }, [symbol, interval, indicatorItems, queryClient]);
   useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;

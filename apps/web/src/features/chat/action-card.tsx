@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ActionCardSchema, INTERVALS, type ActionCardDto, type AgentAction, type IndicatorInputValues } from '@aitrader/contracts';
+import { ActionCardSchema, INTERVALS, type ActionCardDto, type AgentAction } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { useIndicatorStore } from '../indicators';
 import { useChatActions } from './chat-actions';
 
-type Inputs = IndicatorInputValues;
+type Inputs = Record<string, number | boolean | string>;
 const key = (id: string) => ['agent', 'action', id] as const;
 
 const describe = (action: AgentAction): string => {
@@ -116,8 +116,7 @@ function Fields({ action, onChange }: { action: AgentAction; onChange: (next: Ag
     </div>;
   }
   const inputs: Inputs = action.inputs;
-  // The assistant never proposes another indicator as a source, so only plain values are editable here.
-  const entries = Object.entries(inputs).flatMap(([name, value]) => (typeof value === 'object' ? [] : [[name, value] as const]));
+  const entries = Object.entries(inputs);
   if (entries.length === 0) return <p className="text-muted-foreground">Default inputs.</p>;
   return <div className="flex flex-wrap gap-2">{entries.map(([name, value]) => <label key={name} className="flex items-center gap-1">{name}
     <input aria-label={name} value={String(value)} onChange={e => { onChange({ ...action, inputs: { ...inputs, [name]: parseValue(e.target.value, value) } }); }}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { IndicatorChartInstance, IndicatorSpec } from '@aitrader/contracts';
 import { resolveChain } from './source-chain';
 
-const spec = (id: string, inputs: Record<string, never | string | number | { from: string; plot: string }> = {}): IndicatorSpec => ({ kind: 'builtin', id, inputs });
+const spec = (id: string, inputs: Record<string, string | number | { from: string; plot: string }> = {}): IndicatorSpec => ({ kind: 'builtin', id, inputs });
 const on = (instanceId: string, label: string, id: string, from?: string, plot = 'ma'): IndicatorChartInstance =>
   ({ instanceId, label, indicator: spec(id, from ? { source: { from, plot } } : {}) });
 const target = (id: string, from: string, plot: string, extra: Partial<Parameters<typeof resolveChain>[0]> = {}) =>
@@ -49,10 +49,9 @@ describe('resolveChain', () => {
     try { run(); } catch (error) { expect(error).toMatchObject({ details: { reason: 'SOURCE_UNAVAILABLE', from: 'gone', input: 'source' } }); }
   });
 
-  it('rejects a plot the parent does not have, two source refs, and Pine', () => {
+  it('rejects a plot the parent does not have and two source refs', () => {
     expect(() => resolveChain(target('sma', 'a', 'nope', { others: [on('a', 'RSI 14', 'rsi')] }))).toThrow('RSI 14 has no plot "nope"');
     expect(() => resolveChain({ indicator: spec('sma', { source: { from: 'a', plot: 'rsi' }, other: { from: 'a', plot: 'rsi' } }), others: [on('a', 'RSI', 'rsi')] }))
       .toThrow('only one input can take another indicator');
-    expect(() => resolveChain({ indicator: { kind: 'pine', source: '//@version=6', inputs: { source: { from: 'a', plot: 'rsi' } } } })).toThrow('Pine scripts cannot take');
   });
 });

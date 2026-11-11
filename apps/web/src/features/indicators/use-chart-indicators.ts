@@ -9,7 +9,7 @@ const LIMIT = 500;
 
 /** What the chart paints for one indicator: its definition and the latest computed series. */
 interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult; /** The indicator whose plot is this one's source; it paints on that pane by default. */ parentKey: string | undefined }
-export const SOURCE_UNAVAILABLE = 'Source unavailable';
+const SOURCE_UNAVAILABLE = 'Source unavailable';
 export interface IndicatorRow { item: ChartIndicator; definition: IndicatorDefinition | undefined; result: IndicatorResult | undefined; error: string | undefined; loading: boolean }
 
 export function useIndicatorCatalog() {

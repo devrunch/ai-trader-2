@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { IndicatorInputValues } from '@aitrader/contracts';
+import type { IndicatorChartInputs } from '@aitrader/contracts';
 
-export type InputValues = IndicatorInputValues;
+export type InputValues = IndicatorChartInputs;
 export interface ChartIndicator { key: string; id: string; inputs: InputValues }
 
 interface IndicatorState {
