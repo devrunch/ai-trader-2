@@ -58,7 +58,7 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   useEffect(() => {
     const el = container.current;
     if (!el) return;
-    const chart = createLwcChart(el, exchangeTimeZone(symbol));
+    const chart = createLwcChart(el, exchangeTimeZone(symbol), isSecondInterval(interval));
     const adapter = new ChartAdapter(chart, readChartColors());
     adapterRef.current = adapter;
     layerRef.current = new IndicatorLayer(chart, token => readIndicatorColor(token));

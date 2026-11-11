@@ -5,14 +5,14 @@ const ts = (seconds: number): UTCTimestamp => seconds as UTCTimestamp;
 const seconds = (time: Time): number => (typeof time === 'number' ? time : 0);
 
 /** Binds Lightweight Charts 5 to ChartLike. Candles in pane 0, volume in its own pane below. Times shown in the exchange's zone. */
-export function createLwcChart(container: HTMLElement, timeZone: string): ChartLike {
-  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
+export function createLwcChart(container: HTMLElement, timeZone: string, showSeconds = false): ChartLike {
+  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', ...(showSeconds ? { second: '2-digit' } : {}), hour12: false });
   const day = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short' });
-  const full = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const full = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', ...(showSeconds ? { second: '2-digit' } : {}), hour12: false });
   const chart = createChart(container, {
     autoSize: true,
     localization: { timeFormatter: (time: Time) => full.format(seconds(time) * 1000) },
-    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 4,
+    timeScale: { timeVisible: true, secondsVisible: showSeconds, rightOffset: 4,
       tickMarkFormatter: (time: Time, type: number) => (type <= 2 ? day : clock).format(seconds(time) * 1000) },
   });
   const candles = chart.addSeries(CandlestickSeries, { borderVisible: false });
