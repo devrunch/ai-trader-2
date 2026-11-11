@@ -7,15 +7,15 @@ import { OrderDialog, TradingPanel } from './index';
 
 const account = { id: 'a', currency: 'INR', initialCash: 1e6, cash: 999_970, usedMargin: 3000, available: 996_970, realisedPnl: 0, charges: 30 };
 const order = (patch: Record<string, unknown> = {}) => ({
-  id: '00000000-0000-4000-8000-0000000000aa', clientOrderId: 'web-1', instrumentId: 'NSE:INFY', side: 'buy', type: 'limit', product: 'MIS', quantity: 10,
+  id: '00000000-0000-4000-8000-0000000000aa', clientOrderId: 'web-1', instrumentId: 'NSE:INFY', currency: 'INR', side: 'buy', type: 'limit', product: 'MIS', quantity: 10,
   limitPrice: 1490, triggerPrice: null, stopLoss: null, target: null, status: 'open', triggered: false, rejectReason: null, closeReason: null,
   parentOrderId: null, fillPrice: null, placedAt: 1, expiresAt: 2, filledAt: null, updatedAt: 1, ...patch,
 });
-const position = { instrumentId: 'NSE:INFY', product: 'MIS', quantity: 10, averagePrice: 1490, realisedPnl: 0, lastPrice: 1500, unrealisedPnl: 100, squareOffAt: 2 };
+const position = { instrumentId: 'NSE:INFY', currency: 'INR', product: 'MIS', quantity: 10, averagePrice: 1490, realisedPnl: 0, lastPrice: 1500, unrealisedPnl: 100, squareOffAt: 2 };
 const placed: Array<Record<string, unknown>> = [];
 let cancelled = 0;
 const server = setupServer(
-  http.get('/api/v1/paper/account', () => HttpResponse.json({ account })),
+  http.get('/api/v1/paper/accounts', () => HttpResponse.json({ accounts: [account] })),
   http.get('/api/v1/paper/positions', () => HttpResponse.json({ positions: [position] })),
   http.get('/api/v1/paper/orders', () => HttpResponse.json({ orders: [order()] })),
   http.post('/api/v1/paper/orders', async ({ request }) => {
@@ -41,6 +41,18 @@ it('shows the paper account, positions with P&L and working orders (FR-PT-1)', a
   expect(await screen.findByRole('row', { name: /NSE:INFY Buy limit 10 ₹1,490.00/ })).toBeDefined();
 });
 
+it('switches between currency accounts, each in its own money', async () => {
+  const usd = { ...account, id: 'b', currency: 'USD', initialCash: 1e5, cash: 1e5, usedMargin: 0, available: 98_765.4, charges: 0 };
+  const aapl = { ...position, instrumentId: 'NASDAQ:AAPL', currency: 'USD', averagePrice: 200.5, lastPrice: 201, unrealisedPnl: 50 };
+  server.use(http.get('/api/v1/paper/accounts', () => HttpResponse.json({ accounts: [account, usd] })),
+    http.get('/api/v1/paper/positions', () => HttpResponse.json({ positions: [position, aapl] })));
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  expect(await screen.findByText('₹9,96,970.00')).toBeDefined();
+  fireEvent.click(screen.getByRole('radio', { name: 'USD' }));
+  expect(await screen.findByText('$98,765.40')).toBeDefined();
+  expect(screen.getByRole('row', { name: /NASDAQ:AAPL/ }).textContent).toContain('$200.50');
+});
+
 it('opens the order ticket on the side the user picked', () => {
   const onTrade = vi.fn();
   render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={onTrade} /></Providers>);
@@ -57,7 +69,7 @@ it('says why there is nothing to show', async () => {
 });
 
 it('shows the reason and a retry when the account fails to load', async () => {
-  server.use(http.get('/api/v1/paper/account', () => HttpResponse.json({ code: 'UNAVAILABLE', message: 'Database unavailable', requestId: 'r' }, { status: 503 })));
+  server.use(http.get('/api/v1/paper/accounts', () => HttpResponse.json({ code: 'UNAVAILABLE', message: 'Database unavailable', requestId: 'r' }, { status: 503 })));
   render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
   expect(await screen.findByText('Database unavailable', {}, { timeout: 5000 })).toBeDefined();
 });

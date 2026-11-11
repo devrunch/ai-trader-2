@@ -38,7 +38,7 @@ describe('paper trading persistence FR-PT-1, FR-PT-3, FR-PT-5, NFR-RB-4, E17', (
     clientOrderId, instrumentId: INFY.id, side: 'buy' as const, type: 'market' as const, product: 'MIS' as const, quantity: 10, ...patch });
 
   it('creates one account per user even when asked concurrently', async () => {
-    const accounts = await Promise.all([store.accountFor(userId, 1e6), store.accountFor(userId, 1e6), store.accountFor(userId, 5)]);
+    const accounts = await Promise.all([store.accountFor(userId, 'INR', 1e6), store.accountFor(userId, 'INR', 1e6), store.accountFor(userId, 'INR', 5)]);
     expect(new Set(accounts.map(a => a.id)).size).toBe(1);
     expect(accounts[2]).toMatchObject({ initialCash: 1e6, cash: 1e6, currency: 'INR' });
   });
@@ -82,11 +82,11 @@ describe('paper trading persistence FR-PT-1, FR-PT-3, FR-PT-5, NFR-RB-4, E17', (
   });
 
   it('rolls back every write when the work fails', async () => {
-    const account = await store.accountFor(userId, 1e6);
+    const account = await store.accountFor(userId, 'INR', 1e6);
     await expect(store.inAccount(account.id, async tx => {
       await tx.saveAccount({ cash: 1, realisedPnl: 0, charges: 0 });
       throw new Error('boom');
     })).rejects.toThrow('boom');
-    expect((await store.accountFor(userId, 1e6)).cash).toBe(1e6);
+    expect((await store.accountFor(userId, 'INR', 1e6)).cash).toBe(1e6);
   });
 });

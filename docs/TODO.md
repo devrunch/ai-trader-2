@@ -9,8 +9,8 @@ Owner rule (2026-11-10): build everything that can be built now; anything that c
 | T1 | **Live NSE session:** tick-to-paint p95 ≤ 300 ms (measured on the chart canvas, not the DOM), a full day with no gaps, NIFTY futures ticks 15:30–15:40 kept | A market day; Zerodha connected from `/admin` before 09:15 IST | P3-6 |
 | T2 | **Laptop sleep/wake** on a real machine during market hours: the chart catches up without a reload | Market hours plus closing and reopening the laptop lid (manual) | P3-3 |
 | T3 | **Connect Zerodha, full browser redirect** (not token paste) | Kite app redirect URL set to `http://localhost:5173/admin/zerodha/callback` (port 5173 free) | P2-10c/d |
-| T4 | **Email alerts:** reminder, data report, ops watch, test email | `SMTP_URL`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` in `apps/api/.env` | P3-8 |
-| T5 | **Paper trading costs** against a real Zerodha contract note (STT 2026 rates included) | One real contract note (equity intraday and F&O) to compare | P5-8 |
+| T4 | **Email alerts via Resend:** reminder, data report, ops watch, test email (`POST /api/v1/alerts/test`) | `RESEND_API_KEY`, `RESEND_DOMAIN` (domain verified in Resend), `ALERT_EMAIL_TO` in `apps/api/.env` | P3-8, P9-2 |
+| T5 | **Paper trading costs** checked against Zerodha's published charges (equity, F&O, MCX) and SEC/FINRA fees for US sells; no contract note needed (owner 2026-11-11) | Re-check when rates change | P5-8, P5-9 |
 | T6 | **Agent with a real model:** live chat, tools, paper orders and background tasks verified 2026-11-11 on Bedrock DeepSeek v3.2 (`pnpm eval:agent`: 8/8). Still open: a paper order filled live in NSE hours, and a condition task firing on a real cross | NSE market hours; Zerodha connected | P7 |
 | T7 | **US stocks live (delayed):** quotes, history fill after the 30-day clamp fix | US market hours (19:00–02:30 IST); Yahoo reachable | P3-10 |
 | T8 | **MCX Muhurat timing** | The next Muhurat session (2027) or the MCX circular | P3-7 |
@@ -25,7 +25,6 @@ Owner rule (2026-11-10): build everything that can be built now; anything that c
 | # | Bug | Seen | Owner |
 |---|---|---|---|
 | B1 | Supertrend draws long diagonals across bars where the trend line should break | NSE:RELIANCE 5m | Worker (Phase 4) |
-| B3 | Paper account is rupees only: FX, MCX, metals and US stocks cannot be paper-traded (rejected INSTRUMENT_NOT_ALLOWED) | needs multi-currency accounts and conversion in the paper engine | Manager |
 | B2 | Indicators are computed on bars the chart does not show: Bollinger Bands bulge through a candle gap | MCX:GOLD1! 5m, 9 Nov 13:00 to 10 Nov evening | Worker (Phase 4) |
 
 ## Remaining build work

@@ -45,8 +45,9 @@ export interface PaperDesk {
   place(userId: string, request: PaperPlaceOrderRequest): Promise<unknown>;
   cancel(userId: string, orderId: string): Promise<unknown>;
   positions(userId: string): Promise<Array<{ instrumentId: string; product: string; quantity: number }>>;
-  initialCash(userId: string): Promise<number>;
-  orders(userId: string): Promise<Array<{ instrumentId: string; side: 'buy' | 'sell'; quantity: number; clientOrderId: string; status: string;
+  /** Starting cash and currency of the account this symbol settles in. */
+  account(userId: string, symbol: string): Promise<{ initialCash: number; currency: string }>;
+  orders(userId: string): Promise<Array<{ instrumentId: string; currency: string; side: 'buy' | 'sell'; quantity: number; clientOrderId: string; status: string;
     placedAt: number; limitPrice: number | null; fillPrice: number | null; stopLoss: number | null }>>;
   price(symbol: string): Promise<number>;
 }
@@ -54,10 +55,10 @@ export interface PaperDesk {
 const IST_MS = 19_800_000;
 const istMidnight = (now: number) => now - ((now + IST_MS) % 86_400_000);
 
-/** Today's assistant entries (not exits), with the loss each planned at its stop. */
-async function todayEntries(desk: PaperDesk, userId: string, now: number): Promise<TodayEntry[]> {
+/** Today's assistant entries (not exits) in one currency, with the loss each planned at its stop. */
+async function todayEntries(desk: PaperDesk, userId: string, currency: string, now: number): Promise<TodayEntry[]> {
   const since = istMidnight(now);
-  return (await desk.orders(userId)).filter(o => o.placedAt >= since && o.clientOrderId.startsWith('agent-') && (o.status === 'filled' || o.status === 'open'))
+  return (await desk.orders(userId)).filter(o => o.placedAt >= since && o.currency === currency && o.clientOrderId.startsWith('agent-') && (o.status === 'filled' || o.status === 'open'))
     .map(o => {
       const entry = o.fillPrice ?? o.limitPrice;
       return { symbol: o.instrumentId, side: o.side, plannedLoss: entry !== null && o.stopLoss !== null ? o.quantity * Math.abs(entry - o.stopLoss) : 0 };
@@ -85,8 +86,9 @@ export function buildPaperTools(desk: PaperDesk, deps: GuardDeps): Array<Guarded
         if (!reducing) {
           const now = (deps.clock ?? Date.now)();
           const entry = o.limitPrice ?? await desk.price(o.symbol);
+          const account = await desk.account(ctx.userId, o.symbol);
           const verdict = checkEntry({ symbol: o.symbol, side: o.side, quantity: o.quantity, entry, stopLoss: o.stopLoss, target: o.target, intraday: o.product === 'MIS' },
-            await todayEntries(desk, ctx.userId, now), defaultLimits(await desk.initialCash(ctx.userId), o.symbol.split(':')[0] ?? ''), now);
+            await todayEntries(desk, ctx.userId, account.currency, now), defaultLimits(account.initialCash, o.symbol.split(':')[0] ?? ''), now);
           if (!verdict.pass) throw new ValidationError(`Risk check BLOCK: ${verdict.blocks.join('; ')}`);
         }
         return desk.place(ctx.userId, { clientOrderId: orderId(ctx), instrumentId: o.symbol, side: o.side, type: o.type, product: o.product,

@@ -19,12 +19,24 @@ type PositionRow = typeof paperPositions.$inferSelect;
 export class DrizzlePaperStore implements PaperStore {
   constructor(private readonly db: Database) {}
 
-  async accountFor(userId: string, initialCash: number): Promise<AccountRecord> {
-    await this.db.insert(paperAccounts).values({ userId, currency: 'INR', initialCash, cash: initialCash })
+  async accountFor(userId: string, currency: string, initialCash: number): Promise<AccountRecord> {
+    await this.db.insert(paperAccounts).values({ userId, currency, initialCash, cash: initialCash })
       .onConflictDoNothing({ target: [paperAccounts.userId, paperAccounts.currency] });
-    const [row] = await this.db.select().from(paperAccounts).where(and(eq(paperAccounts.userId, userId), eq(paperAccounts.currency, 'INR')));
+    const [row] = await this.db.select().from(paperAccounts).where(and(eq(paperAccounts.userId, userId), eq(paperAccounts.currency, currency)));
     if (!row) throw new Error('Paper account was not created');
     return toAccount(row);
+  }
+
+  async accounts(userId: string): Promise<AccountRecord[]> {
+    const rows = await this.db.select().from(paperAccounts).where(eq(paperAccounts.userId, userId));
+    return rows.map(toAccount).sort((a, b) => (a.currency === 'INR' ? -1 : b.currency === 'INR' ? 1 : a.currency.localeCompare(b.currency)));
+  }
+
+  async orderAccount(userId: string, orderId: string): Promise<Pick<AccountRecord, 'id' | 'currency'> | null> {
+    const [row] = await this.db.select({ id: paperAccounts.id, currency: paperAccounts.currency }).from(paperOrders)
+      .innerJoin(paperAccounts, eq(paperAccounts.id, paperOrders.accountId))
+      .where(and(eq(paperOrders.id, orderId), eq(paperAccounts.userId, userId)));
+    return row ?? null;
   }
 
   inAccount<T>(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>): Promise<T> {
