@@ -5,8 +5,8 @@ import { Button } from '../../shared/ui/button';
 import { Dialog } from '../../shared/ui/dialog';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { OrderTicket } from './order-ticket';
-import { formatPnl, formatRupees } from './paper-format';
-import { useCancelPaperOrder, useOpenPaperOrders, usePaperAccount, usePaperFills, usePaperPositions } from './use-paper';
+import { formatMoney, formatPnl } from './paper-format';
+import { useCancelPaperOrder, useOpenPaperOrders, usePaperAccounts, usePaperFills, usePaperPositions } from './use-paper';
 
 type Query<T> = { isPending: boolean; isError: boolean; error: unknown; data: T | undefined; refetch: () => unknown };
 type Tab = 'positions' | 'orders' | 'history';
@@ -16,13 +16,15 @@ const tone = (value: number | null): string => (value === null || value === 0 ? 
 /** The paper trading panel under the chart: account summary, positions, working orders and history, plus Buy and Sell (FR-PT-1). */
 export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (side: PaperSide) => void }) {
   const [tab, setTab] = useState<Tab>('positions');
-  const account = usePaperAccount();
+  const [currency, setCurrency] = useState('INR');
+  const accounts = usePaperAccounts();
   const positions = usePaperPositions();
   const orders = useOpenPaperOrders();
   const fills = usePaperFills(tab === 'history');
   const open = positions.data?.positions.filter(p => p.quantity !== 0) ?? [];
-  const unrealised = open.reduce((sum, p) => sum + (p.unrealisedPnl ?? 0), 0);
-  const a = account.data?.account;
+  const all = accounts.data?.accounts ?? [];
+  const a = all.find(x => x.currency === currency) ?? all[0];
+  const unrealised = open.filter(p => p.currency === a?.currency).reduce((sum, p) => sum + (p.unrealisedPnl ?? 0), 0);
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'positions', label: `Positions${open.length ? ` ${String(open.length)}` : ''}` },
     { id: 'orders', label: `Orders${orders.data?.orders.length ? ` ${String(orders.data.orders.length)}` : ''}` },
@@ -31,13 +33,18 @@ export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (si
 
   return <div className="flex h-full flex-col text-[13px]">
     <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b px-3 py-2" aria-label="Paper account">
+      {all.length > 1 && <div role="radiogroup" aria-label="Account currency" className="flex gap-0.5">
+        {all.map(x => <button key={x.currency} type="button" role="radio" aria-checked={x.currency === a?.currency}
+          className={`h-6 px-2 text-xs ${x.currency === a?.currency ? 'bg-accent text-white' : 'text-muted-foreground hover:bg-muted'}`}
+          onClick={() => { setCurrency(x.currency); }}>{x.currency}</button>)}
+      </div>}
       {a ? <>
-        <Stat label="Available" value={formatRupees(a.available)} />
-        <Stat label="Margin used" value={formatRupees(a.usedMargin)} />
-        <Stat label="Unrealised P&L" value={formatPnl(unrealised)} className={tone(unrealised)} />
-        <Stat label="Realised P&L" value={formatPnl(a.realisedPnl)} className={tone(a.realisedPnl)} />
-        <Stat label="Charges" value={formatRupees(a.charges)} />
-      </> : account.isError ? <Problem query={account} /> : <Skeleton className="h-8 w-96" />}
+        <Stat label="Available" value={formatMoney(a.available, a.currency)} />
+        <Stat label="Margin used" value={formatMoney(a.usedMargin, a.currency)} />
+        <Stat label="Unrealised P&L" value={formatPnl(unrealised, a.currency)} className={tone(unrealised)} />
+        <Stat label="Realised P&L" value={formatPnl(a.realisedPnl, a.currency)} className={tone(a.realisedPnl)} />
+        <Stat label="Charges" value={formatMoney(a.charges, a.currency)} />
+      </> : accounts.isError ? <Problem query={accounts} /> : <Skeleton className="h-8 w-96" />}
       <div className="ml-auto flex gap-1">
         <Button size="sm" className="bg-down text-white hover:bg-down/90" onClick={() => { onTrade('sell'); }}>Sell {short(symbol)}</Button>
         <Button size="sm" className="bg-up text-white hover:bg-up/90" onClick={() => { onTrade('buy'); }}>Buy {short(symbol)}</Button>
@@ -86,10 +93,10 @@ function PositionsTable({ rows }: { rows: PaperPosition[] }) {
     {rows.map(p => <tr key={`${p.instrumentId}:${p.product}`}>
       <td className="font-semibold">{p.instrumentId}</td><td className="text-muted-foreground">{p.product}</td>
       <td className={`num ${p.quantity > 0 ? 'text-up' : p.quantity < 0 ? 'text-down' : 'text-muted-foreground'}`}>{p.quantity === 0 ? 'closed' : String(p.quantity)}</td>
-      <td className="num">{formatRupees(p.averagePrice)}</td>
-      <td className="num">{p.lastPrice === null ? '—' : formatRupees(p.lastPrice)}</td>
-      <td className={`num ${tone(p.unrealisedPnl)}`}>{p.unrealisedPnl === null ? 'no price' : formatPnl(p.unrealisedPnl)}</td>
-      <td className={`num ${tone(p.realisedPnl)}`}>{formatPnl(p.realisedPnl)}</td>
+      <td className="num">{formatMoney(p.averagePrice, p.currency)}</td>
+      <td className="num">{p.lastPrice === null ? '—' : formatMoney(p.lastPrice, p.currency)}</td>
+      <td className={`num ${tone(p.unrealisedPnl)}`}>{p.unrealisedPnl === null ? 'no price' : formatPnl(p.unrealisedPnl, p.currency)}</td>
+      <td className={`num ${tone(p.realisedPnl)}`}>{formatPnl(p.realisedPnl, p.currency)}</td>
     </tr>)}
   </Table>;
 }
@@ -101,7 +108,7 @@ function OrdersTable({ rows }: { rows: PaperOrder[] }) {
       <td className="num text-muted-foreground">{time.format(o.placedAt)}</td><td className="font-semibold">{o.instrumentId}</td>
       <td className={o.side === 'buy' ? 'text-up' : 'text-down'}>{o.side === 'buy' ? 'Buy' : 'Sell'}</td>
       <td>{o.type}</td><td className="num">{o.quantity}</td>
-      <td className="num">{o.limitPrice ?? o.triggerPrice ? formatRupees(o.limitPrice ?? o.triggerPrice ?? 0) : 'market'}</td>
+      <td className="num">{o.limitPrice ?? o.triggerPrice ? formatMoney(o.limitPrice ?? o.triggerPrice ?? 0, o.currency) : 'market'}</td>
       <td className="text-muted-foreground">{o.status}</td>
       <td><Button size="xs" variant="outline" disabled={cancel.isPending} onClick={() => { cancel.mutate(o.id); }}>Cancel</Button></td>
     </tr>)}
@@ -113,9 +120,9 @@ function FillsTable({ rows }: { rows: PaperFill[] }) {
     {rows.map(f => <tr key={f.id}>
       <td className="num text-muted-foreground">{time.format(f.filledAt)}</td><td className="font-semibold">{f.instrumentId}</td>
       <td className={f.side === 'buy' ? 'text-up' : 'text-down'}>{f.side === 'buy' ? 'Buy' : 'Sell'}</td>
-      <td className="num">{f.quantity}</td><td className="num">{formatRupees(f.price)}</td>
-      <td className="num">{formatRupees(f.charges.total)}</td>
-      <td className={`num ${tone(f.realisedPnl)}`}>{formatPnl(f.realisedPnl)}</td>
+      <td className="num">{f.quantity}</td><td className="num">{formatMoney(f.price, f.currency)}</td>
+      <td className="num">{formatMoney(f.charges.total, f.currency)}</td>
+      <td className={`num ${tone(f.realisedPnl)}`}>{formatPnl(f.realisedPnl, f.currency)}</td>
     </tr>)}
   </Table>;
 }

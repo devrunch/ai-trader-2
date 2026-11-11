@@ -8,7 +8,7 @@ export type PaperOrderType = (typeof PAPER_ORDER_TYPES)[number];
 /** MIS intraday (squared off before the close), CNC equity delivery, NRML derivatives carry-forward. */
 export const PAPER_PRODUCTS = ['MIS', 'CNC', 'NRML'] as const;
 export type PaperProduct = (typeof PAPER_PRODUCTS)[number];
-export const PAPER_SEGMENTS = ['equity', 'futures', 'options'] as const;
+export const PAPER_SEGMENTS = ['equity', 'futures', 'options', 'commodity', 'us-equity', 'forex'] as const;
 export type PaperSegment = (typeof PAPER_SEGMENTS)[number];
 export const PAPER_ORDER_STATUSES = ['open', 'filled', 'cancelled', 'rejected', 'expired'] as const;
 export type PaperOrderStatus = (typeof PAPER_ORDER_STATUSES)[number];
@@ -34,7 +34,7 @@ export const PaperPlaceOrderRequestSchema = z.strictObject({
 export type PaperPlaceOrderRequest = z.infer<typeof PaperPlaceOrderRequestSchema>;
 
 export const PaperOrderSchema = z.strictObject({
-  id: z.string(), clientOrderId: z.string(), instrumentId: z.string(),
+  id: z.string(), clientOrderId: z.string(), instrumentId: z.string(), currency: z.string(),
   side: z.enum(PAPER_SIDES), type: z.enum(PAPER_ORDER_TYPES), product: z.enum(PAPER_PRODUCTS), quantity: z.number().int(),
   limitPrice: z.number().nullable(), triggerPrice: z.number().nullable(), stopLoss: z.number().nullable(), target: z.number().nullable(),
   status: z.enum(PAPER_ORDER_STATUSES), triggered: z.boolean(),
@@ -50,20 +50,20 @@ export const PaperChargesSchema = z.strictObject({
 export type PaperCharges = z.infer<typeof PaperChargesSchema>;
 
 export const PaperFillSchema = z.strictObject({
-  id: z.string(), orderId: z.string(), instrumentId: z.string(), side: z.enum(PAPER_SIDES), product: z.enum(PAPER_PRODUCTS),
+  id: z.string(), orderId: z.string(), instrumentId: z.string(), currency: z.string(), side: z.enum(PAPER_SIDES), product: z.enum(PAPER_PRODUCTS),
   quantity: z.number().int(), price: z.number(), slippage: z.number(), charges: PaperChargesSchema, realisedPnl: z.number(),
   filledAt: z.number().int(),
 });
 export type PaperFill = z.infer<typeof PaperFillSchema>;
 
 export const PaperPositionSchema = z.strictObject({
-  instrumentId: z.string(), product: z.enum(PAPER_PRODUCTS), quantity: z.number().int(), averagePrice: z.number(),
+  instrumentId: z.string(), currency: z.string(), product: z.enum(PAPER_PRODUCTS), quantity: z.number().int(), averagePrice: z.number(),
   realisedPnl: z.number(), lastPrice: z.number().nullable(), unrealisedPnl: z.number().nullable(), squareOffAt: z.number().int().nullable(),
 });
 export type PaperPosition = z.infer<typeof PaperPositionSchema>;
 
 export const PaperAccountSchema = z.strictObject({
-  id: z.string(), currency: z.literal('INR'), initialCash: z.number(), cash: z.number(),
+  id: z.string(), currency: z.string().regex(/^[A-Z]{3}$/), initialCash: z.number(), cash: z.number(),
   usedMargin: z.number(), available: z.number(), realisedPnl: z.number(), charges: z.number(),
 });
 export type PaperAccount = z.infer<typeof PaperAccountSchema>;
@@ -73,3 +73,5 @@ export const PaperOrdersResponseSchema = z.strictObject({ orders: z.array(PaperO
 export const PaperPositionsResponseSchema = z.strictObject({ positions: z.array(PaperPositionSchema) });
 export const PaperFillsResponseSchema = z.strictObject({ fills: z.array(PaperFillSchema) });
 export const PaperAccountResponseSchema = z.strictObject({ account: PaperAccountSchema });
+/** One account per currency, rupees first. */
+export const PaperAccountsResponseSchema = z.strictObject({ accounts: z.array(PaperAccountSchema) });

@@ -10,7 +10,7 @@ const at = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' 
 export const paperAccounts = pgTable('paper_accounts', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  currency: text('currency', { enum: ['INR'] }).notNull(),
+  currency: text('currency').notNull(),
   initialCash: money('initial_cash').notNull(), cash: money('cash').notNull(),
   realisedPnl: money('realised_pnl').notNull().default(0), charges: money('charges').notNull().default(0),
   createdAt: at('created_at').notNull().defaultNow(), updatedAt: at('updated_at').notNull().defaultNow(),

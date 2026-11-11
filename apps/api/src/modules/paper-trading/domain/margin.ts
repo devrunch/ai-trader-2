@@ -8,8 +8,13 @@ import type { Segment } from './segment';
  * and long options block the premium. Option writing is refused by the risk gates.
  */
 export function marginRate(segment: Segment, product: PaperProduct): number {
-  if (segment === 'equity') return product === 'CNC' ? 1 : 0.2;
-  return segment === 'futures' ? 0.15 : 1;
+  switch (segment) {
+    case 'equity': return product === 'CNC' ? 1 : 0.2;
+    case 'us-equity': return product === 'CNC' ? 1 : 0.25; // US intraday buying power is 4x
+    case 'futures': case 'commodity': return 0.15;
+    case 'forex': return 0.05; // 20:1, a common retail limit for major pairs
+    case 'options': return 1;
+  }
 }
 
 interface Exposure { quantity: number; segment: Segment; product: PaperProduct }
