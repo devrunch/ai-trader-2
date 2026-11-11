@@ -4,8 +4,16 @@ export interface ChartColors { up: string; down: string; text: string; grid: str
 interface CandlePoint { time: number; open: number; high: number; low: number; close: number }
 export type VolumePoint = { time: number; value: number; color: string } | { time: number };
 export type LinePoint = { time: number; value: number } | { time: number };
-export interface IndicatorSeriesOptions { kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'; color: string; lineWidth: number; pane: number; title: string }
-export interface IndicatorSeriesLike { setData: (points: LinePoint[]) => void; update: (point: LinePoint) => void; priceLine: (value: number, title: string, color: string) => void; remove: () => void }
+/** How one plot looks; changing it repaints the series in place. */
+export interface SeriesStyle { visible: boolean; color: string; lineWidth: number; lineStyle: 'solid' | 'dashed' | 'dotted'; type: 'line' | 'step' | 'histogram' | 'circles' | 'area' | 'columns'; precision: number | null }
+/** `kind` picks the series class and never changes; the rest is the style it starts with. */
+export interface IndicatorSeriesOptions extends SeriesStyle { kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'; pane: number; title: string }
+export interface LevelLine { value: number; title: string; color: string; lineStyle: SeriesStyle['lineStyle'] }
+export interface IndicatorSeriesLike {
+  setData: (points: LinePoint[]) => void; update: (point: LinePoint) => void; applyStyle: (style: SeriesStyle) => void;
+  /** Replaces the series' level lines. */
+  setLevels: (levels: readonly LevelLine[]) => void; remove: () => void;
+}
 
 /** The slice of the charting library we use, so the adapter is testable without a canvas. */
 export interface ChartLike {
