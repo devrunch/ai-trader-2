@@ -33,3 +33,16 @@ describe('input draft', () => {
     expect(inputSummary(defs, { length: 9 })).toBe('9 2 SMA close');
   });
 });
+
+// FR-IN-13
+describe('input draft with an indicator as source', () => {
+  const ref = { from: 'ind-1', plot: 'rsi' };
+  it('keeps a saved ref in the draft and reads it back as a ref', () => {
+    const draft = draftFrom(defs, { source: ref });
+    expect(draft.source).toBe('ref:ind-1:rsi');
+    expect(readDraft(defs, draft)).toMatchObject({ ok: true, values: { source: ref } });
+  });
+  it('shows the parent\'s name in the legend summary', () => {
+    expect(inputSummary(defs, { length: 9, source: ref }, key => `name-of-${key}`)).toBe('9 2 SMA name-of-ind-1');
+  });
+});

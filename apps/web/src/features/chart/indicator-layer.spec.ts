@@ -37,6 +37,20 @@ describe('IndicatorLayer', () => {
     expect(created[1]?.series.priceLine).toHaveBeenCalledWith(70, 'L70', 'css(gray)');
   });
 
+  // FR-IN-13: as TradingView does, a child of an indicator on its own pane draws on that pane.
+  it('paints a child of a pane indicator on the parent\'s pane, wherever it sits in the list', () => {
+    const { chart, created } = fakeChart();
+    const layer = new IndicatorLayer(chart, token => token);
+    layer.set([
+      { key: 'child', parentKey: 'rsi', definition: definition('sma', true, ['ma']), result: result({ ma: [1, 2] }) },
+      { key: 'rsi', definition: definition('rsi', false, ['rsi']), result: result({ rsi: [40, 60] }) },
+      { key: 'other', definition: definition('macd', false, ['macd']), result: result({ macd: [1, 2] }) },
+      { key: 'onPrice', parentKey: 'sma0', definition: definition('sma', true, ['ma']), result: result({ ma: [1, 2] }) },
+      { key: 'sma0', definition: definition('sma', true, ['ma']), result: result({ ma: [1, 2] }) },
+    ]);
+    expect(created.map(c => c.options.pane)).toEqual([2, 2, 3, 0, 0]);
+  });
+
   it('repaints only an indicator whose result changed', () => {
     const { chart, created } = fakeChart();
     const layer = new IndicatorLayer(chart, token => token);

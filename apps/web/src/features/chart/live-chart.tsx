@@ -11,7 +11,7 @@ import { DrawingLayer } from './drawing-layer';
 import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { OhlcLegend } from './ohlc-legend';
-import { IndicatorLegend, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
+import { IndicatorLegend, indicatorLabel, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
 import { useQueryClient } from '@tanstack/react-query';
 import { createLwcChart } from './lwc-chart';
 
@@ -93,11 +93,11 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     const client = liveClient();
     const stops = indicatorItems.map(item => client.watchIndicator(symbol, interval, item.key, { kind: 'builtin', id: item.id, inputs: item.inputs }, {
       onUpdate: point => { layerRef.current?.update(item.key, point); },
-      onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item), result); },
+      onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item, indicatorItems), result); },
       onError: () => undefined, // the HTTP series and its error stay on screen; the legend shows that error
-    }));
+    }, indicatorLabel(indicators.catalog.data?.find(d => d.id === item.id), item)));
     return () => { for (const stop of stops) stop(); };
-  }, [symbol, interval, indicatorItems, queryClient]);
+  }, [symbol, interval, indicatorItems, indicators.catalog.data, queryClient]);
   useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;

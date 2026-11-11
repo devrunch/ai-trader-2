@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import type { IndicatorInputValues } from '@aitrader/contracts';
 
-export type InputValues = Record<string, number | boolean | string>;
+export type InputValues = IndicatorInputValues;
 export interface ChartIndicator { key: string; id: string; inputs: InputValues }
 
 interface IndicatorState {

@@ -1,7 +1,7 @@
 import type { IndicatorDefinition, IndicatorResult } from '@aitrader/contracts';
 import type { ChartLike, IndicatorSeriesLike, LinePoint } from './chart-adapter';
 
-interface Painted { key: string; definition: IndicatorDefinition; result: IndicatorResult }
+interface Painted { key: string; definition: IndicatorDefinition; result: IndicatorResult; /** The indicator this one takes its source from. */ parentKey?: string | undefined }
 const FIRST_INDICATOR_PANE = 2;
 
 /** Paints indicator plots imperatively: overlays on the price pane, the rest on their own panes; levels as price lines. */
@@ -56,9 +56,21 @@ export class IndicatorLayer {
   private clear(): void { for (const entry of this.painted) for (const series of entry.series) series.remove(); this.painted = []; }
 }
 
+/** Overlays share the price pane; others get their own, except a child of an indicator on its own pane, which joins that pane (as TradingView does). */
 function assignPanes(items: readonly Painted[]): number[] {
   let next = FIRST_INDICATOR_PANE;
-  return items.map(item => (item.definition.overlay ? 0 : next++));
+  const byKey = new Map(items.map(item => [item.key, item]));
+  const panes = new Map<string, number>();
+  const resolve = (item: Painted, visiting: ReadonlySet<string>): number => {
+    const known = panes.get(item.key);
+    if (known !== undefined) return known;
+    const parent = item.parentKey === undefined || visiting.has(item.parentKey) ? undefined : byKey.get(item.parentKey);
+    const inherited = parent ? resolve(parent, new Set(visiting).add(item.key)) : 0;
+    const pane = inherited !== 0 ? inherited : item.definition.overlay ? 0 : next++;
+    panes.set(item.key, pane);
+    return pane;
+  };
+  return items.map(item => resolve(item, new Set()));
 }
 
 function points(result: IndicatorResult, plotId: string | undefined): LinePoint[] {
