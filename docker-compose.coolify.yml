@@ -1,0 +1,119 @@
+# Coolify "Docker Compose" application. Only `web` gets a domain; everything else stays on the internal network.
+# Memory budget (mem_limit): api 768 + market-data 320 + web 64 + postgres 512 + redis 192 = 1856 MB.
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://aitrader:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/aitrader
+  REDIS_URL: redis://redis:6379
+  APP_URL: ${SERVICE_URL_WEB}
+  CORS_ORIGINS: ${SERVICE_URL_WEB}
+  TRUST_PROXY: ${TRUST_PROXY:-1}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SESSION_SECRET: ${SESSION_SECRET:?}
+  ZERODHA_API_KEY: ${ZERODHA_API_KEY:?}
+  ZERODHA_API_SECRET: ${ZERODHA_API_SECRET:?}
+  ZERODHA_USER_ID: ${ZERODHA_USER_ID:?}
+  ZERODHA_PASSWORD: ${ZERODHA_PASSWORD:?}
+  ZERODHA_TOTP_SECRET: ${ZERODHA_TOTP_SECRET:?}
+  KITE_AUTO_LOGIN: ${KITE_AUTO_LOGIN:-false}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  RESEND_DOMAIN: ${RESEND_DOMAIN:-}
+  ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+  AGENT_MODEL: ${AGENT_MODEL:-}
+  AGENT_FALLBACK_MODEL: ${AGENT_FALLBACK_MODEL:-}
+  AGENT_BASE_URL: ${AGENT_BASE_URL:-}
+  AGENT_API_KEY: ${AGENT_API_KEY:-}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  XAI_API_KEY: ${XAI_API_KEY:-}
+  GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+  BEDROCK_API_KEY: ${BEDROCK_API_KEY:-}
+  BEDROCK_BASE_URL: ${BEDROCK_BASE_URL:-}
+  AWS_REGION: ${AWS_REGION:-}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+  NEWS_API_KEY: ${NEWS_API_KEY:-}
+
+services:
+  api:
+    build: { context: ., dockerfile: Dockerfile, target: api }
+    restart: unless-stopped
+    mem_limit: 768m
+    command: ["sh", "-c", "node dist/migrate.js && exec node --max-old-space-size=448 dist/main.js"]
+    environment:
+      <<: *app-env
+      API_INSTANCE_ID: api-1
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  market-data:
+    build: { context: ., dockerfile: Dockerfile, target: api }
+    restart: unless-stopped
+    mem_limit: 320m
+    command: ["node", "--max-old-space-size=192", "dist/market-data.main.js"]
+    environment:
+      <<: *app-env
+      MD_INSTANCE_ID: md-1
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+  web:
+    build: { context: ., dockerfile: Dockerfile, target: web }
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      - SERVICE_FQDN_WEB_80
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    mem_limit: 512m
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "effective_cache_size=256MB", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=32MB", "-c", "max_connections=50"]
+    environment:
+      POSTGRES_USER: aitrader
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: aitrader
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aitrader -d aitrader"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    mem_limit: 192m
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
+  redisdata:
