@@ -1,5 +1,5 @@
 export type CompletionKind = 'function' | 'variable' | 'constant' | 'keyword';
-export type Expectation = 'supported' | 'refused';
+type Expectation = 'supported' | 'refused';
 
 /** One feature and a tiny script that uses it; the spec runs the script and checks the outcome equals `expect`. */
 export interface Probe {
