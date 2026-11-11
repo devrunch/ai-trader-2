@@ -25,7 +25,7 @@ import { JobScheduler } from './shared/jobs';
 
 export async function startMarketDataProcess(config: AppConfig = loadRuntimeConfig()): Promise<() => Promise<void>> {
   const app = await NestFactory.create(MarketDataAppModule.forRoot(config), { bufferLogs: true });
-  configureApp(app); app.useLogger(app.get(Logger)); app.enableShutdownHooks();
+  configureApp(app, config.TRUST_PROXY); app.useLogger(app.get(Logger)); app.enableShutdownHooks();
   await app.listen(config.MD_PORT);
   const redis = app.get<Redis>(REDIS); const appConfig = app.get<AppConfig>(APP_CONFIG);
   await redis.ping();
