@@ -97,10 +97,8 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     const key = `${symbol}|${interval}|${String(Math.max(0, ...missing))}`;
     if (missing.length === 0 || refetched.current === key) return;
     refetched.current = key;
-    const controller = new AbortController();
-    apiFetch(`/v1/bars?${new URLSearchParams({ symbol, interval, limit: String(PAGE) }).toString()}`, { schema: BarsResponseSchema, signal: controller.signal })
+    apiFetch(`/v1/bars?${new URLSearchParams({ symbol, interval, limit: String(PAGE) }).toString()}`, { schema: BarsResponseSchema })
       .then(page => { liveClient().mergeHistory(symbol, interval, page.bars); }).catch(() => undefined);
-    return () => { controller.abort(); refetched.current = ''; };
   }, [indicators.series, loaded, symbol, interval]);
   // Per-tick indicator values over the socket (FR-IN-5); a resubscribe brings the full series back through the query cache.
   useEffect(() => {
