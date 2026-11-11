@@ -31,10 +31,10 @@ export type IndicatorVisibility = Record<TimeframeGroup, TimeframeRange>;
 /** What the dialog edits and the store keeps, apart from the inputs. */
 export interface Presentation { style: IndicatorStyle; visibility: IndicatorVisibility }
 
-const LIMITS: Record<TimeframeGroup, number> = { seconds: 59, minutes: 59, hours: 24, days: 366, weeks: 52, months: 12 };
+export const GROUP_LIMITS: Record<TimeframeGroup, number> = { seconds: 59, minutes: 59, hours: 24, days: 366, weeks: 52, months: 12 };
 
 export function defaultVisibility(): IndicatorVisibility {
-  return Object.fromEntries(TIMEFRAME_GROUPS.map(group => [group, { enabled: true, from: 1, to: LIMITS[group] }])) as IndicatorVisibility;
+  return Object.fromEntries(TIMEFRAME_GROUPS.map(group => [group, { enabled: true, from: 1, to: GROUP_LIMITS[group] }])) as IndicatorVisibility;
 }
 
 /** The built-in's own look; the stored style is compared against this. */

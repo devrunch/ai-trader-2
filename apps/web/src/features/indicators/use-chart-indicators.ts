@@ -2,15 +2,16 @@ import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query';
 import { IndicatorListResponseSchema, IndicatorResultSchema, type IndicatorDefinition, type IndicatorResult, type Interval } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api/http';
 import { ApiError } from '../../shared/api/api-error';
+import { resolveStyle, visibleOn, type IndicatorStyle, type Presentation } from './style';
 import { chainOthers, indicatorLabel, parentKeyOf, sourceUnavailable } from './source-refs';
 import { useIndicatorStore, type ChartIndicator } from './state/indicator-store';
 
 const LIMIT = 500;
 
 /** What the chart paints for one indicator: its definition and the latest computed series. */
-interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult; /** The indicator whose plot is this one's source; it paints on that pane by default. */ parentKey: string | undefined }
+interface ChartIndicatorSeries { key: string; definition: IndicatorDefinition; result: IndicatorResult; /** The indicator whose plot is this one's source; it paints on that pane by default. */ parentKey: string | undefined; style: IndicatorStyle; /** Not shown on this interval (FR-IN-11). */ hidden: boolean }
 const SOURCE_UNAVAILABLE = 'Source unavailable';
-export interface IndicatorRow { item: ChartIndicator; definition: IndicatorDefinition | undefined; result: IndicatorResult | undefined; error: string | undefined; loading: boolean }
+export interface IndicatorRow { item: ChartIndicator; definition: IndicatorDefinition | undefined; result: IndicatorResult | undefined; error: string | undefined; loading: boolean; presentation: Presentation | undefined; hidden: boolean }
 
 export function useIndicatorCatalog() {
   return useQuery({ queryKey: ['indicators'], staleTime: Infinity,
@@ -27,6 +28,7 @@ export const indicatorQueryKey = (symbol: string, interval: Interval, item: Char
  */
 export function useChartIndicators(symbol: string, interval: Interval) {
   const items = useIndicatorStore(s => s.items);
+  const presentation = useIndicatorStore(s => s.presentation);
   const catalog = useIndicatorCatalog();
   const results = useQueries({ queries: items.map(item => ({
     queryKey: indicatorQueryKey(symbol, interval, item, items),
@@ -46,10 +48,11 @@ export function useChartIndicators(symbol: string, interval: Interval) {
     const query = results[i];
     const error = query?.error;
     const unavailable = sourceUnavailable(items, item, failed);
-    return { item, definition: catalog.data?.find(d => d.id === item.id), result: unavailable ? undefined : query?.data, loading: !unavailable && (query?.isPending ?? true),
+    const saved = presentation[item.key];
+    return { item, presentation: saved, hidden: saved !== undefined && !visibleOn(saved.visibility, interval), definition: catalog.data?.find(d => d.id === item.id), result: unavailable ? undefined : query?.data, loading: !unavailable && (query?.isPending ?? true),
       error: unavailable ? SOURCE_UNAVAILABLE : error ? (error instanceof ApiError ? error.message : 'Indicator failed to load') : undefined };
   });
   const series: ChartIndicatorSeries[] = rows.flatMap(row => (row.definition && row.result
-    ? [{ key: row.item.key, definition: row.definition, result: row.result, parentKey: parentKeyOf(row.item) }] : []));
+    ? [{ key: row.item.key, definition: row.definition, result: row.result, parentKey: parentKeyOf(row.item), style: resolveStyle(row.definition, row.presentation?.style), hidden: row.hidden }] : []));
   return { rows, series, catalog };
 }

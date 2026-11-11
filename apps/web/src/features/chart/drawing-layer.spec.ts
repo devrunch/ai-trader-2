@@ -11,7 +11,7 @@ function fakeChart() {
   return { created, chart: { addIndicatorSeries: (options: IndicatorSeriesOptions) => {
     const entry = { options, setData: vi.fn(), remove: vi.fn() };
     created.push(entry);
-    return { setData: entry.setData, update: vi.fn(), priceLine: vi.fn(), remove: entry.remove };
+    return { setData: entry.setData, update: vi.fn(), applyStyle: vi.fn(), setLevels: vi.fn(), remove: entry.remove };
   } } };
 }
 
