@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildCalcTool, buildPaperTools, buildSkillTools, buildTaskTools } from './power-tools';
+import { buildCalcTool, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
 const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
@@ -91,5 +91,16 @@ describe('nested inputs sent as JSON text', () => {
     expect(await schedule?.call(ctx, { title: 'EURUSD', instruction: 'check', trigger })).toMatchObject({ ok: true });
     expect(tasks.create).toHaveBeenCalledWith('u1', ctx.conversationId, expect.objectContaining({ trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' } }));
     expect(await schedule?.call(ctx, { title: 'x', instruction: 'y', trigger: 'every five minutes' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});
+
+describe('watchlist tools', () => {
+  it('read, add and remove on the caller\'s own list, with canonical ids only', async () => {
+    const list = { get: vi.fn().mockResolvedValue({ items: ['NSE:INFY'] }), add: vi.fn().mockResolvedValue({ items: ['NSE:INFY', 'NASDAQ:AAPL'] }), remove: vi.fn().mockResolvedValue({ items: [] }) };
+    const tools = buildWatchlistTools(list, deps);
+    expect(await byName(tools, 'getWatchlist')?.call(ctx, {})).toMatchObject({ ok: true, data: { items: ['NSE:INFY'] } });
+    expect(await byName(tools, 'addToWatchlist')?.call(ctx, { symbol: 'NASDAQ:AAPL' })).toMatchObject({ ok: true });
+    expect(list.add).toHaveBeenCalledWith('u1', 'NASDAQ:AAPL');
+    expect(await byName(tools, 'removeFromWatchlist')?.call(ctx, { symbol: 'aapl' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
   });
 });

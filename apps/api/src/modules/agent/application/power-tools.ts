@@ -140,3 +140,21 @@ export function buildNewsTools(news: NewsDesk, deps: GuardDeps): Array<GuardedTo
     input: z.strictObject({ symbol: SYMBOL.optional(), hours: z.number().int().min(1).max(336).default(24), limit: z.number().int().min(1).max(30).default(15) }),
     run: input => news.list(input) }, deps)];
 }
+
+export interface WatchlistDesk {
+  get(userId: string): Promise<{ items: string[] }>;
+  add(userId: string, symbol: string): Promise<{ items: string[] }>;
+  remove(userId: string, symbol: string): Promise<{ items: string[] }>;
+}
+
+/** The user's own watchlist: the assistant can read it and add or remove symbols when asked. */
+export function buildWatchlistTools(list: WatchlistDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+  return [
+    guardedTool({ name: 'getWatchlist', description: 'The symbols on the user\'s watchlist, in their order.',
+      input: z.looseObject({}), run: (_input, ctx) => list.get(ctx.userId) }, deps),
+    guardedTool({ name: 'addToWatchlist', description: 'Add a symbol to the user\'s watchlist (only when they ask, or agree to your suggestion).',
+      input: z.strictObject({ symbol: SYMBOL }), run: (o, ctx) => list.add(ctx.userId, o.symbol) }, deps),
+    guardedTool({ name: 'removeFromWatchlist', description: 'Remove a symbol from the user\'s watchlist (only when they ask).',
+      input: z.strictObject({ symbol: SYMBOL }), run: (o, ctx) => list.remove(ctx.userId, o.symbol) }, deps),
+  ];
+}
