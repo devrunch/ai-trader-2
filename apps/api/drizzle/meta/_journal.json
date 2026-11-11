@@ -134,6 +134,13 @@
       "when": 1794300011000,
       "tag": "0021_agent_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794300012000,
+      "tag": "0022_economic_calendar",
+      "breakpoints": true
     }
   ]
 }

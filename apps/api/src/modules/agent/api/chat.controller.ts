@@ -30,6 +30,10 @@ export class ChatController {
     void pipeUIMessageStreamToResponse({ response: res, stream: stream as ReadableStream<UIMessageChunk> });
   }
 
+  /** Runs to completion (about a minute) and answers with the text; the full exchange stays in its own thread. */
+  @Post('brief') @HttpCode(200) @UseGuards(CsrfHeaderGuard)
+  brief(@Req() req: AuthRequest) { return this.chat.brief(userId(req)); }
+
   @Get('threads')
   list(@Req() req: AuthRequest) { return this.threads.list(userId(req)); }
 
