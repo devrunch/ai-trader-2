@@ -1,1 +1,1 @@
-export { describeFill, Notifications, type FillEvent } from './notifications';
+export { describeFill, Notifications } from './notifications';

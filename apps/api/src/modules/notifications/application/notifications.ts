@@ -1,6 +1,6 @@
 import type { NotificationDto } from '@aitrader/contracts';
 
-export type NotificationKind = NotificationDto['kind'];
+type NotificationKind = NotificationDto['kind'];
 export interface NewNotification { userId: string; kind: NotificationKind; title: string; body?: string | null; link?: { threadId?: string; symbol?: string } | null }
 export interface NotificationStore {
   insert(row: NewNotification & { id: string }): Promise<void>;

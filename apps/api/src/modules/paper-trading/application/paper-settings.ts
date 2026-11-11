@@ -14,5 +14,5 @@ export const DEFAULT_PAPER_SETTINGS: PaperSettings = {
 };
 
 /** A fill, for whoever wants to tell the user (in-app notifications). Raised inside the fill's transaction. */
-export interface PaperFillEvent { userId: string; instrumentId: string; side: 'buy' | 'sell'; quantity: number; price: number; realised: number; clientOrderId: string }
+interface PaperFillEvent { userId: string; instrumentId: string; side: 'buy' | 'sell'; quantity: number; price: number; realised: number; clientOrderId: string }
 export interface PaperDeps { clock: () => number; ids: () => string; settings: PaperSettings; events?: { filled(event: PaperFillEvent): void } }
