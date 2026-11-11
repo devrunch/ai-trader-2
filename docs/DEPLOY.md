@@ -8,7 +8,7 @@ Owner decision 2026-11-11: ai-trader-2 replaces the old product on this box; Pos
 | Web (SPA) | static files from Caddy, `/srv/aitrader2/current/web` |
 | API (REST, `/api/socket.io`, agent, jobs) | `aitrader2-api.service`, 127.0.0.1:8000, heap 448 MB |
 | Market data (the one Kite websocket) | `aitrader2-market-data.service`, 127.0.0.1:8001, heap 256 MB |
-| Postgres 16 | on the box, `aitrader` database, password in `/srv/aitrader2/shared/db.pass` |
+| Postgres 18 (apt.postgresql.org) | on the box, `aitrader` database, password in `/srv/aitrader2/shared/db.pass` |
 | Redis | on the box, DB 1 (DB 0 holds the old product's keys), maxmemory 128 MB, noeviction |
 | Secrets | `/srv/aitrader2/shared/api.env` (600, service user) |
 

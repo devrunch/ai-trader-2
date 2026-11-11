@@ -19,6 +19,7 @@ cat > \$ROOT/api.env.new
 [ -f \$ROOT/session.secret ] || openssl rand -hex 32 > \$ROOT/session.secret
 {
   echo NODE_ENV=production
+  echo KITE_AUTO_LOGIN=true
   echo LOG_LEVEL=info
   echo DATABASE_URL=postgresql://aitrader:\$(cat \$ROOT/db.pass)@127.0.0.1:5432/aitrader
   echo DATABASE_POOL_MAX=10
