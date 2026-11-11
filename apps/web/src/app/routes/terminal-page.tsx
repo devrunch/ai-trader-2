@@ -9,6 +9,7 @@ import { IndicatorPicker } from '../../features/indicators';
 import { InstrumentBadge, IntervalPicker, Watchlist } from '../../features/terminal';
 import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
+import { NewsPanel } from '../../features/news';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 // Loaded on first visit to /terminal: the chart library and live client stay out of the initial bundle.
@@ -36,7 +37,7 @@ export function TerminalPage() {
   </div>;
   return <>
     <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
-      widgets={{ watchlist: <Watchlist />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NotYet what="News feeds" /> }} />
+      widgets={{ watchlist: <Watchlist />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
     {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}
   </>;

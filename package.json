@@ -23,6 +23,7 @@
     "diagrams:validate": "likec4 validate architecture/model",
     "test:int": "pnpm --filter @aitrader/api test:int",
     "test:perf": "pnpm --filter @aitrader/api test:perf",
+    "eval:agent": "node scripts/evals/agent-evals.mjs",
     "build:packages": "pnpm --filter \"./packages/*\" build",
     "check:python": "uv --directory services/compute run --frozen ruff check . && uv --directory services/compute run --frozen ruff format --check . && uv --directory services/compute run --frozen mypy && uv --directory services/compute run --frozen pytest",
     "generate:compute-client": "pnpm --filter @aitrader/compute-client generate",
