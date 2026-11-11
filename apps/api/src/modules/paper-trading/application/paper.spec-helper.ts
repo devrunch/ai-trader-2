@@ -20,13 +20,23 @@ export class MemoryPaperStore implements PaperStore {
   private chain = Promise.resolve();
   private next = 0;
 
-  accountFor(userId: string, initialCash: number): Promise<AccountRecord> {
-    let account = this.state.accounts.find(a => a.userId === userId);
+  accountFor(userId: string, currency: string, initialCash: number): Promise<AccountRecord> {
+    let account = this.state.accounts.find(a => a.userId === userId && a.currency === currency);
     if (!account) {
-      account = { id: `acct-${String(++this.next)}`, userId, currency: 'INR', initialCash, cash: initialCash, realisedPnl: 0, charges: 0 };
+      account = { id: `acct-${String(++this.next)}`, userId, currency, initialCash, cash: initialCash, realisedPnl: 0, charges: 0 };
       this.state.accounts.push(account);
     }
     return Promise.resolve({ ...account });
+  }
+
+  accounts(userId: string): Promise<AccountRecord[]> {
+    return Promise.resolve(this.state.accounts.filter(a => a.userId === userId).map(a => ({ ...a })));
+  }
+
+  orderAccount(userId: string, orderId: string): Promise<Pick<AccountRecord, 'id' | 'currency'> | null> {
+    const order = this.state.orders.find(o => o.id === orderId);
+    const account = order && this.state.accounts.find(a => a.id === order.accountId && a.userId === userId);
+    return Promise.resolve(account ? { id: account.id, currency: account.currency } : null);
   }
 
   inAccount<T>(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>): Promise<T> {

@@ -24,6 +24,11 @@ export class PaperController {
     return { account: await this.portfolio.account(userOf(request)) };
   }
 
+  @Get('accounts')
+  async accounts(@Req() request: AuthRequest): Promise<{ accounts: PaperAccount[] }> {
+    return { accounts: await this.portfolio.accounts(userOf(request)) };
+  }
+
   @Get('orders')
   async orders(@Req() request: AuthRequest, @Query() raw: unknown): Promise<{ orders: PaperOrder[] }> {
     const query = OrdersQuerySchema.parse(raw);

@@ -17,6 +17,11 @@ import type { Segment } from './segment';
  * - Stamp duty: Indian Stamp Act as amended 2020-07-01, buy side only (delivery 0.015%, intraday 0.003%,
  *   futures 0.002%, options 0.003%).
  * - GST: 18% on brokerage, exchange charges and the SEBI fee.
+ * - MCX (zerodha.com/charges, checked 2026-11-11): futures brokerage 0.03% capped at ₹20, CTT 0.01% sell (non-agri),
+ *   exchange 0.0021%, stamp 0.002% buy; options brokerage ₹20 flat, CTT 0.05% sell, exchange 0.0418%, stamp 0.003% buy.
+ * - US stocks and ETFs: commission-free, as most US retail brokers; the SEC fee (0.00278% of sell value) and the FINRA
+ *   trading activity fee ($0.000166 a share sold, capped at $8.30), both in the `exchange` field.
+ * - Forex and metals: no commission; the cost is the spread, modelled by slippage.
  * Not modelled: DP charges on delivery sells, the NSE IPFT charge, and STT on exercise.
  */
 const CHARGE_RATES = {
@@ -52,20 +57,48 @@ type RateKey = 'equityDelivery' | 'equityIntraday' | 'futures' | 'options';
 
 function rateKey(segment: Segment, product: PaperProduct): RateKey {
   if (segment === 'equity') return product === 'CNC' ? 'equityDelivery' : 'equityIntraday';
-  return segment;
+  return segment === 'options' ? 'options' : 'futures';
+}
+
+const NONE: PaperCharges = { brokerage: 0, stt: 0, exchange: 0, sebi: 0, stamp: 0, gst: 0, total: 0 };
+const MCX = {
+  futures: { brokerageRate: 0.0003, ctt: 0.0001, exchange: 0.000021, stamp: 0.00002 },
+  options: { flat: 20, ctt: 0.0005, exchange: 0.000418, stamp: 0.00003 },
+} as const;
+const US_FEES = { sec: 0.0000278, finraPerShare: 0.000166, finraCap: 8.3 } as const;
+
+function withGst(brokerage: number, stt: number, exchange: number, sebi: number, stamp: number): PaperCharges {
+  const gst = roundMoney((brokerage + exchange + sebi) * CHARGE_RATES.gst);
+  return { brokerage, stt, exchange, sebi, stamp, gst, total: roundMoney(brokerage + stt + exchange + sebi + stamp + gst) };
 }
 
 export function chargesFor(input: ChargeInput): PaperCharges {
   const turnover = input.price * input.quantity;
+  if (input.segment === 'forex') return NONE;
+  if (input.segment === 'us-equity') {
+    if (input.side === 'buy') return NONE;
+    const fees = roundMoney(turnover * US_FEES.sec + Math.min(US_FEES.finraCap, input.quantity * US_FEES.finraPerShare));
+    return { ...NONE, exchange: fees, total: fees };
+  }
+  if (input.exchange === 'MCX') {
+    const sell = input.side === 'sell';
+    const sebi = roundMoney(turnover * CHARGE_RATES.sebi);
+    if (input.segment === 'options') {
+      const o = MCX.options;
+      return withGst(o.flat, sell ? roundMoney(turnover * o.ctt) : 0, roundMoney(turnover * o.exchange), sebi, sell ? 0 : roundMoney(turnover * o.stamp));
+    }
+    const f = MCX.futures;
+    return withGst(roundMoney(Math.min(CHARGE_RATES.brokerageCap, turnover * f.brokerageRate)), sell ? roundMoney(turnover * f.ctt) : 0,
+      roundMoney(turnover * f.exchange), sebi, sell ? 0 : roundMoney(turnover * f.stamp));
+  }
   const key = rateKey(input.segment, input.product);
   const brokerage = roundMoney(key === 'equityDelivery' ? 0
     : key === 'options' ? CHARGE_RATES.optionsBrokerage
       : Math.min(CHARGE_RATES.brokerageCap, turnover * CHARGE_RATES.brokerageRate));
   const stt = roundMoney(turnover * CHARGE_RATES.stt[key][input.side]);
   const venue = input.exchange === 'BSE' ? CHARGE_RATES.exchange.BSE : CHARGE_RATES.exchange.NSE;
-  const exchange = roundMoney(turnover * venue[input.segment]);
+  const exchange = roundMoney(turnover * venue[key === 'options' ? 'options' : key === 'futures' ? 'futures' : 'equity']);
   const sebi = roundMoney(turnover * CHARGE_RATES.sebi);
   const stamp = input.side === 'buy' ? roundMoney(turnover * CHARGE_RATES.stamp[key]) : 0;
-  const gst = roundMoney((brokerage + exchange + sebi) * CHARGE_RATES.gst);
-  return { brokerage, stt, exchange, sebi, stamp, gst, total: roundMoney(brokerage + stt + exchange + sebi + stamp + gst) };
+  return withGst(brokerage, stt, exchange, sebi, stamp);
 }

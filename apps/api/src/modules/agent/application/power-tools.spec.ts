@@ -5,7 +5,7 @@ const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-00000000000
 const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
 const deps = { limiter: { take: () => Promise.resolve(true) }, audit: () => undefined, clock: () => tenAm };
 const desk = (patch: Record<string, unknown> = {}) => ({ place: vi.fn().mockResolvedValue({ id: 'o1' }), cancel: vi.fn(), positions: vi.fn().mockResolvedValue([]),
-  initialCash: vi.fn().mockResolvedValue(1_000_000), orders: vi.fn().mockResolvedValue([]), price: vi.fn().mockResolvedValue(1500), ...patch });
+  account: vi.fn().mockResolvedValue({ initialCash: 1_000_000, currency: 'INR' }), orders: vi.fn().mockResolvedValue([]), price: vi.fn().mockResolvedValue(1500), ...patch });
 const byName = <T extends { name: string }>(tools: T[], name: string) => tools.find(t => t.name === name);
 
 describe('assistant power tools', () => {
@@ -26,6 +26,18 @@ describe('assistant power tools', () => {
     expect(await place?.call(ctx, { symbol: 'NSE:INFY', side: 'buy', type: 'market', quantity: 1000, stopLoss: 1480 }))
       .toMatchObject({ ok: false, detail: expect.stringContaining('over the per-trade limit') as unknown });
     expect(d.place).not.toHaveBeenCalled();
+  });
+
+  it('sizes the gate on the dollar account for a US stock, counting only dollar entries towards the daily loss', async () => {
+    const rupeeLoss = { instrumentId: 'NSE:INFY', currency: 'INR', side: 'buy', quantity: 1000, clientOrderId: 'agent-x', status: 'filled',
+      placedAt: tenAm - 60_000, limitPrice: null, fillPrice: 1500, stopLoss: 1471 };
+    const d = desk({ account: vi.fn().mockResolvedValue({ initialCash: 100_000, currency: 'USD' }), orders: vi.fn().mockResolvedValue([rupeeLoss]), price: vi.fn().mockResolvedValue(200) });
+    const place = byName(buildPaperTools(d, deps), 'placePaperOrder');
+    // $1,000 per-trade limit: 100 × $9 = $900 passes; ₹29,000 planned on INFY is another account's.
+    expect(await place?.call(ctx, { symbol: 'NASDAQ:AAPL', side: 'buy', type: 'market', product: 'CNC', quantity: 100, stopLoss: 191, target: 215 })).toMatchObject({ ok: true });
+    expect(d.account).toHaveBeenCalledWith('u1', 'NASDAQ:AAPL');
+    expect(await place?.call(ctx, { symbol: 'NASDAQ:AAPL', side: 'buy', type: 'market', product: 'CNC', quantity: 200, stopLoss: 191, target: 215 }))
+      .toMatchObject({ ok: false, detail: expect.stringContaining('over the per-trade limit') as unknown });
   });
 
   it('an order that only reduces an open position is an exit and skips the gate', async () => {

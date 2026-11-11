@@ -1,15 +1,16 @@
 import type { PaperPlaceOrderRequest } from '@aitrader/contracts';
 import { ConflictError, ValidationError } from '../../../shared/errors';
+import { accountTermsFor } from '../domain/currency';
 import { matchAtPrice } from '../domain/matching';
 import { InvalidOrderError, validateOrder } from '../domain/order';
-import { checkRisk } from '../domain/risk';
+import { checkRisk, type RiskLimits } from '../domain/risk';
 import { segmentOf, type Segment, type TradableInstrument } from '../domain/segment';
 import { orderExpiresAt, squareOffAt, type Session } from '../domain/session-rules';
 import { exchangeOf, fillOrder, workingOrder } from './fill-order';
 import { marginInUse } from './margin-in-use';
 import type { PaperDeps } from './paper-settings';
 import type { PaperMarket } from './ports/paper-market';
-import type { OrderRecord, PaperStore, PaperUnitOfWork } from './ports/paper-store';
+import type { InCurrency, OrderRecord, PaperStore, PaperUnitOfWork } from './ports/paper-store';
 
 type Quote = { price: number; at: number } | null;
 
@@ -20,9 +21,15 @@ type Quote = { price: number; at: number } | null;
 export class PlaceOrder {
   constructor(private readonly store: PaperStore, private readonly market: PaperMarket, private readonly deps: PaperDeps) {}
 
-  async execute(userId: string, request: PaperPlaceOrderRequest): Promise<OrderRecord> {
-    const account = await this.store.accountFor(userId, this.deps.settings.initialCash);
+  /** Each order settles in its instrument's own currency account. */
+  async execute(userId: string, request: PaperPlaceOrderRequest): Promise<InCurrency<OrderRecord>> {
     const instrument = await this.market.instrument(request.instrumentId);
+    return { ...await this.place(userId, request, instrument), currency: instrument.currency };
+  }
+
+  private async place(userId: string, request: PaperPlaceOrderRequest, instrument: TradableInstrument): Promise<OrderRecord> {
+    const terms = accountTermsFor(instrument.currency, this.deps.settings);
+    const account = await this.store.accountFor(userId, instrument.currency, terms.initialCash);
     const existing = await this.store.orderByClientId(account.id, request.clientOrderId);
     if (existing) return sameOrder(existing, request, instrument.id);
     const segment = segmentOf(instrument);
@@ -33,7 +40,7 @@ export class PlaceOrder {
     return this.store.inAccount(account.id, async tx => {
       const again = await tx.orderByClientId(request.clientOrderId);
       if (again) return sameOrder(again, request, instrument.id);
-      const order = await this.decide(tx, { accountId: account.id, request, instrument, segment, quote, session, now });
+      const order = await this.decide(tx, { accountId: account.id, request, instrument, segment, quote, session, now, limits: terms.limits });
       await tx.insertOrder(order);
       if (order.status !== 'open' || !quote || now - quote.at > this.deps.settings.freshQuoteMs) return order;
       const match = matchAtPrice(workingOrder(order, this.deps.settings.slippageRate), quote.price, now);
@@ -44,7 +51,7 @@ export class PlaceOrder {
   }
 
   private async decide(tx: PaperUnitOfWork, input: { accountId: string; request: PaperPlaceOrderRequest; instrument: TradableInstrument;
-    segment: Segment | null; quote: Quote; session: Session | null; now: number }): Promise<OrderRecord> {
+    segment: Segment | null; quote: Quote; session: Session | null; now: number; limits: RiskLimits }): Promise<OrderRecord> {
     const { request, instrument, segment, session, now } = input;
     const exchange = exchangeOf(instrument.id);
     const [account, positions, open] = await Promise.all([tx.account(), tx.positions(), tx.openOrders()]);
@@ -57,7 +64,7 @@ export class PlaceOrder {
       openPositions: positions.filter(p => p.quantity !== 0).length,
       dayPnl: session ? await tx.netPnlSince(session.open) : 0,
       availableMargin: account.cash - marginInUse(positions, open),
-    }, this.deps.settings.limits);
+    }, input.limits);
     return {
       id: this.deps.ids(), accountId: input.accountId, clientOrderId: request.clientOrderId, instrumentId: instrument.id, segment, tick: instrument.tick,
       side: request.side, type: request.type, product: request.product, quantity: request.quantity,

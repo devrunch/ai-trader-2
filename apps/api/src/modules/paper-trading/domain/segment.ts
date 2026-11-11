@@ -14,19 +14,31 @@ export interface TradableInstrument {
   tick: number;
 }
 
-const ALLOWED_EXCHANGES = ['NSE', 'BSE', 'NFO'];
+const INDIAN = ['NSE', 'BSE', 'NFO'];
+const US = ['NASDAQ', 'NYSE', 'NYSEARCA', 'AMEX', 'CBOE'];
 
-/** First release: INR Indian cash and derivatives (FR-PT-1, Q4). Indices, commodities and forex are not tradable. */
+/**
+ * What paper trading accepts (owner decision 2026-11-11: everything we chart): Indian cash and F&O, MCX commodities,
+ * US stocks and ETFs, and forex and metals. Indices are not tradable. Each trades in its own currency's account.
+ */
 export function segmentOf(instrument: Pick<TradableInstrument, 'exchange' | 'type' | 'currency' | 'status'>): Segment | null {
-  if (instrument.currency !== 'INR' || instrument.status !== 'active' || !ALLOWED_EXCHANGES.includes(instrument.exchange)) return null;
-  if (instrument.type === 'stock' || instrument.type === 'etf') return 'equity';
-  if (instrument.type === 'futures') return 'futures';
-  if (instrument.type === 'option') return 'options';
+  const { exchange, type, currency } = instrument;
+  if (instrument.status !== 'active') return null;
+  if (INDIAN.includes(exchange) && currency === 'INR') {
+    if (type === 'stock' || type === 'etf') return 'equity';
+    if (type === 'futures') return 'futures';
+    if (type === 'option') return 'options';
+    return null;
+  }
+  if (exchange === 'MCX' && currency === 'INR') return type === 'commodity' || type === 'futures' ? 'commodity' : type === 'option' ? 'options' : null;
+  if (US.includes(exchange) && currency === 'USD' && (type === 'stock' || type === 'etf')) return 'us-equity';
+  if ((exchange === 'FX' && type === 'forex') || (exchange === 'OANDA' && type === 'metal')) return 'forex';
   return null;
 }
 
-/** CNC is equity delivery only; NRML is derivatives only; MIS is both. */
+/** CNC is cash delivery (Indian and US stocks); NRML is positional derivatives, commodities and forex; MIS is intraday everywhere. */
 export function productAllowed(segment: Segment, product: PaperProduct): boolean {
   if (product === 'MIS') return true;
-  return product === 'CNC' ? segment === 'equity' : segment !== 'equity';
+  if (product === 'CNC') return segment === 'equity' || segment === 'us-equity';
+  return segment !== 'equity' && segment !== 'us-equity';
 }

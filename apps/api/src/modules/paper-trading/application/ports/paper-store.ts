@@ -4,13 +4,17 @@ import type { Segment } from '../../domain/segment';
 export interface AccountRecord {
   id: string;
   userId: string;
-  currency: 'INR';
+  /** ISO 4217; one account per currency. */
+  currency: string;
   initialCash: number;
   /** initialCash + realisedPnl − charges. */
   cash: number;
   realisedPnl: number;
   charges: number;
 }
+
+/** A row from one of the user's accounts, tagged with that account's currency. */
+export type InCurrency<T> = T & { currency: string };
 
 export interface OrderRecord {
   id: string;
@@ -98,8 +102,12 @@ export interface PaperUnitOfWork {
 }
 
 export interface PaperStore {
-  /** The user's INR account, created on first use. */
-  accountFor(userId: string, initialCash: number): Promise<AccountRecord>;
+  /** The user's account in this currency, created on first use. */
+  accountFor(userId: string, currency: string, initialCash: number): Promise<AccountRecord>;
+  /** Every account the user has opened, rupees first. */
+  accounts(userId: string): Promise<AccountRecord[]>;
+  /** The account holding this order, if it is the user's. */
+  orderAccount(userId: string, orderId: string): Promise<Pick<AccountRecord, 'id' | 'currency'> | null>;
   inAccount<T>(accountId: string, work: (tx: PaperUnitOfWork) => Promise<T>): Promise<T>;
   orders(accountId: string, filter: { openOnly: boolean; limit: number }): Promise<OrderRecord[]>;
   orderByClientId(accountId: string, clientOrderId: string): Promise<OrderRecord | null>;

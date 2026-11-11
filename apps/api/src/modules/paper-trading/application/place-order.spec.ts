@@ -27,6 +27,20 @@ describe('PlaceOrder FR-PT-1..4, FR-PT-6, NFR-RB-4', () => {
     expect(store.state.accounts[0]).toMatchObject({ cash: 1_000_000 - charges.total, charges: charges.total, realisedPnl: 0 });
   });
 
+  it('settles a US stock in its own dollar account, with limits scaled to dollars', async () => {
+    const aapl = { id: 'NASDAQ:AAPL', exchange: 'NASDAQ', type: 'stock', currency: 'USD', status: 'active', lotSize: 1, tick: 0.01 };
+    market.instruments.set(aapl.id, aapl); market.quotes.set(aapl.id, { price: 200, at: NOW });
+    await place.execute('user-1', request());
+    const order = await place.execute('user-1', request({ clientOrderId: 'us-1', instrumentId: aapl.id, product: 'CNC', quantity: 100 }));
+    expect(order).toMatchObject({ status: 'filled', currency: 'USD' });
+    const usd = store.state.accounts.find(a => a.currency === 'USD');
+    expect(usd).toMatchObject({ initialCash: 100_000, cash: 100_000, charges: 0 });
+    expect(order.accountId).toBe(usd?.id);
+    // ₹5 lakh per order scales to $50,000: 300 × $200 is over it.
+    expect(await place.execute('user-1', request({ clientOrderId: 'us-2', instrumentId: aapl.id, product: 'CNC', quantity: 300 })))
+      .toMatchObject({ status: 'rejected', rejectReason: 'MAX_ORDER_VALUE' });
+  });
+
   it('leaves a market order working when the last quote is not fresh', async () => {
     market.quotes.set(INFY.id, { price: 1500, at: NOW - 10 * 60_000 });
     expect(await place.execute('user-1', request())).toMatchObject({ status: 'open', referencePrice: 1500 });

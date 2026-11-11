@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  PaperAccountResponseSchema, PaperFillsResponseSchema, PaperOrderResponseSchema, PaperOrdersResponseSchema, PaperPositionsResponseSchema,
+  PaperAccountsResponseSchema, PaperFillsResponseSchema, PaperOrderResponseSchema, PaperOrdersResponseSchema, PaperPositionsResponseSchema,
   type PaperOrderType, type PaperPlaceOrderRequest, type PaperProduct, type PaperSide,
 } from '@aitrader/contracts';
 import type { z } from 'zod';
@@ -14,9 +14,10 @@ type PaperOrdersResponse = z.infer<typeof PaperOrdersResponseSchema>;
 const ACTIVE_MS = 5_000;
 const IDLE_MS = 30_000;
 
-export function usePaperAccount() {
-  return useQuery({ queryKey: ['paper', 'account'], refetchInterval: IDLE_MS,
-    queryFn: ({ signal }) => apiFetch('v1/paper/account', { schema: PaperAccountResponseSchema, signal }) });
+/** One paper account per currency, rupees first; a new one appears with its first order. */
+export function usePaperAccounts() {
+  return useQuery({ queryKey: ['paper', 'accounts'], refetchInterval: IDLE_MS,
+    queryFn: ({ signal }) => apiFetch('v1/paper/accounts', { schema: PaperAccountsResponseSchema, signal }) });
 }
 
 /** Positions are marked to market on the server; polling keeps P&L current without ticks entering React state. */
