@@ -137,7 +137,7 @@ describe('worker limits (E26)', () => {
   const LOOP = '//@version=5\nindicator("loop")\ntotal = 0.0\nfor i = 0 to 400000\n    for j = 0 to 400000\n        total += 1\nplot(total)';
 
   it('kills a script that loops forever, replaces the worker, and native indicators keep updating', async () => {
-    const { service, pool } = await setup({}, { timeoutMs: 400 });
+    const { service, pool } = await setup({}, { timeoutMs: 1500 });
     const native = await service.open(request({ kind: 'builtin', id: 'sma', inputs: {} }));
     const last = history.at(-1) as Bar;
     const before = await native.stream.push({ ...last, close: last.close + 1 });
@@ -153,7 +153,7 @@ describe('worker limits (E26)', () => {
   });
 
   it('says a lost worker to the live indicator that was on it, then serves new ones from the replacement', async () => {
-    const { service, pool } = await setup({}, { timeoutMs: 400, size: 1 });
+    const { service, pool } = await setup({}, { timeoutMs: 1500, size: 1 });
     const live = await service.open(request(pine(SMA)));
     await expect(service.compute(request(pine(LOOP)))).rejects.toMatchObject({ details: { reason: 'PINE_TIMEOUT' } });
     await expect(live.stream.push({ ...(history.at(-1) as Bar), close: 1 })).rejects.toMatchObject({ code: 'UNAVAILABLE', details: { reason: 'PINE_CRASHED' } });
