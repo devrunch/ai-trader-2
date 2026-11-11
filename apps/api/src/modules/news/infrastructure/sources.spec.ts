@@ -17,3 +17,10 @@ describe('parseRss', () => {
     expect(parseRss('ET', '<rss><channel></channel></rss>')).toEqual([]);
   });
 });
+
+describe('feed dates', () => {
+  it('reads the bare UTC format some feeds use', () => {
+    const xml = '<rss><channel><item><title>A</title><link>https://a.test</link><pubDate>2026-11-11 03:52:40</pubDate></item></channel></rss>';
+    expect(parseRss('Investing', xml)[0]?.publishedAt).toBe(Date.parse('2026-11-11T03:52:40Z'));
+  });
+});
