@@ -1,0 +1,22 @@
+# ai-trader-2 behind one hostname: the SPA as static files, /api (REST and the live socket) to the API.
+# The Elastic IP is fixed; sslip.io gives it a name Let's Encrypt will issue for (it refuses *.compute.amazonaws.com).
+3.7.76.174.sslip.io {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle /health {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		root * /srv/aitrader2/current/web
+		# Hashed assets never change; index.html must always be fresh.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

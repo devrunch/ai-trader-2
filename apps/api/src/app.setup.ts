@@ -2,15 +2,17 @@ import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { GlobalExceptionFilter } from './shared/errors';
 import cookieParser from 'cookie-parser';
 
-function isExpress(instance: unknown): instance is { disable(name: string): void } {
+function isExpress(instance: unknown): instance is { disable(name: string): void; set(name: string, value: unknown): void } {
   return (typeof instance === 'object' || typeof instance === 'function')
-    && instance !== null && 'disable' in instance && typeof instance.disable === 'function';
+    && instance !== null && 'disable' in instance && typeof instance.disable === 'function' && 'set' in instance && typeof instance.set === 'function';
 }
 
 export function configureApp(app: INestApplication): void {
   const instance: unknown = app.getHttpAdapter().getInstance();
   if (!isExpress(instance)) throw new Error('Application setup requires an Express adapter');
   instance.disable('x-powered-by');
+  // Behind Caddy on the same box: take the client address from X-Forwarded-For only when the hop is local.
+  instance.set('trust proxy', 'loopback');
   app.use(cookieParser());
   app.setGlobalPrefix('api', { exclude: [{ path: 'health', method: RequestMethod.ALL }, { path: 'ready', method: RequestMethod.ALL }] });
   app.useGlobalFilters(app.get(GlobalExceptionFilter));
