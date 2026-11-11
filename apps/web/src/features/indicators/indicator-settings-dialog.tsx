@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { PRICE_SOURCES, type IndicatorDefinition, type IndicatorInputDef } from '@aitrader/contracts';
 import { Button } from '../../shared/ui/button';
 import { Dialog } from '../../shared/ui/dialog';
+import { IndicatorPresetBar } from './indicator-preset-bar';
 import { draftFrom, readDraft, type Draft } from './input-draft';
+import { defaultOf, useIndicatorPresets } from './use-indicator-library';
 import type { SourceOption } from './source-refs';
 import type { InputValues } from './state/indicator-store';
 
@@ -11,6 +13,7 @@ const field = 'h-8 w-40 rounded-md border bg-background px-2 text-sm';
 /** The Inputs tab of TradingView's settings dialog: one widget per input type (FR-IN-9). */
 export function IndicatorSettingsDialog({ definition, inputs, sources, onApply, onClose }:
   { definition: IndicatorDefinition; inputs: InputValues; /** Other indicators' plots usable as source (FR-IN-13). */ sources: readonly SourceOption[]; onApply: (values: InputValues) => void; onClose: () => void }) {
+  const presets = useIndicatorPresets();
   const [draft, setDraft] = useState<Draft>(() => draftFrom(definition.inputs, inputs));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const set = (id: string, value: string | boolean) => { setDraft(current => ({ ...current, [id]: value })); };
@@ -29,8 +32,12 @@ export function IndicatorSettingsDialog({ definition, inputs, sources, onApply, 
           {errors[def.id] && <span role="alert" className="text-xs text-destructive">{errors[def.id]}</span>}
         </span>
       </label>)}
-      <div className="flex justify-between pt-2">
-        <Button type="button" variant="ghost" onClick={() => { setDraft(draftFrom(definition.inputs, {})); setErrors({}); }}>Reset settings</Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+        <span className="flex flex-wrap items-center gap-1">
+          <Button type="button" variant="ghost" onClick={() => { setDraft(draftFrom(definition.inputs, defaultOf(presets.data, definition.id)?.inputs ?? {})); setErrors({}); }}>Reset settings</Button>
+          <IndicatorPresetBar indicatorId={definition.id} current={() => { const read = readDraft(definition.inputs, draft); if (!read.ok) setErrors(read.errors); return read.ok ? read.values : null; }}
+            onApply={values => { setDraft(draftFrom(definition.inputs, values)); setErrors({}); }} />
+        </span>
         <span className="flex gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit">Ok</Button></span>
       </div>
     </form>

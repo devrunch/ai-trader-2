@@ -1,4 +1,4 @@
-import type { IndicatorComputeRequest, IndicatorDefinition, IndicatorResult, IndicatorSpec, Interval } from '@aitrader/contracts';
+import type { IndicatorChartInputs, IndicatorComputeRequest, IndicatorDefinition, IndicatorResult, IndicatorSpec, Interval } from '@aitrader/contracts';
 import { NotFoundError, ValidationError } from '../../../shared/errors';
 import type { MarketDataService } from '../../market-data/application/index';
 import { BUILTINS, findBuiltin, findBuiltinByRef } from '../domain/catalog';
@@ -24,6 +24,9 @@ export class IndicatorService {
     private readonly timezoneOf: (instrumentId: string) => string) {}
 
   list(): IndicatorDefinition[] { return BUILTINS.map(b => b.definition); }
+
+  /** Throws when the built-in is unknown or an input is out of bounds; nothing is computed. */
+  checkInputs(id: string, inputs: IndicatorChartInputs): void { domain(() => { resolveInputs(findBuiltin(id).definition.inputs, inputs); }); }
 
   get(ref: string): IndicatorDefinition { return domain(() => findBuiltinByRef(ref)).definition; }
 
