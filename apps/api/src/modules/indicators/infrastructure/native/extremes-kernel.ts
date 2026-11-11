@@ -45,3 +45,17 @@ export function previousBar(): { advance(bar: Bar, replace: boolean): Bar | unde
     return committed;
   } };
 }
+
+/** Pine's `ta.stoch(close, high, low, length)`; `null` until full and on a flat window. */
+export function stochKernel(length: number): { update(close: number, high: number, low: number, replace: boolean): number | null } {
+  const highs = new RollingWindow(length);
+  const lows = new RollingWindow(length);
+  return { update(close, high, low, replace) {
+    const highWindow = highs.update(high, replace);
+    const lowWindow = lows.update(low, replace);
+    if (!highWindow || !lowWindow) return null;
+    const highest = Math.max(...highWindow);
+    const lowest = Math.min(...lowWindow);
+    return highest === lowest ? null : 100 * (close - lowest) / (highest - lowest);
+  } };
+}
