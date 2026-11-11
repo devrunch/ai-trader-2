@@ -13,7 +13,7 @@ function fakeChart() {
     volume: { setData: vi.fn(), update: vi.fn() },
     onCrosshair: () => () => undefined, onVisibleRange: vi.fn((cb: (from: number | null) => void) => { rangeListener = cb; return vi.fn(); }),
     applyColors: vi.fn(),
-    addIndicatorSeries: vi.fn(() => ({ setData: vi.fn(), update: vi.fn(), priceLine: vi.fn(), remove: vi.fn() })),
+    addIndicatorSeries: vi.fn(() => ({ setData: vi.fn(), update: vi.fn(), applyStyle: vi.fn(), setLevels: vi.fn(), remove: vi.fn() })),
     remove: vi.fn(),
   } satisfies ChartLike;
   return { chart, scroll: (from: number | null) => { rangeListener?.(from); } };

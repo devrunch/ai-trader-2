@@ -32,7 +32,7 @@ vi.mock('./lwc-chart', () => ({
     const chart: ChartLike = {
       candles: { setData: vi.fn(), update }, volume: { setData: vi.fn(), update: vi.fn() },
       onCrosshair: () => () => undefined, onVisibleRange: cb => { scroll = cb; return () => undefined; }, applyColors: vi.fn(), remove: vi.fn(),
-      addIndicatorSeries: () => { const update = vi.fn(); indicatorUpdates.push(update); return { setData: vi.fn(), update, priceLine: vi.fn(), remove: vi.fn() }; },
+      addIndicatorSeries: () => { const update = vi.fn(); indicatorUpdates.push(update); return { setData: vi.fn(), update, applyStyle: vi.fn(), setLevels: vi.fn(), remove: vi.fn() }; },
     };
     charts.push(chart);
     return chart;
