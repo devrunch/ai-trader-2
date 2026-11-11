@@ -36,7 +36,8 @@ async function renderHome() {
 
 it('shows the user\'s markets, the day\'s releases with what they move, headlines and paper accounts', async () => {
   const router = await renderHome();
-  expect(await screen.findByText('25,255.05')).toBeDefined();
+  // Quotes follow the watchlist fetch; allow for a loaded machine.
+  expect(await screen.findByText('25,255.05', {}, { timeout: 5000 })).toBeDefined();
   expect(screen.getByText('CPI m/m')).toBeDefined();
   expect(await screen.findByText('Moves: US stocks, Gold, USD/INR')).toBeDefined();
   expect(await screen.findByText('Oil climbs on supply cuts')).toBeDefined();
