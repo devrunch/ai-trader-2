@@ -125,4 +125,18 @@ describe('IndicatorLayer gaps', () => {
     expect(created[0]?.series.setData).toHaveBeenCalledTimes(1);
     expect(created[0]?.series.update).toHaveBeenCalledWith({ time: 240, value: 4 });
   });
+
+  it('bar replay clips every plot at the replay time and ignores later live points until cleared', () => {
+    const { chart, created } = fakeChart();
+    const layer = new IndicatorLayer(chart, token => token);
+    layer.set([{ key: 'k', definition: definition('sma', true, ['sma']), result: result({ sma: [1, 2] }) }]);
+    const series = created[0]?.series;
+    layer.clip(60_000);
+    expect(series?.setData).toHaveBeenLastCalledWith([{ time: 60, value: 1 }]);
+    layer.update('k', { barTime: 180_000, values: { sma: 3 } });
+    expect(series?.update).not.toHaveBeenCalled();
+    layer.clip(null);
+    expect(series?.setData).toHaveBeenLastCalledWith([{ time: 60, value: 1 }, { time: 120, value: 2 }]);
+  });
 });
+
