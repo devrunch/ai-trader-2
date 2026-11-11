@@ -5,3 +5,4 @@ export { users } from './users';
 export { paperAccounts, paperOrders, paperFills, paperPositions } from './paper';
 export { promptVersions } from './prompts';
 export { agentThreads, agentMessages, agentTurns, agentActions, agentTasks } from './agent';
+export { newsItems } from './news';

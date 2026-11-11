@@ -43,6 +43,8 @@ export const AppConfigSchema = z.object({
   AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
   AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
+  // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.
+  NEWS_API_KEY: unsetIfBlank(secret),
   APP_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),
