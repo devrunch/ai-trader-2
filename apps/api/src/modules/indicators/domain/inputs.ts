@@ -1,5 +1,6 @@
-import { PRICE_SOURCES, type IndicatorInputDef, type PriceSource } from '@aitrader/contracts';
+import { PRICE_SOURCES, isSourceRef, type IndicatorInputDef, type PriceSource } from '@aitrader/contracts';
 import { InvalidIndicatorInputError } from './errors';
+import { EXTERNAL_SOURCE, type KernelSource } from './source';
 
 type InputValue = number | boolean | string;
 export type ResolvedInputs = Readonly<Record<string, InputValue>>;
@@ -30,6 +31,7 @@ function resolveOne(def: IndicatorInputDef, value: unknown): InputValue {
       if (typeof value !== 'string' || !def.options.includes(value)) throw new InvalidIndicatorInputError(def.id, `must be one of ${def.options.join(', ')}`);
       return value;
     case 'source':
+      if (isSourceRef(value)) return EXTERNAL_SOURCE;
       if (!isPriceSource(value)) throw new InvalidIndicatorInputError(def.id, `must be one of ${PRICE_SOURCES.join(', ')}`);
       return value;
   }
@@ -57,8 +59,8 @@ export function stringInput(inputs: ResolvedInputs, id: string): string {
   return value;
 }
 
-export function sourceInput(inputs: ResolvedInputs, id: string): PriceSource {
+export function sourceInput(inputs: ResolvedInputs, id: string): KernelSource {
   const value = inputs[id];
-  if (!isPriceSource(value)) throw new InvalidIndicatorInputError(id, 'must be a price source');
+  if (value !== EXTERNAL_SOURCE && !isPriceSource(value)) throw new InvalidIndicatorInputError(id, 'must be a price source');
   return value;
 }
