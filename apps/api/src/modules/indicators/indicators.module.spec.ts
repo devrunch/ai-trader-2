@@ -33,7 +33,7 @@ describe('IndicatorsModule', () => {
   // FR-IN-6: ten indicators on the forming bar after 5,000 bars within 5 ms.
   it('updates the ten wave-1 built-ins on a forming-bar tick within 5 ms', async () => {
     const indicators = await service();
-    const streams = await Promise.all(BUILTINS.map(async b => (await indicators.open(request(b.definition.id))).stream));
+    const streams = await Promise.all(BUILTINS.slice(0, 10).map(async b => (await indicators.open(request(b.definition.id))).stream));
     const next = history.at(-1);
     if (!next) throw new Error('no bars');
     const samples: number[] = [];
