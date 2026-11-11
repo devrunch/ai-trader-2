@@ -11,7 +11,12 @@ const task = (patch: Record<string, unknown>) => ({ id: '00000000-0000-4000-8000
 let tasks: Array<ReturnType<typeof task>> = [];
 const posted: unknown[] = [];
 const verbs: string[] = [];
+const plotDef = (id: string, title: string) => ({ id, title, kind: 'line', color: 'blue', lineWidth: 1 });
+const definition = (id: string, shortName: string, plots: unknown[]) => ({ ref: `builtin:${id}@1`, id, version: 1, name: shortName, shortName, overlay: false,
+  inputs: [], plots, levels: [] });
 const server = setupServer(
+  http.get('/api/v1/indicators', () => HttpResponse.json({ indicators: [definition('rsi', 'RSI', [plotDef('rsi', 'RSI')]),
+    definition('macd', 'MACD', [plotDef('macd', 'MACD'), plotDef('signal', 'Signal'), plotDef('hist', 'Histogram')])] })),
   http.get('/api/v1/agent/tasks', () => HttpResponse.json(tasks)),
   http.post('/api/v1/agent/tasks/alerts', async ({ request }) => {
     const body = await request.json(); posted.push(body);
@@ -31,14 +36,14 @@ afterAll(() => { server.close(); });
 
 it('lists alerts only, not the assistant\'s tasks, and opens the alert\'s symbol', async () => {
   const open = vi.fn();
-  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" onOpenSymbol={open} /></Providers>);
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={open} /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: 'NSE:INFY above 1,500' }));
   expect(open).toHaveBeenCalledWith('NSE:INFY');
   expect(screen.queryByText('Assistant task')).toBeNull();
 });
 
 it('creates a price alert on the chart symbol and shows the last price', async () => {
-  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" onOpenSymbol={vi.fn()} /></Providers>);
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={vi.fn()} /></Providers>);
   await screen.findByText('NSE:INFY above 1,500');
   fireEvent.change(screen.getByLabelText('Direction'), { target: { value: 'below' } });
   fireEvent.change(screen.getByLabelText('Level'), { target: { value: '1300' } });
@@ -50,10 +55,23 @@ it('creates a price alert on the chart symbol and shows the last price', async (
 });
 
 it('refuses an empty or non-positive level, and deletes an alert', async () => {
-  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" onOpenSymbol={vi.fn()} /></Providers>);
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={vi.fn()} /></Providers>);
   await screen.findByText('NSE:INFY above 1,500');
   fireEvent.change(screen.getByLabelText('Level'), { target: { value: '-5' } });
   expect(screen.getByRole('button', { name: 'Add' }).hasAttribute('disabled')).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Delete alert NSE:INFY above 1,500' }));
   await waitFor(() => { expect(verbs).toEqual(['cancel']); });
+});
+
+it('sets an indicator alert on the chart interval, with the chosen plot, and allows a negative level', async () => {
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={vi.fn()} /></Providers>);
+  await screen.findByText('NSE:INFY above 1,500');
+  await screen.findByRole('option', { name: 'MACD (5)' });
+  fireEvent.change(screen.getByLabelText('Condition'), { target: { value: 'macd' } });
+  fireEvent.change(screen.getByLabelText('Plot'), { target: { value: 'signal' } });
+  fireEvent.change(screen.getByLabelText('Direction'), { target: { value: 'below' } });
+  fireEvent.change(screen.getByLabelText('Level'), { target: { value: '-2.5' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await waitFor(() => { expect(posted).toEqual([{ trigger: { kind: 'indicator', symbol: 'NSE:RELIANCE', interval: '5', indicatorId: 'macd', inputs: {}, plot: 'signal',
+    op: 'below', value: -2.5 }, repeat: false }]); });
 });
