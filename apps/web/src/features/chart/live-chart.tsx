@@ -11,7 +11,8 @@ import { DrawingLayer } from './drawing-layer';
 import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { OhlcLegend } from './ohlc-legend';
-import { IndicatorLegend, useChartIndicators } from '../indicators';
+import { IndicatorLegend, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
+import { useQueryClient } from '@tanstack/react-query';
 import { createLwcChart } from './lwc-chart';
 
 const PAGE = 500;
@@ -27,10 +28,10 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   const allDrawings = useDrawingStore(s => s.items);
   const clearDrawings = useDrawingStore(s => s.clear);
   const drawings = useMemo(() => allDrawings.filter(d => d.drawing.symbol === symbol && d.drawing.interval === interval).map(d => d.drawing), [allDrawings, symbol, interval]);
-  const lastBarTime = useRef<number | undefined>(undefined);
   // Changes once per new bar (never per tick), so indicators refresh on bar close.
-  const [barEpoch, setBarEpoch] = useState(0);
-  const indicators = useChartIndicators(symbol, interval, barEpoch);
+  const indicators = useChartIndicators(symbol, interval);
+  const indicatorItems = useIndicatorStore(s => s.items);
+  const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState<{ bar: Bar; prevClose: number | undefined } | null>(null);
   const [newest, setNewest] = useState<{ bar: Bar | undefined; prevClose: number | undefined }>({ bar: undefined, prevClose: undefined });
@@ -46,7 +47,6 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     adapterRef.current = adapter;
     layerRef.current = new IndicatorLayer(chart, token => readIndicatorColor(token));
     drawingRef.current = new DrawingLayer(chart, token => readIndicatorColor(token));
-    lastBarTime.current = undefined;
     const client = liveClient();
     const controller = new AbortController(); // E15: a late page for the previous symbol is never painted
     setLoaded(false); setEmpty(false); setStatus(undefined);
@@ -59,13 +59,11 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     };
     let recent: Bar[] = [];
     const off = client.subscribe(symbol, interval, {
-      onReset: bars => { adapter.reset(bars); recent = bars.slice(-2); showNewest(recent); lastBarTime.current = bars.at(-1)?.time; setLoaded(true); setEmpty(bars.length === 0); },
+      onReset: bars => { adapter.reset(bars); recent = bars.slice(-2); showNewest(recent); setLoaded(true); setEmpty(bars.length === 0); },
       onUpdate: bar => {
         adapter.update(bar);
         recent = recent.at(-1)?.time === bar.time ? [...recent.slice(0, -1), bar] : [...recent, bar].slice(-2);
         showNewest(recent);
-        if (lastBarTime.current !== undefined && bar.time > lastBarTime.current) setBarEpoch(epoch => epoch + 1);
-        lastBarTime.current = Math.max(lastBarTime.current ?? bar.time, bar.time);
       },
       onStatus: setStatus,
     });
@@ -90,6 +88,16 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
 
   useEffect(() => { adapterRef.current?.applyColors(readChartColors()); layerRef.current?.recolor(); }, [mode]);
   useEffect(() => { layerRef.current?.set(indicators.series); }, [indicators.series]);
+  // Per-tick indicator values over the socket (FR-IN-5); a resubscribe brings the full series back through the query cache.
+  useEffect(() => {
+    const client = liveClient();
+    const stops = indicatorItems.map(item => client.watchIndicator(symbol, interval, item.key, { kind: 'builtin', id: item.id, inputs: item.inputs }, {
+      onUpdate: point => { layerRef.current?.update(item.key, point); },
+      onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item), result); },
+      onError: () => undefined, // the HTTP series and its error stay on screen; the legend shows that error
+    }));
+    return () => { for (const stop of stops) stop(); };
+  }, [symbol, interval, indicatorItems, queryClient]);
   useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);
 
   const stale = status?.state === 'stale' ? statusText(status) : undefined;

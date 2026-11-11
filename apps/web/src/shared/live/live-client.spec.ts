@@ -201,4 +201,26 @@ describe('LiveClient (FR-LS-3/4, E7–E11, E14, FR-UI-8)', () => {
     expect(h.onReset).toHaveBeenLastCalledWith([bar(8), bar(9), bar(10), bar(11)]);
     client.mergeHistory('NSE:B', '1', [bar(1)]);
   });
+
+  it('live indicators ride on the bar subscription and are sent again after every resubscribe (FR-IN-5)', async () => {
+    const { socket, client } = setup();
+    client.subscribe('NSE:A', '1', handlers());
+    const ind = { onReset: vi.fn(), onUpdate: vi.fn(), onError: vi.fn() };
+    const stop = client.watchIndicator('NSE:A', '1', 'k', { kind: 'builtin', id: 'sma', inputs: {} }, ind);
+    expect(socket.sent.filter(s => s.event === 'subscribeIndicators')).toHaveLength(0); // no server subscription yet
+    socket.ack(0, { ok: true, subscriptionId: SUB_A });
+    const first = socket.sent.filter(s => s.event === 'subscribeIndicators');
+    expect(first.map(s => s.payload)).toEqual([{ subscriptionId: SUB_A, indicators: [{ instanceId: 'k', indicator: { kind: 'builtin', id: 'sma', inputs: {} } }] }]);
+    const result = { instrumentId: 'NSE:A', resolvedId: 'NSE:A', interval: '1', ref: 'builtin:sma@1', inputs: {}, times: [t0], plots: [{ id: 'ma', values: [1] }], status: ok };
+    first[0]?.ack?.({ ok: true, results: [{ instanceId: 'k', result }] });
+    expect(ind.onReset).toHaveBeenCalledWith(result);
+    socket.fire('indicator', { subscriptionId: SUB_A, instanceId: 'k', barTime: t0, values: { ma: 2 }, seq: 3 });
+    expect(ind.onUpdate).toHaveBeenCalledWith(expect.objectContaining({ barTime: t0, values: { ma: 2 } }));
+    socket.fire('resync', { subscriptionId: SUB_A, reason: 'SEQ_GAP' });
+    await vi.advanceTimersByTimeAsync(0);
+    socket.ack(1, { ok: true, subscriptionId: SUB_B });
+    expect(socket.sent.filter(s => s.event === 'subscribeIndicators').at(-1)?.payload).toMatchObject({ subscriptionId: SUB_B });
+    stop();
+    expect(socket.sent.at(-1)).toMatchObject({ event: 'unsubscribeIndicators', payload: { subscriptionId: SUB_B, instanceIds: ['k'] } });
+  });
 });

@@ -32,7 +32,7 @@ afterEach(() => { cleanup(); bodies.length = 0; useIndicatorStore.setState({ ite
 afterAll(() => { server.close(); Reflect.deleteProperty(Element.prototype, 'scrollIntoView'); });
 
 function Harness() {
-  const { rows } = useChartIndicators('NSE:A', '1', 0);
+  const { rows } = useChartIndicators('NSE:A', '1');
   return <><IndicatorPicker /><IndicatorLegend rows={rows} /></>;
 }
 
