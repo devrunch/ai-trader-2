@@ -24,7 +24,7 @@ export const AppConfigSchema = z.object({
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
   ALERT_EMAIL_FROM: z.string().min(3).optional(),
   ALERT_EMAIL_TO: z.string().transform(value => value.split(',').map(part => part.trim()).filter(Boolean)).pipe(z.array(z.email())).default([]),
-  // Agent model, any provider: `provider/model` (bedrock-mantle, anthropic, xai, openai, openai-compatible). Unset disables the assistant.
+  // Agent model, any provider: `provider/model` (bedrock-mantle, anthropic, google, xai, openai, openai-compatible). Unset disables the assistant.
   AGENT_MODEL: unsetIfBlank(modelSpec),
   AGENT_FALLBACK_MODEL: unsetIfBlank(modelSpec),
   AGENT_BASE_URL: unsetIfBlank(z.url({ protocol: /^https?$/ })),
@@ -32,6 +32,7 @@ export const AppConfigSchema = z.object({
   ANTHROPIC_API_KEY: unsetIfBlank(secret),
   OPENAI_API_KEY: unsetIfBlank(secret),
   XAI_API_KEY: unsetIfBlank(secret),
+  GOOGLE_GENERATIVE_AI_API_KEY: unsetIfBlank(secret),
   BEDROCK_API_KEY: unsetIfBlank(secret),
   BEDROCK_BASE_URL: unsetIfBlank(z.url({ protocol: /^https$/ })),
   AWS_REGION: unsetIfBlank(secret),
