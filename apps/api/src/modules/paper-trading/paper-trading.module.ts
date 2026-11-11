@@ -3,6 +3,8 @@ import { Logger, Module } from '@nestjs/common';
 import { DB, type Database } from '../../shared/database';
 import { JobScheduler } from '../../shared/jobs';
 import { AuthModule } from '../auth/auth.module';
+import { describeFill, Notifications } from '../notifications/application/index';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { InstrumentsModule } from '../instruments/instruments.module';
 import { ResolveInstrument } from '../instruments/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
@@ -24,14 +26,15 @@ const warn = (message: string, detail: Record<string, unknown>) => { logger.warn
 
 /** Paper trading (SRD §7.4). PAPER ONLY: no broker order API is imported anywhere in this module. */
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, NotificationsModule],
   controllers: [PaperController],
   providers: [
     { provide: PAPER_STORE, inject: [DB], useFactory: (db: Database) => new DrizzlePaperStore(db) },
     { provide: PAPER_MARKET, inject: [ResolveInstrument, GetQuote, MarketDataService, RequestSubscription],
       useFactory: (resolve: ResolveInstrument, quote: GetQuote, market: MarketDataService, subscriptions: RequestSubscription) =>
         new MarketDataPaperMarket(resolve, quote, market, subscriptions, warn) },
-    { provide: PAPER_DEPS, useFactory: (): PaperDeps => ({ clock: Date.now, ids: randomUUID, settings: DEFAULT_PAPER_SETTINGS }) },
+    { provide: PAPER_DEPS, inject: [Notifications], useFactory: (notifications: Notifications): PaperDeps => ({ clock: Date.now, ids: randomUUID, settings: DEFAULT_PAPER_SETTINGS,
+      events: { filled: event => { void notifications.notify({ userId: event.userId, kind: 'fill', ...describeFill(event), link: { symbol: event.instrumentId } }); } } }) },
     { provide: PlaceOrder, inject: [PAPER_STORE, PAPER_MARKET, PAPER_DEPS],
       useFactory: (store: PaperStore, market: PaperMarket, deps: PaperDeps) => new PlaceOrder(store, market, deps) },
     { provide: CancelOrder, inject: [PAPER_STORE, PAPER_DEPS], useFactory: (store: PaperStore, deps: PaperDeps) => new CancelOrder(store, deps) },

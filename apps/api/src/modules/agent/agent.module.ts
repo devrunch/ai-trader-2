@@ -14,6 +14,8 @@ import { GetQuote, MarketDataService } from '../market-data/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { NewsService } from '../news/application/index';
 import { NewsModule } from '../news/news.module';
+import { Notifications } from '../notifications/application/index';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { CancelOrder, PlaceOrder, ReadPortfolio } from '../paper-trading/application/index';
 import { PaperTradingModule } from '../paper-trading/paper-trading.module';
 import { ActionsController } from './api/actions.controller';
@@ -62,7 +64,10 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
     },
   };
   const desk = { place: services.place.execute.bind(services.place), cancel: services.cancel.execute.bind(services.cancel),
-    positions: (userId: string) => services.portfolio.positions(userId) };
+    positions: (userId: string) => services.portfolio.positions(userId),
+    initialCash: async (userId: string) => (await services.portfolio.account(userId)).initialCash,
+    orders: (userId: string) => services.portfolio.orders(userId, { openOnly: false, limit: 200 }),
+    price: async (symbol: string) => (await services.quote.execute(symbol)).price };
   const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
     ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(desk, deps), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps)];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
@@ -70,7 +75,7 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, NewsModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, NewsModule, NotificationsModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
@@ -93,8 +98,8 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService) => new AgentTaskJob(scheduler, tasks, chat) },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, chat, notifications) },
   ],
   exports: [PromptRegistry],
 })

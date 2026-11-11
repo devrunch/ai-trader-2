@@ -29,6 +29,29 @@ export class SmtpNotifier implements Notifier {
   }
 }
 
+type Fetch = (url: string, init: { method: string; headers: Record<string, string>; body: string; signal: AbortSignal }) => Promise<{ ok: boolean; status: number }>;
+
+/** Email through Resend's HTTP API (owner choice 2026-11-11). Sends from alerts@<RESEND_DOMAIN>, which Resend must have verified. */
+export class ResendNotifier implements Notifier {
+  readonly configured = true;
+  constructor(private readonly apiKey: string, private readonly from: string, readonly recipients: readonly string[],
+    private readonly warn: (message: string) => void = () => undefined, private readonly http: Fetch = fetch) {}
+
+  async send(alert: Alert): Promise<SendResult> {
+    try {
+      const res = await withTimeout(signal => this.http('https://api.resend.com/emails', { method: 'POST', signal,
+        headers: { authorization: `Bearer ${this.apiKey}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ from: this.from, to: [...this.recipients], subject: `[AI Trader] ${alert.subject}`, text: alert.text }) }), 20_000);
+      if (res.ok) return 'sent';
+      this.warn(`alert email rejected by Resend (HTTP ${String(res.status)}): ${alert.subject}`);
+      return 'failed';
+    } catch (error) {
+      this.warn(`alert email failed (${error instanceof Error ? error.name : 'unknown'}): ${alert.subject}`);
+      return 'failed';
+    }
+  }
+}
+
 export class DisabledNotifier implements Notifier {
   readonly configured = false;
   readonly recipients: readonly string[] = [];

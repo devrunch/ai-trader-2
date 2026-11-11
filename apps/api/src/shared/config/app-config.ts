@@ -23,6 +23,9 @@ export const AppConfigSchema = z.object({
   // Ops alerts (email only). Unset SMTP_URL disables sending; alerts are then only logged.
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
   ALERT_EMAIL_FROM: z.string().min(3).optional(),
+  // Email through Resend (preferred): API key plus a domain verified in Resend; alerts come from alerts@<domain>.
+  RESEND_API_KEY: unsetIfBlank(secret),
+  RESEND_DOMAIN: unsetIfBlank(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'a domain like example.com')),
   ALERT_EMAIL_TO: z.string().transform(value => value.split(',').map(part => part.trim()).filter(Boolean)).pipe(z.array(z.email())).default([]),
   // Agent model, any provider: `provider/model` (bedrock-mantle, anthropic, google, xai, openai, openai-compatible). Unset disables the assistant.
   AGENT_MODEL: unsetIfBlank(modelSpec),

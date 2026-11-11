@@ -15,6 +15,7 @@ export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role:
   return <div className="space-y-2">{parts.map((part, i) => {
     if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
+    if (isTool(part) && part.type === 'tool-useSkill') return <SkillChip key={i} part={part} />;
     if (isTool(part)) {
       const proposed = part.type === 'tool-proposeChartAction' || part.type === 'tool-proposeDrawing' ? proposal(part.output) : null;
       return proposed ? <ActionCard key={i} proposed={proposed} /> : <ToolCard key={i} part={part} />;
@@ -28,6 +29,20 @@ function proposal(output: unknown) {
   if (typeof output !== 'object' || output === null || !('ok' in output) || output.ok !== true || !('data' in output)) return null;
   const parsed = ActionCardSchema.safeParse(output.data);
   return parsed.success ? parsed.data : null;
+}
+
+/** A playbook the assistant is following, by name and version, so the user can see which skill shaped the answer. */
+function SkillChip({ part }: { part: ToolLike }) {
+  const out = part.output;
+  const data = typeof out === 'object' && out !== null && 'ok' in out && out.ok === true && 'data' in out ? out.data : undefined;
+  const skill = typeof data === 'object' && data !== null && 'content' in data && typeof data.content === 'string' ? data as { content: string; version?: number } : undefined;
+  const title = skill?.content.split('\n').find(l => l.startsWith('#'))?.replace(/^#+\s*/, '');
+  const asked = typeof part.input === 'object' && part.input !== null && 'name' in part.input && typeof part.input.name === 'string' ? part.input.name : 'skill';
+  return <p role="status" className="inline-flex items-center gap-1.5 border border-accent/50 px-2 py-0.5 text-xs">
+    <span className="text-muted-foreground">Using skill</span><span className="font-semibold">{title ?? asked}</span>
+    {skill?.version !== undefined && <span className="text-muted-foreground">v{skill.version}</span>}
+    {!skill && part.state === 'output-available' && <span className="text-down">not found</span>}
+  </p>;
 }
 
 function ToolCard({ part }: { part: ToolLike }) {

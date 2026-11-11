@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { PAPER_PRODUCTS, TaskTriggerSchema, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { calculate, CalcError } from '../domain/calculator';
+import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
 import { guardedTool, orJsonString, type GuardDeps, type GuardedTool, type ToolContext } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
@@ -44,6 +45,23 @@ export interface PaperDesk {
   place(userId: string, request: PaperPlaceOrderRequest): Promise<unknown>;
   cancel(userId: string, orderId: string): Promise<unknown>;
   positions(userId: string): Promise<Array<{ instrumentId: string; product: string; quantity: number }>>;
+  initialCash(userId: string): Promise<number>;
+  orders(userId: string): Promise<Array<{ instrumentId: string; side: 'buy' | 'sell'; quantity: number; clientOrderId: string; status: string;
+    placedAt: number; limitPrice: number | null; fillPrice: number | null; stopLoss: number | null }>>;
+  price(symbol: string): Promise<number>;
+}
+
+const IST_MS = 19_800_000;
+const istMidnight = (now: number) => now - ((now + IST_MS) % 86_400_000);
+
+/** Today's assistant entries (not exits), with the loss each planned at its stop. */
+async function todayEntries(desk: PaperDesk, userId: string, now: number): Promise<TodayEntry[]> {
+  const since = istMidnight(now);
+  return (await desk.orders(userId)).filter(o => o.placedAt >= since && o.clientOrderId.startsWith('agent-') && (o.status === 'filled' || o.status === 'open'))
+    .map(o => {
+      const entry = o.fillPrice ?? o.limitPrice;
+      return { symbol: o.instrumentId, side: o.side, plannedLoss: entry !== null && o.stopLoss !== null ? o.quantity * Math.abs(entry - o.stopLoss) : 0 };
+    });
 }
 
 const orderId = (ctx: ToolContext): string => `agent-${ctx.turnId.slice(0, 8)}-${randomUUID().slice(0, 8)}`;
@@ -56,13 +74,25 @@ const price = z.number().positive().max(1e9);
 export function buildPaperTools(desk: PaperDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
     guardedTool({ name: 'placePaperOrder',
-      description: 'Place a PAPER order (simulated money). Market or limit; optional stopLoss and target exit it automatically. State the plan (entry, stop, size, money at risk) in your reply.',
+      description: 'Place a PAPER order (simulated money). Market or limit; stopLoss and target exit it automatically. Every entry must pass the risk check (stop required, per-trade and daily loss limits, reward:risk >= 1.5, entries per day, NSE intraday window 09:35-15:00 IST); a BLOCK says which check failed. State the plan (entry, stop, size, money at risk) in your reply.',
       input: z.strictObject({ symbol: SYMBOL, side: z.enum(['buy', 'sell']), type: z.enum(['market', 'limit']), product: z.enum(PAPER_PRODUCTS).default('MIS'),
         quantity: z.number().int().positive().max(1_000_000), limitPrice: price.optional(), stopLoss: price.optional(), target: price.optional() })
         .refine(o => o.type === 'market' || o.limitPrice !== undefined, { message: 'limit orders need limitPrice', path: ['limitPrice'] }),
-      run: (o, ctx) => desk.place(ctx.userId, { clientOrderId: orderId(ctx), instrumentId: o.symbol, side: o.side, type: o.type, product: o.product,
-        quantity: o.quantity, ...(o.limitPrice === undefined ? {} : { limitPrice: o.limitPrice }), ...(o.stopLoss === undefined ? {} : { stopLoss: o.stopLoss }),
-        ...(o.target === undefined ? {} : { target: o.target }) }) }, deps),
+      run: async (o, ctx) => {
+        // Entries pass the risk gate; an order that only reduces an open position is an exit and goes straight through.
+        const open = (await desk.positions(ctx.userId)).find(p => p.instrumentId === o.symbol && p.product === o.product && p.quantity !== 0);
+        const reducing = open !== undefined && (o.side === 'sell' ? open.quantity > 0 : open.quantity < 0) && o.quantity <= Math.abs(open.quantity);
+        if (!reducing) {
+          const now = (deps.clock ?? Date.now)();
+          const entry = o.limitPrice ?? await desk.price(o.symbol);
+          const verdict = checkEntry({ symbol: o.symbol, side: o.side, quantity: o.quantity, entry, stopLoss: o.stopLoss, target: o.target, intraday: o.product === 'MIS' },
+            await todayEntries(desk, ctx.userId, now), defaultLimits(await desk.initialCash(ctx.userId), o.symbol.split(':')[0] ?? ''), now);
+          if (!verdict.pass) throw new ValidationError(`Risk check BLOCK: ${verdict.blocks.join('; ')}`);
+        }
+        return desk.place(ctx.userId, { clientOrderId: orderId(ctx), instrumentId: o.symbol, side: o.side, type: o.type, product: o.product,
+          quantity: o.quantity, ...(o.limitPrice === undefined ? {} : { limitPrice: o.limitPrice }), ...(o.stopLoss === undefined ? {} : { stopLoss: o.stopLoss }),
+          ...(o.target === undefined ? {} : { target: o.target }) });
+      } }, deps),
     guardedTool({ name: 'cancelPaperOrder', description: 'Cancel one of the user\'s working PAPER orders by id (ids are in getPortfolio).',
       input: z.strictObject({ orderId: z.string().min(1).max(64) }), run: (o, ctx) => desk.cancel(ctx.userId, o.orderId) }, deps),
     guardedTool({ name: 'closePaperPosition', description: 'Close an open PAPER position at market.',
