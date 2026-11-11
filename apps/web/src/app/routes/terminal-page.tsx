@@ -40,7 +40,7 @@ export function TerminalPage() {
   </div>;
   return <>
     <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
-      widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <AlertsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
+      widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <AlertsPanel symbol={symbol} interval={interval} onOpenSymbol={chatActions.openSymbol} />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
     {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
     {adding && <SymbolSearchDialog initial="" onClose={() => { setAdding(false); }} onSelect={(id) => { watchlist.add.mutate(id); }} />}
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}

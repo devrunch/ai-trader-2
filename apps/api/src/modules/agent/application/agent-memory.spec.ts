@@ -6,7 +6,7 @@ function memory() {
   const rows: Array<MemoryNote & { userId: string }> = [];
   let n = 0;
   const store: MemoryStore = {
-    list: u => Promise.resolve(rows.filter(r => r.userId === u).map(({ userId: _u, ...r }) => r)),
+    list: u => Promise.resolve(rows.filter(r => r.userId === u).map(r => ({ id: r.id, note: r.note, createdAt: r.createdAt }))),
     add: (u, note) => { rows.push({ ...note, userId: u, createdAt: new Date(n).toISOString() }); return Promise.resolve(); },
     remove: (u, id) => { const i = rows.findIndex(r => r.userId === u && r.id === id); if (i >= 0) rows.splice(i, 1); return Promise.resolve(i >= 0); },
   };
