@@ -11,6 +11,8 @@ COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/resilience/package.json packages/resilience/
 COPY packages/compute-client/package.json packages/compute-client/
+# pnpm applies patchedDependencies (PineTS) during install.
+COPY patches patches
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages packages
