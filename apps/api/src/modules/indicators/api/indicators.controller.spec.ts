@@ -5,18 +5,25 @@ import type { Server } from 'node:http';
 import request from 'supertest';
 import { PinoLogger } from 'nestjs-pino';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { IndicatorDetailResponseSchema, IndicatorListResponseSchema, IndicatorResultSchema, type BarsResponse } from '@aitrader/contracts';
+import { IndicatorDefinitionSchema, IndicatorDetailResponseSchema, IndicatorListResponseSchema, IndicatorResultSchema, type BarsResponse } from '@aitrader/contracts';
 import { configureApp } from '../../../app.setup';
-import { GlobalExceptionFilter } from '../../../shared/errors';
+import { GlobalExceptionFilter, ValidationError } from '../../../shared/errors';
 import { IpRateLimitGuard } from '../../../shared/http';
 import { IndicatorService, RuntimeResolver } from '../application';
 import type { IndicatorRuntime } from '../application/ports/indicator-runtime';
+import type { ScriptInspector } from '../application/ports/script-inspector';
 import { IndicatorsController } from './indicators.controller';
 import { INDICATORS_RATE_LIMIT } from './indicators-rate-limit.guard';
 
 /** Plots each bar's close; the controller only maps DTOs. */
 const closeRuntime: IndicatorRuntime = { name: 'close', supports: program => program.kind === 'builtin',
   create: () => ({ seed: input => Promise.resolve(input.map(b => ({ ma: b.close }))), update: b => Promise.resolve({ ma: b.close }), close: () => undefined }) };
+
+/** Describes any script with `indicator(` as one length input; anything else is an unsupported feature at line 1. */
+const inspector: ScriptInspector = { inspect: source => source.includes('indicator(')
+  ? Promise.resolve({ ref: 'pine:0123456789ab@1', id: 'pine0123456789ab', version: 1, name: 'x', shortName: 'x', overlay: false,
+    inputs: [{ id: 'length', title: 'Length', type: 'int', default: 14 }], plots: [{ id: 'plot', title: 'Plot', kind: 'line', color: 'blue', lineWidth: 1 }], levels: [] })
+  : Promise.reject(new ValidationError('Unsupported Pine feature "strategy()" at line 1', { reason: 'UNSUPPORTED', feature: 'strategy()', line: 1 })) };
 
 // FR-IN-31, SRD §11
 let app: INestApplication<Server>;
@@ -25,7 +32,7 @@ const closes = Array.from({ length: 40 }, (_, i) => ({ time: i * 60_000, open: 1
 beforeEach(async () => {
   bars.mockReset().mockImplementation((symbol, interval, _cursor, limit) =>
     Promise.resolve({ instrumentId: symbol, resolvedId: symbol, interval, bars: closes.slice(-limit), nextBefore: null, status: { state: 'ok' } }));
-  const service = new IndicatorService({ bars }, new RuntimeResolver([closeRuntime]), () => 'UTC');
+  const service = new IndicatorService({ bars }, new RuntimeResolver([closeRuntime]), () => 'UTC', inspector);
   const module = await Test.createTestingModule({ controllers: [IndicatorsController], providers: [
     { provide: INDICATORS_RATE_LIMIT, useValue: new IpRateLimitGuard(30, 10, () => 0) }, GlobalExceptionFilter,
     { provide: PinoLogger, useValue: new PinoLogger({ pinoHttp: { level: 'silent' } }) },
@@ -67,6 +74,15 @@ it('rejects malformed requests and bad inputs with 422 naming the input', async 
 it('takes Pine through the same endpoint and says why it cannot run yet', async () => {
   const response = await compute({ symbol: 'NSE:X', interval: '1', indicator: { kind: 'pine', source: '//@version=6\nindicator("x")\nplot(close)' } }).expect(422);
   expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED', details: { reason: 'UNSUPPORTED' } });
+});
+
+it('describes a Pine script as a definition, and says which feature it cannot run (FR-IN-4)', async () => {
+  const post = (source: string) => request(app.getHttpServer()).post('/api/v1/indicators/describe').send({ source });
+  const ok = await post('//@version=5\nindicator("x")').expect(200);
+  expect(IndicatorDefinitionSchema.parse((ok.body as { definition: unknown }).definition).inputs[0]).toMatchObject({ id: 'length', type: 'int' });
+  const bad = await post('strategy("x")').expect(422);
+  expect(bad.body).toMatchObject({ code: 'VALIDATION_FAILED', details: { reason: 'UNSUPPORTED', feature: 'strategy()', line: 1 } });
+  await request(app.getHttpServer()).post('/api/v1/indicators/describe').send({}).expect(422);
 });
 
 it('rate limits with 429', async () => {

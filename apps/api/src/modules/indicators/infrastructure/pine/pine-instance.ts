@@ -7,22 +7,19 @@ import { failure } from './pine-failure';
 import type { PineWorker } from './pine-pool';
 import type { PlotRow } from './pine-protocol';
 
-interface Tick { bar: Bar; replace: boolean; waiters: { resolve(row: PlotValues): void; reject(error: Error): void }[] }
-
 let nextInstance = 1;
 
 /**
  * One Pine script on one worker: `seed` opens a PineTS stream over the history, `update` feeds ticks to it (FR-IN-6).
- * Ticks that arrive while one is computing are queued; replacements of the same bar collapse so the newest wins (FR-IN-30).
+ * Callers serialise ticks (`IndicatorStream` does, and lets the newest win, FR-IN-30).
  */
 export class PineInstance implements IndicatorInstance {
+  readonly latestWins = true;
   reason: string | undefined;
   private readonly id = nextInstance++;
   private worker: PineWorker | null = null;
   private opened = false;
   private closed = false;
-  private readonly queue: Tick[] = [];
-  private draining = false;
 
   constructor(private readonly acquire: () => PineWorker, private readonly candles: CandleSource, private readonly source: string,
     private readonly inputs: Readonly<Record<string, number | boolean | string>>, private readonly context: RuntimeContext) {}
@@ -32,15 +29,8 @@ export class PineInstance implements IndicatorInstance {
     return this.open(bars);
   }
 
-  update(bar: Bar, replace: boolean): Promise<PlotValues> {
-    return new Promise((resolve, reject) => {
-      const waiter = { resolve, reject };
-      const pending = this.queue.at(-1);
-      // Newest tick wins: a queued replacement of the same bar is overwritten, never computed.
-      if (replace && pending?.replace && pending.bar.time === bar.time) { pending.bar = bar; pending.waiters.push(waiter); return; }
-      this.queue.push({ bar, replace, waiters: [waiter] });
-      void this.drain();
-    });
+  async update(bar: Bar, replace: boolean): Promise<PlotValues> {
+    try { return await this.compute(bar, replace); } catch (error) { throw failure(error, this.source); }
   }
 
   close(): void {
@@ -52,7 +42,6 @@ export class PineInstance implements IndicatorInstance {
       worker.onFetch(this.id, null);
       worker.instances--;
     }
-    for (const tick of this.queue.splice(0)) for (const waiter of tick.waiters) waiter.reject(new Error('Indicator closed'));
   }
 
   private async open(bars: readonly Bar[]): Promise<PlotValues[]> {
@@ -74,31 +63,13 @@ export class PineInstance implements IndicatorInstance {
     }
   }
 
-  private async drain(): Promise<void> {
-    if (this.draining) return;
-    this.draining = true;
-    try {
-      for (let tick = this.queue.shift(); tick; tick = this.queue.shift()) await this.run(tick);
-    } finally { this.draining = false; }
-  }
-
-  private async run(tick: Tick): Promise<void> {
-    try {
-      const row = await this.compute(tick);
-      for (const waiter of tick.waiters) waiter.resolve(row);
-    } catch (error) {
-      const wrapped = failure(error, this.source);
-      for (const waiter of tick.waiters) waiter.reject(wrapped);
-    }
-  }
-
-  private async compute({ bar, replace }: Tick): Promise<PlotRow> {
+  private async compute(bar: Bar, replace: boolean): Promise<PlotRow> {
     if (!this.opened) {
       const rows = await this.open([bar]);
       return rows[0] ?? {};
     }
     const worker = this.worker;
-    if (!worker?.alive) throw worker ? new PineWorkerError('PINE_CRASHED', 'The Pine worker was replaced') : new Error('Indicator is not open');
+    if (!worker?.alive) throw worker ? new PineWorkerError('PINE_CRASHED', 'The Pine worker restarted; open the indicator again') : new Error('Indicator is not open');
     const [candle] = toCandles([bar], this.context.interval);
     if (!candle) throw new Error('Bad bar');
     const reply = await worker.request({ type: 'tick', instance: this.id, candle, replace });

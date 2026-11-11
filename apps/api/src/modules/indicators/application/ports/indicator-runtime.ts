@@ -12,6 +12,8 @@ export type IndicatorProgram =
 export interface RuntimeContext { instrumentId: string; interval: Interval; /** IANA zone of the instrument's exchange. */ timezone: string }
 
 export interface IndicatorInstance {
+  /** Ticks for one bar that queue behind a running one collapse into the newest: for instances too slow to compute every tick (FR-IN-30). */
+  readonly latestWins?: boolean | undefined;
   /** Why some values are `na` beyond warm-up, for example no data for a `request.security` symbol (E27). */
   readonly reason?: string | undefined;
   /** Feeds history oldest first and returns one row per bar. */

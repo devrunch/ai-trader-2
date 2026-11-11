@@ -1,7 +1,9 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'esbuild';
-import type { Bar } from '@aitrader/contracts';
+import type { Bar, BarsResponse } from '@aitrader/contracts';
+import { IndicatorService, RuntimeResolver } from '../../application';
+import { NativeRuntime } from '../native/native-runtime';
 import type { CandleRequest, CandleSource } from '../../application/ports/candle-source';
 import { PinePool, type PinePoolOptions } from './pine-pool';
 import { PineRuntime } from './pine-runtime';
@@ -40,4 +42,16 @@ export class FakeCandles implements CandleSource {
 export async function testRuntime(candles: CandleSource = new FakeCandles(), options: Partial<PinePoolOptions> = {}): Promise<{ runtime: PineRuntime; pool: PinePool }> {
   const pool = await testPool(options);
   return { runtime: new PineRuntime(pool, candles), pool };
+}
+
+export interface PineHarness { service: IndicatorService; runtime: PineRuntime; pool: PinePool; candles: FakeCandles; history: Bar[] }
+
+/** The real service over native and Pine runtimes, with fake market bars (every symbol resolves to `NSE:TEST`). */
+export async function pineHarness(history: Bar[], other: Record<string, Bar[]> = {}, options: Partial<PinePoolOptions> = {}): Promise<PineHarness> {
+  const candles = new FakeCandles(other);
+  const { runtime, pool } = await testRuntime(candles, options);
+  const market = { bars: (symbol: string, interval: BarsResponse['interval'], _cursor: unknown, limit: number): Promise<BarsResponse> =>
+    Promise.resolve({ instrumentId: symbol, resolvedId: 'NSE:TEST', interval, bars: history.slice(-limit), nextBefore: null, status: { state: 'ok' } }) };
+  const service = new IndicatorService(market, new RuntimeResolver([new NativeRuntime(), runtime]), () => 'Asia/Kolkata', runtime);
+  return { service, runtime, pool, candles, history };
 }
