@@ -26,12 +26,17 @@ const popular = { query: '', results: [
 const server = setupServer(
   http.get('/api/v1/quote/:id', ({ params }) => HttpResponse.json(params.id === 'NSE:TCS' ? quote('NSE:TCS', 4000, -40) : quote(String(params.id), 1500, 30))),
   http.get('/api/v1/instruments/search', () => HttpResponse.json(popular)),
+  http.get('/api/v1/watchlist', () => HttpResponse.json({ items: watch, custom: false })),
+  http.post('/api/v1/watchlist/items', async ({ request }) => { const { symbol } = await request.json() as { symbol: string }; watch = [...watch, symbol]; return HttpResponse.json({ items: watch, custom: true }); }),
+  http.delete('/api/v1/watchlist/items/:symbol', ({ params }) => { watch = watch.filter(s => s !== params.symbol); return HttpResponse.json({ items: watch, custom: true }); }),
+  http.put('/api/v1/watchlist', async ({ request }) => { watch = (await request.json() as { items: string[] }).items; return HttpResponse.json({ items: watch, custom: true }); }),
   http.get('/api/v1/quotes', ({ request }) => { quoteBatches.push(new URL(request.url).searchParams.get('ids') ?? '');
     return HttpResponse.json({ quotes: [quote('NSE:RELIANCE', 1500, 30), quote('NSE:TCS', 4000, -40)] }); }),
 );
 const quoteBatches: string[] = [];
+let watch: string[] = [];
 beforeAll(() => { server.listen(); });
-beforeEach(() => { subscribed.length = 0; });
+beforeEach(() => { subscribed.length = 0; watch = ['NSE:RELIANCE', 'NSE:TCS']; });
 afterEach(() => { cleanup(); server.resetHandlers(); });
 afterAll(() => { server.close(); });
 
@@ -77,7 +82,7 @@ it('interval picker switches interval and keeps the symbol', async () => {
 });
 
 it('watchlist streams live prices and opens a symbol on click', async () => {
-  const router = await renderWith(<Watchlist />);
+  const router = await renderWith(<Watchlist onAdd={vi.fn()} />);
   expect(await screen.findByText('TCS')).toBeDefined();
   expect(subscribed.sort()).toEqual(['NSE:RELIANCE', 'NSE:TCS']);
   expect(await screen.findByText('4,000.00')).toBeDefined();
@@ -86,6 +91,28 @@ it('watchlist streams live prices and opens a symbol on click', async () => {
   expect(quoteBatches).toEqual(['NSE:RELIANCE,NSE:TCS']);
   act(() => { store.set('price:NSE:TCS', 4100); scheduler.flush(); });
   expect(screen.getByText('4,100.00')).toBeDefined();
-  fireEvent.click(screen.getByRole('button', { name: /NSE:TCS/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'NSE:TCS' }));
   await vi.waitFor(() => { expect(router.state.location.search).toMatchObject({ symbol: 'NSE:TCS', interval: '5' }); });
+});
+
+it('watchlist removes a symbol at once and saves it, and the add button asks for a symbol', async () => {
+  const onAdd = vi.fn();
+  await renderWith(<Watchlist onAdd={onAdd} />);
+  expect(await screen.findByText('TCS')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Remove NSE:TCS' }));
+  await vi.waitFor(() => { expect(screen.queryByText('TCS')).toBeNull(); });
+  expect(watch).toEqual(['NSE:RELIANCE']);
+  fireEvent.click(screen.getByRole('button', { name: 'Add symbol' }));
+  expect(onAdd).toHaveBeenCalled();
+});
+
+it('watchlist reorders by drag and drop', async () => {
+  await renderWith(<Watchlist onAdd={vi.fn()} />);
+  await screen.findByText('TCS');
+  const rows = screen.getAllByRole('listitem');
+  fireEvent.dragStart(rows[1] as HTMLElement);
+  fireEvent.dragOver(rows[0] as HTMLElement);
+  fireEvent.drop(rows[0] as HTMLElement);
+  await vi.waitFor(() => { expect(watch).toEqual(['NSE:TCS', 'NSE:RELIANCE']); });
+  expect(screen.getAllByRole('listitem')[0]?.textContent).toContain('TCS');
 });

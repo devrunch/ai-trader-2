@@ -45,5 +45,5 @@ fi
 [ "$(git rev-list --count main..HEAD)" -gt 0 ] || { echo "nothing to merge" >&2; exit 1; }
 git switch -q main
 git merge -q --no-ff "$branch" -m "merge: ${branch}" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
-git branch -q -d "$branch"
+git branch -q -D "$branch"  # worker branches track their remote; the merge above is the check
 git log --oneline --graph -5
