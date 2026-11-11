@@ -58,6 +58,8 @@ export const AppConfigSchema = z.object({
   DATABASE_POOL_MAX: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).default(10),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   SESSION_SECRET: z.string().min(32).optional(),
+  // Express 'trust proxy' value: keyword, CIDR list or hop count.
+  TRUST_PROXY: z.string().min(1).default('loopback'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ORIGINS: z.string()
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
