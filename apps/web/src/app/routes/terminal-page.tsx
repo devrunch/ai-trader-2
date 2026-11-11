@@ -30,9 +30,10 @@ export function TerminalPage() {
   const chatActions = useMemo(() => ({ openSymbol: (next: string, nextInterval?: Interval) => { void navigate({ to: '/terminal', search: { symbol: next, interval: nextInterval ?? interval } }); },
     addDrawing }), [navigate, interval, addDrawing]);
   const toolbar = <div className="flex w-full min-w-0 items-center gap-1 px-2">
-    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+    {/* On a phone the group scrolls sideways rather than squeezing the symbol and price over the interval buttons. */}
+    <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,black_88%,transparent)]">
       <span className="hidden shrink-0 items-center xl:flex"><Brand /><Divider /></span>
-      <InstrumentBadge symbol={symbol} onSymbolClick={() => { open(''); }} /><Divider />
+      <span className="shrink-0"><InstrumentBadge symbol={symbol} onSymbolClick={() => { open(''); }} /></span><Divider />
       <span className="shrink-0"><IntervalPicker /></span><Divider />
       <span className="shrink-0"><IndicatorPicker /></span>
     </div>
