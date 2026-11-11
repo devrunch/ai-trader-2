@@ -47,6 +47,7 @@ describe('Postgres and Redis infrastructure', () => {
     await expect.poll(async () => (await http().get('/ready')).status, { timeout: 15_000, interval: 100 }).toBe(200);
   }
 
+  // Starts Postgres, Redis and two proxies; on a busy machine that alone can take over a minute.
   beforeAll(async () => {
     postgres = await startPostgres();
     cleanup.unshift(postgres.stop);
@@ -56,7 +57,7 @@ describe('Postgres and Redis infrastructure', () => {
     cleanup.unshift(databaseProxy.stop);
     redisProxy = await withToxiproxy(redis);
     cleanup.unshift(redisProxy.stop);
-  });
+  }, 180_000);
   beforeEach(async () => { await databaseProxy.restore(); await redisProxy.restore(); });
   afterEach(async () => { await app?.close(); app = undefined; });
   afterAll(async () => {
