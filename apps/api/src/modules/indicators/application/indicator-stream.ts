@@ -9,6 +9,8 @@ export interface IndicatorPoint { barTime: number; values: Record<string, number
 export class IndicatorStream {
   private readonly offsets: Map<string, OffsetStream>;
   private queue: Promise<unknown> = Promise.resolve();
+  /** The newest push that has not started computing; a tick for the same bar overwrites it. */
+  private waiting: { bar: Bar; promise: Promise<IndicatorPoint | null> } | null = null;
 
   constructor(private readonly instance: IndicatorInstance, plots: readonly string[], offsets: Readonly<Record<string, number>>,
     history: { times: readonly number[]; rows: readonly PlotValues[] }, private lastTime: number | undefined) {
@@ -19,11 +21,20 @@ export class IndicatorStream {
     }
   }
 
-  /** Serialised, so a caller that does not wait still applies ticks in arrival order. */
+  /** Serialised, so a caller that does not wait still applies ticks in arrival order. An instance with `latestWins` computes only the newest of the ticks for one bar that queue behind a running one (FR-IN-30). */
   push(bar: Bar): Promise<IndicatorPoint | null> {
-    const next = this.queue.then(() => this.apply(bar));
-    this.queue = next.catch(() => undefined);
-    return next;
+    if (this.instance.latestWins && this.waiting?.bar.time === bar.time) {
+      this.waiting.bar = bar;
+      return this.waiting.promise;
+    }
+    const entry = { bar, promise: Promise.resolve<IndicatorPoint | null>(null) };
+    entry.promise = this.queue.then(() => {
+      if (this.waiting === entry) this.waiting = null;
+      return this.apply(entry.bar);
+    });
+    this.waiting = entry;
+    this.queue = entry.promise.catch(() => undefined);
+    return entry.promise;
   }
 
   close(): void { this.instance.close(); }

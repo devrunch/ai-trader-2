@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  pinets@0.13.1:
+    hash: 337f3ab0c73793f78424d3e272a3ce5189770359d89616c8a2dcb29d6a47f762
+    path: patches/pinets@0.13.1.patch
+
 importers:
 
   .:
@@ -146,6 +151,9 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
+      pinets:
+        specifier: 0.13.1
+        version: 0.13.1(patch_hash=337f3ab0c73793f78424d3e272a3ce5189770359d89616c8a2dcb29d6a47f762)
       pino:
         specifier: 10.4.0
         version: 10.4.0
@@ -213,9 +221,9 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
-      pinets:
-        specifier: 0.13.1
-        version: 0.13.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       socket.io-client:
         specifier: 4.8.4
         version: 4.8.4
@@ -12524,7 +12532,7 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  pinets@0.13.1:
+  pinets@0.13.1(patch_hash=337f3ab0c73793f78424d3e272a3ce5189770359d89616c8a2dcb29d6a47f762):
     dependencies:
       acorn: 8.19.0
       acorn-walk: 8.3.5
