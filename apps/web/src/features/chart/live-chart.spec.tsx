@@ -116,10 +116,10 @@ it('indicators load once over HTTP, then each tick arrives over the socket strai
   await vi.waitFor(() => { expect(computes).toHaveLength(1); });
   expect(watches.map(w => [w.instanceId, w.spec])).toEqual([['k', { kind: 'builtin', id: 'sma', inputs: { length: 2 } }]]);
   expect(await screen.findAllByTestId('indicator-legend-row')).toHaveLength(1);
-  act(() => { subscriptions[0]?.handlers.onUpdate(bar(2)); watches[0]?.handlers.onUpdate({ barTime: 120_000, values: { ma: 7 } }); });
+  act(() => { subscriptions[0]?.handlers.onUpdate(bar(2)); watches[0]?.handlers.onUpdate({ barTime: t0 + 120_000, values: { ma: 7 } }); });
   await new Promise(resolve => setTimeout(resolve, 50));
   expect(computes).toHaveLength(1); // no refetch per bar
-  expect(indicatorUpdates.at(-1)).toHaveBeenCalledWith({ time: 120, value: 7 });
+  expect(indicatorUpdates.at(-1)).toHaveBeenCalledWith({ time: t0 / 1000 + 120, value: 7 });
 });
 
 // B2: bars the indicator was computed on but the chart lacks (e.g. history filled after the chart's page was read) are fetched.
