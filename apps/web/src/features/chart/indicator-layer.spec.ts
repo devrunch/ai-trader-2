@@ -33,7 +33,7 @@ describe('IndicatorLayer', () => {
       { key: 'c', definition: definition('macd', false, ['histogram']), result: result({ histogram: [1, -1] }) },
     ]);
     expect(created.map(c => [c.options.pane, c.options.kind, c.options.color])).toEqual([[0, 'line', 'css(blue)'], [2, 'line', 'css(blue)'], [3, 'histogram', 'css(blue)']]);
-    expect(created[0]?.series.setData).toHaveBeenCalledWith([{ time: 60 }, { time: 120, value: 5 }]);
+    expect(created[0]?.series.setData).toHaveBeenCalledWith([{ time: 120, value: 5 }]);
     expect(created[1]?.series.priceLine).toHaveBeenCalledWith(70, 'L70', 'css(gray)');
   });
 
@@ -59,5 +59,16 @@ describe('IndicatorLayer', () => {
     expect(created.at(-1)?.options.pane).toBe(2);
     layer.destroy();
     expect(created.at(-1)?.series.remove).toHaveBeenCalled();
+  });
+});
+
+// B1: a null in the middle of a plot must end the line, never be joined over.
+describe('IndicatorLayer gaps', () => {
+  it('draws a plot with a null in the middle as two series', () => {
+    const { chart, created } = fakeChart();
+    const layer = new IndicatorLayer(chart, token => token);
+    const times = [60_000, 120_000, 180_000, 240_000];
+    layer.set([{ key: 'a', definition: definition('supertrend', true, ['up']), result: { ...result({ up: [1, 2, null, 4] }), times } }]);
+    expect(created.map(c => c.series.setData.mock.lastCall)).toEqual([[[{ time: 60, value: 1 }, { time: 120, value: 2 }]], [[{ time: 240, value: 4 }]]]);
   });
 });

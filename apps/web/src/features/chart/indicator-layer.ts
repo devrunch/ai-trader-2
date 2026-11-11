@@ -1,8 +1,11 @@
 import type { IndicatorDefinition, IndicatorResult } from '@aitrader/contracts';
-import type { ChartLike, IndicatorSeriesLike, LinePoint } from './chart-adapter';
+import type { ChartLike, IndicatorSeriesLike, IndicatorSeriesOptions, LinePoint } from './chart-adapter';
+import { SegmentedSeries } from './segmented-series';
 
 interface Painted { key: string; definition: IndicatorDefinition; result: IndicatorResult }
 const FIRST_INDICATOR_PANE = 2;
+/** Kinds whose line the chart would otherwise join across a null. */
+const BREAKS_ON_NULL: ReadonlySet<string> = new Set(['line', 'step', 'area']);
 
 /** Paints indicator plots imperatively: overlays on the price pane, the rest on their own panes; levels as price lines. */
 export class IndicatorLayer {
@@ -45,7 +48,9 @@ export class IndicatorLayer {
   private paint(item: Painted, pane: number) {
     const series = item.definition.plots.map(plot => {
       // Names belong in the legend; the price axis shows values only.
-      const handle = this.chart.addIndicatorSeries({ kind: plot.kind, color: this.color(plot.color), lineWidth: plot.lineWidth, pane, title: '' });
+      const options: IndicatorSeriesOptions = { kind: plot.kind, color: this.color(plot.color), lineWidth: plot.lineWidth, pane, title: '' };
+      const create = () => this.chart.addIndicatorSeries(options);
+      const handle = BREAKS_ON_NULL.has(plot.kind) ? new SegmentedSeries(create) : create();
       handle.setData(points(item.result, plot.id));
       return handle;
     });
