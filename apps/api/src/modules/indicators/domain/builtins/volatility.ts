@@ -98,10 +98,10 @@ export const BOLLINGER_WIDTH = defineBuiltin({
     { id: 'contraction', title: 'Lowest Contraction Length', type: 'int', default: 125, min: 1, max: 5000 }],
   plots: [line('bbw', 'Bollinger Bands Width', 'blue'), line('highest', 'Highest Expansion', 'red'), line('lowest', 'Lowest Contraction', 'green')],
   warmup: values => numberInput(values, 'length') + Math.max(numberInput(values, 'expansion'), numberInput(values, 'contraction')),
-  pine: `${bandPine('Bollinger BandWidth', 'BBW', `expansionLength = input.int(125, "Highest Expansion Length", minval = 1)
+  pine: bandPine('Bollinger BandWidth', 'BBW', `expansionLength = input.int(125, "Highest Expansion Length", minval = 1)
 contractionLength = input.int(125, "Lowest Contraction Length", minval = 1)
 bbw = (upper - lower) / basis
 plot(bbw, "Bollinger Bands Width")
 plot(ta.highest(bbw, expansionLength), "Highest Expansion")
-plot(ta.lowest(bbw, contractionLength), "Lowest Contraction")`)}`,
+plot(ta.lowest(bbw, contractionLength), "Lowest Contraction")`),
 });

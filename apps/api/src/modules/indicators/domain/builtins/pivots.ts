@@ -1,7 +1,7 @@
 import { barsInDays, defineBuiltin, line } from './define';
 
 const LEVELS = ['R5', 'R4', 'R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3', 'S4', 'S5'] as const;
-const color = (name: string) => (name === 'P' ? 'gray' : name.startsWith('R') ? 'red' : 'green') as 'gray' | 'red' | 'green';
+const color = (name: string) => (name === 'P' ? 'gray' : name.startsWith('R') ? 'red' : 'green');
 
 export const PIVOTS = defineBuiltin({
   id: 'pivots', name: 'Pivot Points Standard', shortName: 'Pivots', overlay: true,
