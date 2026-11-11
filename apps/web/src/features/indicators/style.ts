@@ -1,9 +1,8 @@
 import type { IndicatorDefinition, Interval } from '@aitrader/contracts';
 
 export const LINE_STYLES = ['solid', 'dashed', 'dotted'] as const;
-export type LineStyle = (typeof LINE_STYLES)[number];
-export const PLOT_TYPES = ['line', 'step', 'histogram', 'circles', 'area', 'columns'] as const;
-export type PlotType = (typeof PLOT_TYPES)[number];
+type LineStyle = (typeof LINE_STYLES)[number];
+export type PlotType = 'line' | 'step' | 'histogram' | 'circles' | 'area' | 'columns';
 export const PANE_CHOICES = ['parent', 'own', 'price'] as const;
 export type PaneChoice = (typeof PANE_CHOICES)[number];
 export const MAX_PRECISION = 8;
@@ -68,7 +67,7 @@ export function allowedPlotTypes(kind: IndicatorDefinition['plots'][number]['kin
 }
 
 /** The chart's interval as a timeframe group and its count (60 is 1 hour, 240 is 4 hours). */
-export function intervalParts(interval: Interval): { group: TimeframeGroup; count: number } {
+function intervalParts(interval: Interval): { group: TimeframeGroup; count: number } {
   switch (interval) {
     case '1D': return { group: 'days', count: 1 };
     case '1W': return { group: 'weeks', count: 1 };

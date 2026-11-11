@@ -180,11 +180,11 @@ it('cancel keeps the stored style, reset to defaults restores the definition\'s 
   openTab('Style');
   fireEvent.change(await screen.findByRole('combobox', { name: 'MA colour' }), { target: { value: 'red' } });
   fireEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }));
-  expect((screen.getByRole('combobox', { name: 'MA colour' }) as HTMLSelectElement).value).toBe('blue');
+  expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'MA colour' }).value).toBe('blue');
   openTab('Visibility');
   fireEvent.click(await screen.findByRole('checkbox', { name: 'hours enabled' }));
   fireEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }));
-  expect((screen.getByRole('checkbox', { name: 'hours enabled' }) as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'hours enabled' }).checked).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
   expect(useIndicatorStore.getState().presentation).toEqual({});
 });
