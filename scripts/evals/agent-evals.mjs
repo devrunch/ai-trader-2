@@ -1,5 +1,5 @@
 // Golden conversations and safety cases against the running assistant (P7-7). Needs the API up with a model configured.
-//   node scripts/evals/agent-evals.mjs [baseUrl]
+//   node scripts/evals/agent-evals.mjs [baseUrl] [username] [password]
 // Scores each case on the tools it called and the text it wrote; writes a JSON report to .superpowers/evals/.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,8 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const base = (process.argv[2] ?? 'http://localhost:8000') + '/api';
-const user = process.env.EVAL_USER ?? 'admin';
-const password = process.env.EVAL_PASSWORD ?? 'admin123admin';
+const [, , , user = 'admin', password = 'admin123admin'] = process.argv;
 const cases = JSON.parse(readFileSync(join(here, 'cases.json'), 'utf8'));
 const h = { 'content-type': 'application/json', 'x-requested-with': 'aitrader' };
 
