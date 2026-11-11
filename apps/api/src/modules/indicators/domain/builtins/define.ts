@@ -7,13 +7,21 @@ export interface Builtin {
   readonly pine: string;
   /** Bars to read before the first returned bar so recursive state has converged. */
   warmup(inputs: ResolvedInputs, interval: Interval): number;
+  /** Plots TradingView draws with their own `offset`, added to the `offset` input; plot id → bars. */
+  plotOffsets?(inputs: ResolvedInputs): Readonly<Record<string, number>>;
 }
 
 type Spec = Omit<IndicatorDefinition, 'ref' | 'version' | 'levels'> & Partial<Pick<IndicatorDefinition, 'levels'>> & Omit<Builtin, 'definition'>;
 
-export function defineBuiltin({ pine, warmup, levels = [], ...definition }: Spec): Builtin {
-  return { definition: { ...definition, ref: `builtin:${definition.id}@1`, version: 1, levels }, pine, warmup };
+export function defineBuiltin({ pine, warmup, plotOffsets, levels = [], ...definition }: Spec): Builtin {
+  return { definition: { ...definition, ref: `builtin:${definition.id}@1`, version: 1, levels }, pine, warmup, ...(plotOffsets && { plotOffsets }) };
 }
+
+const DAYS_PER_BAR: Record<Interval, number> = { '1': 1 / 1440, '3': 3 / 1440, '5': 5 / 1440, '15': 15 / 1440, '30': 30 / 1440,
+  '60': 1 / 24, '240': 1 / 6, '1D': 1, '1W': 7, '1M': 31 };
+
+/** Bars that cover `days` calendar days on `interval`. */
+export const barsInDays = (days: number, interval: Interval): number => Math.ceil(days / DAYS_PER_BAR[interval]);
 
 /** Residual below 1e-9 relative for an RMA/EMA of `length` (decay (1 − 1/length)^bars). */
 export const recursiveWarmup = (length: number): number => Math.max(500, 10 * length);

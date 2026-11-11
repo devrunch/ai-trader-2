@@ -21,7 +21,7 @@ function bb(inputs: ResolvedInputs): BarKernel {
 }
 
 /** Pine's `ta.atr` with TradingView's smoothing choice: the moving average of `ta.tr(true)`. */
-function atrSeries(smoothing: string, length: number): { update(bar: Bar, replace: boolean): number | null } {
+export function atrSeries(smoothing: string, length: number): { update(bar: Bar, replace: boolean): number | null } {
   const tr = trueRangeKernel();
   const ma = maKernel(smoothing, length);
   return { update: (bar, replace) => ma.update(tr.update(bar, replace), bar, replace) };
