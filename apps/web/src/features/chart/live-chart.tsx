@@ -11,7 +11,7 @@ import { DrawingLayer } from './drawing-layer';
 import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { OhlcLegend } from './ohlc-legend';
-import { IndicatorLegend, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
+import { IndicatorLegend, indicatorLabel, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
 import { useQueryClient } from '@tanstack/react-query';
 import { createLwcChart } from './lwc-chart';
 
@@ -31,6 +31,9 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   // Changes once per new bar (never per tick), so indicators refresh on bar close.
   const indicators = useChartIndicators(symbol, interval);
   const indicatorItems = useIndicatorStore(s => s.items);
+  // Labels are only for the server's messages, so a catalog that arrives later must not resubscribe.
+  const catalogRef = useRef(indicators.catalog.data);
+  useEffect(() => { catalogRef.current = indicators.catalog.data; }, [indicators.catalog.data]);
   const queryClient = useQueryClient();
   const [loaded, setLoaded] = useState(false);
   const [hovered, setHovered] = useState<{ bar: Bar; prevClose: number | undefined } | null>(null);
@@ -105,9 +108,9 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
     const client = liveClient();
     const stops = indicatorItems.map(item => client.watchIndicator(symbol, interval, item.key, { kind: 'builtin', id: item.id, inputs: item.inputs }, {
       onUpdate: point => { layerRef.current?.update(item.key, point); },
-      onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item), result); },
+      onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item, indicatorItems), result); },
       onError: () => undefined, // the HTTP series and its error stay on screen; the legend shows that error
-    }));
+    }, indicatorLabel(catalogRef.current?.find(d => d.id === item.id), item)));
     return () => { for (const stop of stops) stop(); };
   }, [symbol, interval, indicatorItems, queryClient]);
   useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);

@@ -223,4 +223,14 @@ describe('LiveClient (FR-LS-3/4, E7–E11, E14, FR-UI-8)', () => {
     stop();
     expect(socket.sent.at(-1)).toMatchObject({ event: 'unsubscribeIndicators', payload: { subscriptionId: SUB_B, instanceIds: ['k'] } });
   });
+
+  // FR-IN-13: the chain's names travel with the subscription so the server can name a cycle.
+  it('sends the indicator\'s label and a source ref with its subscription', () => {
+    const { socket, client } = setup();
+    client.subscribe('NSE:A', '1', handlers());
+    socket.ack(0, { ok: true, subscriptionId: SUB_A });
+    const spec = { kind: 'builtin' as const, id: 'sma', inputs: { source: { from: 'p', plot: 'rsi' } } };
+    client.watchIndicator('NSE:A', '1', 'c', spec, { onReset: vi.fn(), onUpdate: vi.fn(), onError: vi.fn() }, 'SMA 9');
+    expect(socket.sent.at(-1)?.payload).toEqual({ subscriptionId: SUB_A, indicators: [{ instanceId: 'c', label: 'SMA 9', indicator: spec }] });
+  });
 });

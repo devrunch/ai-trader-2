@@ -1,5 +1,5 @@
-import { IndicatorSubscribeAckSchema, IndicatorSubscribeSchema, IndicatorUnsubscribeSchema, LiveIndicatorSchema,
-  type Bar, type IndicatorComputeRequest, type IndicatorResult, type IndicatorSpec } from '@aitrader/contracts';
+import { IndicatorSubscribeAckSchema, IndicatorSubscribeSchema, IndicatorUnsubscribeSchema, LiveIndicatorSchema, isSourceRef,
+  type Bar, type IndicatorChartInstance, type IndicatorComputeRequest, type IndicatorResult } from '@aitrader/contracts';
 import type { BarTap, SubscriptionRef } from './live-subscriptions';
 
 type Ack = ReturnType<typeof IndicatorSubscribeAckSchema.parse>;
@@ -27,6 +27,8 @@ const stable = (value: unknown): string => JSON.stringify(value, (_k, v: unknown
 export class LiveIndicators implements BarTap {
   private readonly shared = new Map<string, Shared>();
   private readonly bySubscription = new Map<string, Set<Attachment>>();
+  /** Every indicator a bar subscription holds, so one can use another's plot as its source (FR-IN-13). */
+  private readonly onChart = new Map<string, Map<string, IndicatorChartInstance>>();
 
   constructor(private readonly subscriptions: { describe(socketId: string, subscriptionId: string): SubscriptionRef | null },
     private readonly engine: IndicatorEngine, private readonly emit: Emit) {}
@@ -38,9 +40,13 @@ export class LiveIndicators implements BarTap {
     if (!sub) return { ok: false, code: 'NOT_FOUND', message: 'No such bar subscription on this socket' };
     const held = [...this.bySubscription.values()].flatMap(set => [...set]).filter(a => a.socketId === socketId).length;
     if (held + parsed.data.indicators.length > MAX_PER_SOCKET) return { ok: false, code: 'LIMIT', message: `At most ${String(MAX_PER_SOCKET)} live indicators per connection` };
-    const results = await Promise.all(parsed.data.indicators.map(async ({ instanceId, indicator }) => {
+    const chart = this.onChart.get(sub.id) ?? new Map<string, IndicatorChartInstance>();
+    this.onChart.set(sub.id, chart);
+    for (const item of parsed.data.indicators) chart.set(item.instanceId, item);
+    const results = await Promise.all(parsed.data.indicators.map(async item => {
+      const { instanceId } = item;
       this.detach(socketId, sub.id, instanceId);
-      const entry = this.acquire(sub, indicator);
+      const entry = this.acquire(sub, item, chart);
       try {
         const { result } = await entry.ready;
         const attachment = { socketId, subscriptionId: sub.id, instanceId };
@@ -62,6 +68,8 @@ export class LiveIndicators implements BarTap {
     if (!parsed.success) return;
     const attached = [...(this.bySubscription.get(parsed.data.subscriptionId) ?? [])].filter(a => a.socketId === socketId);
     for (const a of attached) if (!parsed.data.instanceIds || parsed.data.instanceIds.includes(a.instanceId)) this.detach(socketId, a.subscriptionId, a.instanceId);
+    const chart = this.onChart.get(parsed.data.subscriptionId);
+    for (const id of parsed.data.instanceIds ?? chart?.keys() ?? []) chart?.delete(id);
   }
 
   bar(sub: SubscriptionRef, bar: Bar, seq: number): void {
@@ -82,15 +90,19 @@ export class LiveIndicators implements BarTap {
   }
 
   ended(subscriptionId: string): void {
+    this.onChart.delete(subscriptionId);
     for (const a of [...(this.bySubscription.get(subscriptionId) ?? [])]) this.detach(a.socketId, subscriptionId, a.instanceId);
   }
 
-  private acquire(sub: SubscriptionRef, indicator: IndicatorSpec): Shared {
-    const key = `${sub.instrumentId}|${sub.interval}|${stable(indicator)}`;
+  private acquire(sub: SubscriptionRef, item: IndicatorChartInstance, chart: ReadonlyMap<string, IndicatorChartInstance>): Shared {
+    const others = reachable(item, chart);
+    // A chained indicator keeps its own copy of its parents, so the key covers them (and its id, which a cycle can name).
+    const key = `${sub.instrumentId}|${sub.interval}|${stable(item.indicator)}${others.length ? `|${item.instanceId}|${stable(others)}` : ''}`;
     const existing = this.shared.get(key);
     if (existing) return existing;
     const entry: Shared = { key, lastSeq: 0, attachments: new Set(),
-      ready: this.engine.open({ symbol: sub.instrumentId, interval: sub.interval, indicator, range: { limit: 500 } }) };
+      ready: this.engine.open({ symbol: sub.instrumentId, interval: sub.interval, indicator: item.indicator, range: { limit: 500 },
+        instanceId: item.instanceId, ...(item.label && { label: item.label }), ...(others.length && { others }) }) };
     this.shared.set(key, entry);
     return entry;
   }
@@ -112,6 +124,19 @@ export class LiveIndicators implements BarTap {
       void entry.ready.then(({ stream }) => { stream.close(); }).catch(() => undefined);
     }
   }
+}
+
+/** The chart's other indicators that `item` reaches through source refs, by id order so equal chains give equal keys. */
+function reachable(item: IndicatorChartInstance, chart: ReadonlyMap<string, IndicatorChartInstance>): IndicatorChartInstance[] {
+  const found = new Map<string, IndicatorChartInstance>();
+  const queue = [item];
+  for (let next = queue.shift(); next; next = queue.shift()) {
+    for (const value of Object.values(next.indicator.inputs)) {
+      const parent = isSourceRef(value) ? chart.get(value.from) : undefined;
+      if (parent && parent.instanceId !== item.instanceId && !found.has(parent.instanceId)) { found.set(parent.instanceId, parent); queue.push(parent); }
+    }
+  }
+  return [...found.values()].sort((a, b) => a.instanceId.localeCompare(b.instanceId));
 }
 
 /** Keeps the shared series current, so the next listener starts from now: replace the last bar's values or append a bar. */

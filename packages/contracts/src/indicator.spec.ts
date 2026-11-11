@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  IndicatorComputeRequestSchema, IndicatorDefinitionSchema, IndicatorRefSchema, IndicatorResultSchema, IndicatorUpdateSchema,
+  IndicatorComputeRequestSchema, IndicatorDefinitionSchema, IndicatorRefSchema, IndicatorResultSchema, IndicatorUpdateSchema, isSourceRef,
 } from './indicator.js';
 
 const rsi = {
@@ -51,5 +51,31 @@ describe('indicator contracts (FR-IN-31, FR-IN-9)', () => {
     const update = { instanceId: 'i1', barTime: 60_000, values: { rsi: 51.2, signal: null }, seq: 3 };
     expect(IndicatorUpdateSchema.parse(update)).toEqual(update);
     expect(IndicatorUpdateSchema.safeParse({ ...update, runtime: 'native' }).success).toBe(false);
+  });
+});
+
+// FR-IN-13: a source is a price source (a string, as saved today) or a reference to another indicator's plot.
+describe('indicator source references', () => {
+  const request = (inputs: unknown) => ({ symbol: 'NSE:INFY', interval: '1D', indicator: { kind: 'builtin', id: 'sma', inputs } });
+
+  it('keeps saved price-source inputs valid', () => {
+    expect(IndicatorComputeRequestSchema.safeParse(request({ length: 9, source: 'hl2' })).success).toBe(true);
+  });
+
+  it('parses a source that points at another indicator\'s plot', () => {
+    const parsed = IndicatorComputeRequestSchema.parse({ ...request({ source: { from: 'ind-1', plot: 'rsi' } }), instanceId: 'ind-2', others: [
+      { instanceId: 'ind-1', label: 'RSI 14', indicator: { kind: 'builtin', id: 'rsi', inputs: {} } }] });
+    expect(parsed.indicator).toMatchObject({ inputs: { source: { from: 'ind-1', plot: 'rsi' } } });
+    expect(parsed.others).toHaveLength(1);
+  });
+
+  it('rejects a malformed reference', () => {
+    expect(IndicatorComputeRequestSchema.safeParse(request({ source: { from: 'ind-1' } })).success).toBe(false);
+    expect(IndicatorComputeRequestSchema.safeParse(request({ source: { from: 'ind-1', plot: 'rsi', extra: 1 } })).success).toBe(false);
+  });
+
+  it('tells a reference from other values', () => {
+    expect(isSourceRef({ from: 'a', plot: 'ma' })).toBe(true);
+    expect(isSourceRef('close')).toBe(false);
   });
 });
