@@ -4,9 +4,11 @@ import { BUILTINS, findBuiltin, findBuiltinByRef } from './catalog';
 import { resolveInputs } from './inputs';
 
 describe('built-in catalog (FR-IN-7 wave 1, FR-IN-31)', () => {
-  it('holds the first ten wave-1 built-ins, then the P4-13a batch', () => {
+  it('holds the first ten wave-1 built-ins, then the P4-13a and P4-13b batches', () => {
     expect(BUILTINS.map(b => b.definition.id)).toEqual(['sma', 'ema', 'wma', 'rsi', 'macd', 'bb', 'atr', 'stoch', 'vwap', 'supertrend',
-      'dmi', 'adx', 'psar', 'ichimoku', 'donchian', 'kc', 'cci', 'mfi', 'obv', 'wpr', 'roc', 'mom', 'hma', 'vwma', 'dema', 'tema', 'aroon', 'cmf', 'pivots']);
+      'dmi', 'adx', 'psar', 'ichimoku', 'donchian', 'kc', 'cci', 'mfi', 'obv', 'wpr', 'roc', 'mom', 'hma', 'vwma', 'dema', 'tema', 'aroon', 'cmf', 'pivots',
+      'stochrsi', 'tsi', 'uo', 'cmo', 'ao', 'dpo', 'ppo', 'coppock', 'kst', 'bop', 'chaikinosc', 'ad', 'pvt', 'eom', 'efi',
+      'hv', 'bbpercentb', 'bbw', 'envelope', 'lsma', 'alma', 'smma', 'mcginley', 'volosc']);
     expect(BUILTINS.every(b => b.definition.ref === `builtin:${b.definition.id}@1`)).toBe(true);
   });
 
@@ -21,12 +23,12 @@ describe('built-in catalog (FR-IN-7 wave 1, FR-IN-31)', () => {
     for (const plot of builtin.definition.plots) expect(builtin.pine).toMatch(new RegExp(`plot\\(.*"${plot.title.replace(/[#%()+]/g, '\\$&')}"`));
   });
 
-  it('gives Ichimoku the TradingView plot offsets (displacement − 1) and no other built-in one', () => {
+  it('gives Ichimoku the TradingView plot offsets (displacement − 1) and DPO the centred shift', () => {
     const ichimoku = findBuiltin('ichimoku');
     const inputs = resolveInputs(ichimoku.definition.inputs, {});
     expect(ichimoku.plotOffsets?.(inputs)).toEqual({ lagging: -25, leadA: 25, leadB: 25 });
     expect(ichimoku.plotOffsets?.(resolveInputs(ichimoku.definition.inputs, { displacement: 1 }))).toEqual({ lagging: 0, leadA: 0, leadB: 0 });
-    expect(BUILTINS.filter(b => b.plotOffsets !== undefined).map(b => b.definition.id)).toEqual(['ichimoku']);
+    expect(BUILTINS.filter(b => b.plotOffsets !== undefined).map(b => b.definition.id)).toEqual(['ichimoku', 'dpo']);
   });
 
   it("carries TradingView's defaults, plot titles and levels for the P4-13a batch", () => {
@@ -49,7 +51,35 @@ describe('built-in catalog (FR-IN-7 wave 1, FR-IN-31)', () => {
     expect(summary('aroon')).toEqual({ inputs: ['Length=14'], plots: ['Aroon Down', 'Aroon Up'], levels: [] });
     expect(summary('cmf')).toEqual({ inputs: ['Length=20'], plots: ['Chaikin Money Flow'], levels: [0] });
     expect(summary('vwma').inputs).toEqual(['Length=20', 'Source=close', 'Offset=0']);
+    expect(summary('stochrsi')).toEqual({ inputs: ['K=3', 'D=3', 'RSI Length=14', 'Stochastic Length=14', 'RSI Source=close'], plots: ['K', 'D'], levels: [80, 50, 20] });
+    expect(summary('tsi')).toEqual({ inputs: ['Long Length=25', 'Short Length=13', 'Signal Length=13', 'Source=close'], plots: ['True Strength Index', 'Signal'], levels: [0] });
+    expect(summary('uo')).toEqual({ inputs: ['Fast Length=7', 'Middle Length=14', 'Slow Length=28'], plots: ['Ultimate Oscillator'], levels: [] });
+    expect(summary('cmo')).toEqual({ inputs: ['Length=9', 'Source=close'], plots: ['Chande MO'], levels: [0] });
+    expect(summary('ao')).toEqual({ inputs: [], plots: ['AO'], levels: [0] });
+    expect(summary('dpo')).toEqual({ inputs: ['Period=21', 'Centered=false'], plots: ['DPO'], levels: [0] });
+    expect(summary('ppo').inputs).toEqual(['Short Length=10', 'Long Length=21', 'Source=close', 'Exponential=false']);
+    expect(summary('coppock').inputs).toEqual(['WMA Length=10', 'Long RoC Length=14', 'Short RoC Length=11', 'Source=close']);
+    expect(summary('kst').inputs).toHaveLength(9);
+    expect(summary('kst').plots).toEqual(['KST', 'Signal']);
+    expect(summary('chaikinosc').inputs).toEqual(['Fast Length=3', 'Slow Length=10']);
+    expect(summary('eom').inputs).toEqual(['Length=14', 'Divisor=10000']);
+    expect(summary('efi')).toEqual({ inputs: ['Length=13'], plots: ["Elder's Force Index"], levels: [0] });
+    expect(summary('hv')).toEqual({ inputs: ['Length=10'], plots: ['Historical Volatility'], levels: [] });
+    expect(summary('bbpercentb')).toEqual({ inputs: ['Length=20', 'Source=close', 'StdDev=2'], plots: ['Bollinger %B'], levels: [1, 0.5, 0] });
+    expect(summary('bbw').plots).toEqual(['Bollinger Bands Width', 'Highest Expansion', 'Lowest Contraction']);
+    expect(summary('envelope').inputs).toEqual(['Length=20', 'Percent=10', 'Source=close', 'Exponential=false']);
+    expect(summary('lsma').inputs).toEqual(['Length=25', 'Offset=0', 'Source=close']);
+    expect(summary('alma').inputs).toEqual(['Window Size=9', 'Offset=0.85', 'Sigma=6', 'Source=close']);
+    expect(summary('smma').inputs).toEqual(['Length=7', 'Source=close']);
+    expect(summary('mcginley').inputs).toEqual(['Length=14', 'Source=close']);
+    expect(summary('volosc')).toEqual({ inputs: ['Short Length=5', 'Long Length=10'], plots: ['OSC'], levels: [0] });
     expect(summary('pivots').plots).toEqual(['R5', 'R4', 'R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3', 'S4', 'S5']);
+  });
+
+  it('shifts DPO back by half the period plus one only when centred', () => {
+    const dpo = findBuiltin('dpo');
+    expect(dpo.plotOffsets?.(resolveInputs(dpo.definition.inputs, {}))).toEqual({ dpo: 0 });
+    expect(dpo.plotOffsets?.(resolveInputs(dpo.definition.inputs, { centered: true }))).toEqual({ dpo: -11 });
   });
 
   it('finds built-ins by id, version and ref', () => {
@@ -100,5 +130,15 @@ describe('built-in catalog (FR-IN-7 wave 1, FR-IN-31)', () => {
     expect(warmup('aroon', {})).toBe(15);
     expect(warmup('pivots', {}, '5')).toBe(576);
     expect(warmup('pivots', {}, '1D')).toBe(2);
+    expect(warmup('uo', {})).toBe(29);
+    expect(warmup('ao', {})).toBe(34);
+    expect(warmup('dpo', {})).toBe(32);
+    expect(warmup('ppo', {})).toBe(21);
+    expect(warmup('ppo', { exponential: true })).toBe(500);
+    expect(warmup('bbw', {})).toBe(145);
+    expect(warmup('hv', {})).toBe(11);
+    expect(warmup('obv', {})).toBe(0);
+    expect(warmup('envelope', {})).toBe(20);
+    expect(warmup('mcginley', {})).toBe(500);
   });
 });

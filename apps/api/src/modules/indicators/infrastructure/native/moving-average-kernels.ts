@@ -1,8 +1,8 @@
 import type { Bar } from '@aitrader/contracts';
-import { numberInput, sourceInput, type ResolvedInputs } from '../../domain/inputs';
+import { boolInput, numberInput, sourceInput, type ResolvedInputs } from '../../domain/inputs';
 import { priceOf } from '../../domain/source';
 import type { BarKernel, BarKernelFactory } from './bar-kernel';
-import { emaKernel, gated, rmaKernel, smaKernel, vwmaKernel, wmaKernel, type SeriesKernel } from './kernels';
+import { RollingWindow, emaKernel, gated, rmaKernel, smaKernel, sumOf, vwmaKernel, wmaKernel, type SeriesKernel } from './kernels';
 
 /** A moving average of a price series; VWMA also reads the bar's volume (`null` counts as 0). */
 export interface MaKernel { update(value: number, bar: Bar, replace: boolean): number | null }
@@ -59,6 +59,64 @@ const emaChain = (id: string, depth: 2 | 3) => (inputs: ResolvedInputs): BarKern
   } };
 };
 
+const envelope = (inputs: ResolvedInputs): BarKernel => {
+  const basis = maKernel(boolInput(inputs, 'exponential') ? 'EMA' : 'SMA', numberInput(inputs, 'length'));
+  const k = numberInput(inputs, 'percent') / 100;
+  const source = sourceInput(inputs, 'source');
+  return { update(bar, replace) {
+    const mid = basis.update(priceOf(bar, source), bar, replace);
+    return { basis: mid, upper: mid === null ? null : mid * (1 + k), lower: mid === null ? null : mid * (1 - k) };
+  } };
+};
+
+/** Pine's `ta.linreg(src, length, offset)`: the least-squares line over the window, read `offset` bars before the newest. */
+const lsma = (inputs: ResolvedInputs): BarKernel => {
+  const length = numberInput(inputs, 'length');
+  const offset = numberInput(inputs, 'linregOffset');
+  const window = new RollingWindow(length);
+  const source = sourceInput(inputs, 'source');
+  const middle = (length - 1) / 2;
+  const spread = length * (length * length - 1) / 12;
+  return { update(bar, replace) {
+    const values = window.update(priceOf(bar, source), replace);
+    if (!values) return { lsma: null };
+    const mean = sumOf(values) / length;
+    const slope = spread === 0 ? 0 : sumOf(values.map((value, i) => (i - middle) * (value - mean))) / spread;
+    return { lsma: mean + slope * (length - 1 - offset - middle) };
+  } };
+};
+
+/** Pine's `ta.alma`: a Gaussian-weighted window centred at `offset` of its length with width length / sigma. */
+const alma = (inputs: ResolvedInputs): BarKernel => {
+  const length = numberInput(inputs, 'length');
+  const centre = numberInput(inputs, 'almaOffset') * (length - 1);
+  const width = length / numberInput(inputs, 'sigma');
+  const weights = Array.from({ length }, (_, i) => Math.exp(-((i - centre) ** 2) / (2 * width * width)));
+  const norm = sumOf(weights);
+  const window = new RollingWindow(length);
+  const source = sourceInput(inputs, 'source');
+  return { update(bar, replace) {
+    const values = window.update(priceOf(bar, source), replace);
+    return { alma: values ? sumOf(values.map((value, i) => value * (weights[i] ?? 0))) / norm : null };
+  } };
+};
+
+/** McGinley Dynamic: seeded with the EMA, then moves by (src − mg) / (length × (src / mg)⁴). */
+const mcginley = (inputs: ResolvedInputs): BarKernel => {
+  const length = numberInput(inputs, 'length');
+  const seed = emaKernel(length);
+  const source = sourceInput(inputs, 'source');
+  let previous: number | null = null;
+  let current: number | null = null;
+  return { update(bar, replace) {
+    if (!replace) previous = current;
+    const price = priceOf(bar, source);
+    const start = seed.update(price, replace);
+    current = previous === null ? start : previous + (price - previous) / (length * (price / previous) ** 4);
+    return { mg: current };
+  } };
+};
+
 export const MOVING_AVERAGE_KERNELS: Record<string, BarKernelFactory> = {
-  sma: sourceMa('SMA'), ema: sourceMa('EMA'), wma: sourceMa('WMA'), vwma: sourceMa('VWMA', 'vwma'), hma, dema: emaChain('dema', 2), tema: emaChain('tema', 3),
+  smma: sourceMa('RMA', 'smma'), envelope, lsma, alma, mcginley, sma: sourceMa('SMA'), ema: sourceMa('EMA'), wma: sourceMa('WMA'), vwma: sourceMa('VWMA', 'vwma'), hma, dema: emaChain('dema', 2), tema: emaChain('tema', 3),
 };

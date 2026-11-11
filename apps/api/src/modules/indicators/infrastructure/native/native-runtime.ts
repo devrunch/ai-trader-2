@@ -2,6 +2,7 @@ import type { Bar } from '@aitrader/contracts';
 import type { IndicatorInstance, IndicatorProgram, IndicatorRuntime, PlotValues, RuntimeContext } from '../../application/ports/indicator-runtime';
 import type { BarKernel, BarKernelFactory } from './bar-kernel';
 import { CHANNEL_KERNELS } from './channel-kernels';
+import { EXTRA_OSCILLATOR_KERNELS } from './oscillator-extra-kernels';
 import { MOMENTUM_KERNELS } from './momentum-kernels';
 import { MOVING_AVERAGE_KERNELS } from './moving-average-kernels';
 import { OSCILLATOR_KERNELS } from './oscillator-kernels';
@@ -12,7 +13,7 @@ import { pivotKernel } from './pivot-kernel';
 import { vwapKernel } from './vwap-kernel';
 
 const KERNELS: Readonly<Record<string, BarKernelFactory>> = {
-  ...MOVING_AVERAGE_KERNELS, ...OSCILLATOR_KERNELS, ...VOLATILITY_KERNELS, ...TREND_KERNELS, ...CHANNEL_KERNELS, ...MOMENTUM_KERNELS, ...VOLUME_KERNELS,
+  ...MOVING_AVERAGE_KERNELS, ...OSCILLATOR_KERNELS, ...VOLATILITY_KERNELS, ...TREND_KERNELS, ...CHANNEL_KERNELS, ...MOMENTUM_KERNELS, ...VOLUME_KERNELS, ...EXTRA_OSCILLATOR_KERNELS,
   vwap: vwapKernel, pivots: pivotKernel,
 };
 

@@ -96,7 +96,7 @@ describe('IndicatorService catalog', () => {
   it('lists the wave-1 definitions and finds one by ref', () => {
     const { service } = setup();
     expect(service.list().map(d => d.id).slice(0, 10)).toEqual(['sma', 'ema', 'wma', 'rsi', 'macd', 'bb', 'atr', 'stoch', 'vwap', 'supertrend']);
-    expect(service.list()).toHaveLength(29);
+    expect(service.list()).toHaveLength(53);
     expect(service.get('builtin:rsi@1')).toMatchObject({ id: 'rsi', version: 1 });
     expect(() => service.get('builtin:rsi@9')).toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
   });
