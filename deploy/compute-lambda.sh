@@ -29,12 +29,14 @@ if ! aws iam get-role --role-name "$ROLE" >/dev/null 2>&1; then
 fi
 
 echo "== function =="
+# The AWS CLI on Windows needs a Windows path for the zip.
+ZIP=$(cygpath -m "$BUILD/lambda.zip" 2>/dev/null || echo "$BUILD/lambda.zip")
 if aws lambda get-function --function-name "$NAME" --region "$REGION" >/dev/null 2>&1; then
-  aws lambda update-function-code --function-name "$NAME" --region "$REGION" --zip-file "fileb://$BUILD/lambda.zip" --query LastModified --output text
+  aws lambda update-function-code --function-name "$NAME" --region "$REGION" --zip-file "fileb://$ZIP" --query LastModified --output text
 else
   aws lambda create-function --function-name "$NAME" --region "$REGION" --runtime python3.13 --architectures arm64 \
     --handler compute.lambda_handler.handler --memory-size 1024 --timeout 30 \
-    --role "arn:aws:iam::$ACCOUNT:role/$ROLE" --zip-file "fileb://$BUILD/lambda.zip" --query FunctionArn --output text
+    --role "arn:aws:iam::$ACCOUNT:role/$ROLE" --zip-file "fileb://$ZIP" --query FunctionArn --output text
 fi
 aws lambda wait function-updated-v2 --function-name "$NAME" --region "$REGION"
 
