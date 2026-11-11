@@ -165,3 +165,16 @@ it('lists background tasks with what wakes them, and pauses one', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
   await vi.waitFor(() => { expect(verbs).toEqual(['pause']); });
 });
+
+it('shows which skill the assistant is following', async () => {
+  server.use(http.post('/api/v1/agent/chat', () => sse([
+    { type: 'start', messageId: 'a4' }, { type: 'start-step' },
+    { type: 'tool-input-available', toolCallId: 's1', toolName: 'useSkill', input: { name: 'day-trader' } },
+    { type: 'tool-output-available', toolCallId: 's1', output: { ok: true, data: { name: 'day-trader', version: 2, content: '# Day trader\nThe whole intraday workflow.' } } },
+    { type: 'finish-step' }, { type: 'finish' },
+  ])));
+  render(<Providers><ChatPanel /></Providers>);
+  await ask('trade RELIANCE intraday');
+  const chip = await screen.findByText('Day trader');
+  expect(chip.parentElement?.textContent).toBe('Using skillDay traderv2');
+});

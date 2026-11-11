@@ -62,7 +62,10 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
     },
   };
   const desk = { place: services.place.execute.bind(services.place), cancel: services.cancel.execute.bind(services.cancel),
-    positions: (userId: string) => services.portfolio.positions(userId) };
+    positions: (userId: string) => services.portfolio.positions(userId),
+    initialCash: async (userId: string) => (await services.portfolio.account(userId)).initialCash,
+    orders: (userId: string) => services.portfolio.orders(userId, { openOnly: false, limit: 200 }),
+    price: async (symbol: string) => (await services.quote.execute(symbol)).price };
   const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
     ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(desk, deps), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps)];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
