@@ -10,12 +10,12 @@ import { InstrumentBadge, IntervalPicker, Watchlist, useWatchlistEdit } from '..
 import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
 import { NewsPanel } from '../../features/news';
+import { AlertsPanel } from '../../features/alerts';
 import { NotificationBell } from '../../features/notifications';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 // Loaded on first visit to /terminal: the chart library and live client stay out of the initial bundle.
 const Divider = () => <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />;
-const NotYet = ({ what }: { what: string }) => <p className="p-3 text-[12px] text-muted-foreground">{what} aren't available yet.</p>;
 
 export function TerminalPage() {
   const { symbol, interval } = useSearch({ from: '/terminal' });
@@ -40,7 +40,7 @@ export function TerminalPage() {
   </div>;
   return <>
     <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
-      widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
+      widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <AlertsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
     {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
     {adding && <SymbolSearchDialog initial="" onClose={() => { setAdding(false); }} onSelect={(id) => { watchlist.add.mutate(id); }} />}
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}

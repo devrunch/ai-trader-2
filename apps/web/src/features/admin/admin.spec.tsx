@@ -48,7 +48,7 @@ it('admin routes redirect anonymous users to login', async () => {
 it('zerodha card shows blocked reason and disables auto-login', async () => {
   zerodhaBody = zerodha({ autoLogin: { enabled: true, attemptsToday: 3, cap: 6, blockedUntil: '2026-11-10T04:00:00.000Z', reason: 'CAPTCHA_REQUIRED' } });
   await renderAt('/admin');
-  expect(await screen.findByText(/CAPTCHA/)).toBeDefined();
+  expect(await screen.findByText(/CAPTCHA/, {}, { timeout: 5000 })).toBeDefined(); // the admin route loads lazily
   expect(screen.getByText('3 / 6 today')).toBeDefined();
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Try auto-login' }).disabled).toBe(true);
 });

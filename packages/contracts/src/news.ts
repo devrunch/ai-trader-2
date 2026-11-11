@@ -12,7 +12,7 @@ export const NewsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
-export const NOTIFICATION_KINDS = ['task', 'fill', 'system'] as const;
+export const NOTIFICATION_KINDS = ['task', 'fill', 'system', 'alert'] as const;
 /** Where a notification leads: a chat thread or a symbol on the chart. */
 export const NotificationLinkSchema = z.strictObject({ threadId: z.uuid().optional(), symbol: z.string().optional() });
 export const NotificationSchema = z.strictObject({

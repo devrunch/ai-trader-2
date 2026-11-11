@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { PAPER_PRODUCTS, TaskTriggerSchema, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, PAPER_PRODUCTS, TaskTriggerSchema, type AlertCreate, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { calculate, CalcError } from '../domain/calculator';
 import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
@@ -110,6 +110,7 @@ export function buildPaperTools(desk: PaperDesk, deps: GuardDeps): Array<Guarded
 
 export interface TaskDesk {
   create(userId: string, threadId: string, input: { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined }): Promise<unknown>;
+  createAlert(userId: string, input: AlertCreate): Promise<unknown>;
   list(userId: string): Promise<unknown>;
   setState(userId: string, id: string, state: 'cancelled'): Promise<unknown>;
 }
@@ -124,7 +125,12 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
       input: z.strictObject({ title: z.string().min(1).max(120), instruction: z.string().min(1).max(2000), trigger: orJsonString(TaskTriggerSchema),
         maxRuns: z.number().int().min(1).max(500).optional(), expiresInDays: z.number().int().min(1).max(30).optional() }),
       run: (input, ctx) => tasks.create(ctx.userId, ctx.conversationId, input) }, deps),
-    guardedTool({ name: 'listTasks', description: 'The user\'s background tasks with their state, runs and next run.',
+    guardedTool({ name: 'createAlert',
+      description: 'Set a plain alert for the user: a notification when a price or indicator condition crosses, with no assistant run. '
+        + 'Prefer this over scheduleTask when the user only wants to be told ("alert me when NIFTY goes above 24,500"). repeat: every crossing for 30 days.',
+      input: z.strictObject({ trigger: orJsonString(AlertCreateSchema.shape.trigger), repeat: z.boolean().default(false), note: z.string().max(200).optional() }),
+      run: (input, ctx) => tasks.createAlert(ctx.userId, input) }, deps),
+    guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),
     guardedTool({ name: 'cancelTask', description: 'Cancel one of the user\'s background tasks by id.',
       input: z.strictObject({ taskId: z.uuid() }), run: (input, ctx) => tasks.setState(ctx.userId, input.taskId, 'cancelled') }, deps),

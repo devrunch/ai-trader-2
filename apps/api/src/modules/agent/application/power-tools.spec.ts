@@ -56,7 +56,7 @@ describe('assistant power tools', () => {
 
   it('no tool name suggests a real broker', () => {
     const tools = [...buildPaperTools(desk(), deps), ...buildCalcTool(deps),
-      ...buildSkillTools({ keys: () => [], active: vi.fn() }, deps), ...buildTaskTools({ create: vi.fn(), list: vi.fn(), setState: vi.fn() }, deps)];
+      ...buildSkillTools({ keys: () => [], active: vi.fn() }, deps), ...buildTaskTools({ create: vi.fn(), createAlert: vi.fn(), list: vi.fn(), setState: vi.fn() }, deps)];
     for (const { name } of tools) expect(name).not.toMatch(/broker|kite|zerodha|login|token|real|live/i);
     expect(tools.filter(t => /order|position/i.test(t.name)).every(t => /paper/i.test(t.name) && /PAPER/.test(t.description))).toBe(true);
   });
@@ -76,16 +76,26 @@ describe('assistant power tools', () => {
   });
 
   it('schedules tasks in the current conversation', async () => {
-    const tasks = { create: vi.fn().mockResolvedValue({ id: 't' }), list: vi.fn(), setState: vi.fn() };
+    const tasks = { create: vi.fn().mockResolvedValue({ id: 't' }), createAlert: vi.fn().mockResolvedValue({ id: 'a' }), list: vi.fn(), setState: vi.fn() };
     const schedule = byName(buildTaskTools(tasks, deps), 'scheduleTask');
     await schedule?.call(ctx, { title: 'Breakout', instruction: 'Buy 10', trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 } });
     expect(tasks.create).toHaveBeenCalledWith('u1', ctx.conversationId, expect.objectContaining({ title: 'Breakout' }));
+  });
+
+  it('plain alerts take a price or indicator condition, never a schedule', async () => {
+    const tasks = { create: vi.fn(), createAlert: vi.fn().mockResolvedValue({ id: 'a' }), list: vi.fn(), setState: vi.fn() };
+    const alert = byName(buildTaskTools(tasks, deps), 'createAlert');
+    const trigger = { kind: 'price', symbol: 'NSE:NIFTY', op: 'above', value: 24500 };
+    expect(await alert?.call(ctx, { trigger: JSON.stringify(trigger) })).toMatchObject({ ok: true });
+    expect(tasks.createAlert).toHaveBeenCalledWith('u1', { trigger, repeat: false });
+    expect(await alert?.call(ctx, { trigger: { kind: 'schedule', cron: '0 9 * * 1-5', tz: 'Asia/Kolkata' } })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+    expect(tasks.create).not.toHaveBeenCalled();
   });
 });
 
 describe('nested inputs sent as JSON text', () => {
   it('a trigger sent as a JSON string is parsed; text that is not JSON is refused', async () => {
-    const tasks = { create: vi.fn().mockResolvedValue({ id: 't' }), list: vi.fn(), setState: vi.fn() };
+    const tasks = { create: vi.fn().mockResolvedValue({ id: 't' }), createAlert: vi.fn().mockResolvedValue({ id: 'a' }), list: vi.fn(), setState: vi.fn() };
     const schedule = byName(buildTaskTools(tasks, deps), 'scheduleTask');
     const trigger = JSON.stringify({ kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' });
     expect(await schedule?.call(ctx, { title: 'EURUSD', instruction: 'check', trigger })).toMatchObject({ ok: true });

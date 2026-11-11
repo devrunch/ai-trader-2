@@ -66,4 +66,15 @@ describe('AgentTasks', () => {
     expect(await tasks.setState('u1', daily.id, 'cancelled')).toMatchObject({ state: 'cancelled' });
     await expect(tasks.setState('u1', daily.id, 'active')).rejects.toMatchObject({ code: 'CONFLICT' });
   });
+
+  it('a user alert is a notify task with no thread, named from its condition, repeating on every fresh crossing', async () => {
+    const { tasks, advance } = setup([1490, 1505, 1495, 1502]);
+    const alert = await tasks.createAlert('u1', { trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, repeat: true, note: 'check volume' });
+    expect(alert).toMatchObject({ mode: 'notify', threadId: null, title: 'NSE:INFY above 1,500', instruction: 'check volume', maxRuns: 500, state: 'active' });
+    const fire = vi.fn().mockResolvedValue(null);
+    for (let i = 0; i < 3; i++) { advance(); await tasks.runDue(fire, new AbortController().signal); }
+    expect(fire).toHaveBeenCalledTimes(2);
+    expect(fire.mock.calls[0]?.[0]).toMatchObject({ mode: 'notify', runs: 0 });
+  });
 });
+
