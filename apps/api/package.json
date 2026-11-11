@@ -44,6 +44,7 @@
     "nodemailer": "10.2.1",
     "otplib": "13.6.0",
     "pg": "8.23.1",
+    "pinets": "0.13.1",
     "pino": "10.4.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
@@ -68,7 +69,6 @@
     "@types/supertest": "7.2.1",
     "@types/ws": "8.18.2",
     "drizzle-kit": "0.31.11",
-    "pinets": "0.13.1",
     "socket.io-client": "4.8.4",
     "supertest": "7.3.2",
     "vitest": "5.1.0"
