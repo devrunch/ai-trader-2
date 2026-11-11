@@ -1,16 +1,17 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 import { bedrockMantleKey } from './bedrock-mantle-key';
 
-const PROVIDERS = ['bedrock-mantle', 'anthropic', 'xai', 'openai', 'openai-compatible'] as const;
+const PROVIDERS = ['bedrock-mantle', 'anthropic', 'google', 'xai', 'openai', 'openai-compatible'] as const;
 type Provider = (typeof PROVIDERS)[number];
 export interface ModelSpec { provider: Provider; modelId: string }
 export interface ModelEnv {
   AGENT_BASE_URL?: string | undefined; AGENT_API_KEY?: string | undefined;
-  ANTHROPIC_API_KEY?: string | undefined; OPENAI_API_KEY?: string | undefined; XAI_API_KEY?: string | undefined;
+  ANTHROPIC_API_KEY?: string | undefined; OPENAI_API_KEY?: string | undefined; XAI_API_KEY?: string | undefined; GOOGLE_GENERATIVE_AI_API_KEY?: string | undefined;
   BEDROCK_API_KEY?: string | undefined; BEDROCK_BASE_URL?: string | undefined; AWS_REGION?: string | undefined;
   AWS_ACCESS_KEY_ID?: string | undefined; AWS_SECRET_ACCESS_KEY?: string | undefined; AWS_SESSION_TOKEN?: string | undefined;
 }
@@ -45,20 +46,22 @@ function mantleKeySource(env: ModelEnv, spec: ModelSpec): () => Promise<string> 
   };
 }
 
-/** Any supported provider and model, chosen in configuration (owner requirement: Bedrock, Claude, Grok, OpenAI or any compatible API). */
+/** Any supported provider and model, chosen in configuration (owner requirement: Bedrock, Claude, Gemini, Grok, OpenAI or any compatible API). */
 export function createLanguageModel(spec: ModelSpec, env: ModelEnv): Exclude<LanguageModel, string> {
   switch (spec.provider) {
     case 'anthropic': return createAnthropic({ apiKey: need(env.ANTHROPIC_API_KEY, 'ANTHROPIC_API_KEY', spec) })(spec.modelId);
+    case 'google': return createGoogleGenerativeAI({ apiKey: need(env.GOOGLE_GENERATIVE_AI_API_KEY, 'GOOGLE_GENERATIVE_AI_API_KEY', spec) })(spec.modelId);
     case 'openai': return createOpenAI({ apiKey: need(env.OPENAI_API_KEY, 'OPENAI_API_KEY', spec) })(spec.modelId);
     case 'xai': return createXai({ apiKey: need(env.XAI_API_KEY, 'XAI_API_KEY', spec) })(spec.modelId);
     case 'openai-compatible':
-      return createOpenAICompatible({ name: 'openai-compatible', baseURL: need(env.AGENT_BASE_URL, 'AGENT_BASE_URL', spec),
+      // includeUsage: streamed replies carry token counts only when asked; the per-turn token budget needs them.
+      return createOpenAICompatible({ name: 'openai-compatible', includeUsage: true, baseURL: need(env.AGENT_BASE_URL, 'AGENT_BASE_URL', spec),
         apiKey: need(env.AGENT_API_KEY, 'AGENT_API_KEY', spec) }).chatModel(spec.modelId);
     case 'bedrock-mantle': {
       const region = env.AWS_REGION ?? 'ap-south-1';
       const key = mantleKeySource(env, spec);
       // The key is fetched per request, so a generated key renews without rebuilding the model.
-      return createOpenAICompatible({ name: 'bedrock-mantle', baseURL: env.BEDROCK_BASE_URL ?? `https://bedrock-mantle.${region}.api.aws/v1`,
+      return createOpenAICompatible({ name: 'bedrock-mantle', includeUsage: true, baseURL: env.BEDROCK_BASE_URL ?? `https://bedrock-mantle.${region}.api.aws/v1`,
         fetch: async (input, init) => {
           const headers = new Headers(init?.headers);
           headers.set('authorization', `Bearer ${await key()}`);

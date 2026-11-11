@@ -10,7 +10,10 @@ import { ResolveInstrument } from '../instruments/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { AggregateLiveBars, MarketDataService, ReadSeq, RequestSubscription } from '../market-data/application/index';
 import { LiveGateway } from './api/live.gateway';
+import { LiveIndicators } from './application/live-indicators';
 import { LiveSubscriptions } from './application/live-subscriptions';
+import { IndicatorService } from '../indicators/application/index';
+import { IndicatorsModule } from '../indicators/indicators.module';
 import { LiveDataAdapter } from './infrastructure/live-data.adapter';
 import { RedisLiveUpdateBus } from './infrastructure/redis-live-update-bus';
 
@@ -30,14 +33,22 @@ function isHttpServer(value: unknown): value is HttpServer {
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, IndicatorsModule],
   providers: [
     { provide: RedisLiveUpdateBus, inject: [REDIS], useFactory: (redis: Redis) => new RedisLiveUpdateBus(redis) },
     { provide: LiveDataAdapter, inject: [ResolveInstrument, MarketDataService, ReadSeq, RequestSubscription, AggregateLiveBars, RedisLiveUpdateBus],
       useFactory: (instruments: ResolveInstrument, market: MarketDataService, seq: ReadSeq, requests: RequestSubscription, aggregate: AggregateLiveBars, bus: RedisLiveUpdateBus) =>
         new LiveDataAdapter(instruments, market, seq, requests, aggregate, bus) },
     { provide: LiveSubscriptions, inject: [LiveDataAdapter], useFactory: (data: LiveDataAdapter) => new LiveSubscriptions(data) },
-    { provide: LiveGateway, inject: [CurrentUser, LiveSubscriptions], useFactory: (currentUser: CurrentUser, streams: LiveSubscriptions) => new LiveGateway(currentUser, {}, streams) },
+    { provide: LiveGateway, inject: [CurrentUser, LiveSubscriptions, IndicatorService],
+      useFactory: (currentUser: CurrentUser, streams: LiveSubscriptions, engine: IndicatorService) => {
+        // Indicators emit through the gateway, which takes them as a dependency: the holder breaks the cycle.
+        const holder: { gateway?: LiveGateway } = {};
+        const indicators = new LiveIndicators(streams, engine, (socketId, event, payload) => { holder.gateway?.emitTo(socketId, event, payload); });
+        streams.attachTap(indicators);
+        holder.gateway = new LiveGateway(currentUser, {}, streams, indicators);
+        return holder.gateway;
+      } },
     { provide: LiveGatewayLifecycle, inject: [HttpAdapterHost, LiveGateway], useFactory: (host: HttpAdapterHost, gateway: LiveGateway) => new LiveGatewayLifecycle(host, gateway) },
   ],
 })

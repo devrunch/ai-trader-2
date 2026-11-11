@@ -60,6 +60,7 @@ function addIndicatorSeries(chart: IChartApi, { kind, color, lineWidth, pane, ti
       lineVisible: kind !== 'circles', pointMarkersVisible: kind === 'circles' }, pane);
   return {
     setData: points => { series.setData(points.map(p => ({ ...p, time: ts(p.time) }))); },
+    update: point => { series.update({ ...point, time: ts(point.time) }); },
     priceLine: (price, label, lineColor) => { series.createPriceLine({ price, title: label, color: lineColor, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false }); },
     remove: () => { chart.removeSeries(series); },
   };

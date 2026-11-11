@@ -26,8 +26,9 @@ if [ "$(git rev-list --count HEAD..main)" -gt 0 ]; then
 ' "$conflicted" | xargs git checkout --theirs -- && printf '%s
 ' "$conflicted" | xargs git add -- && git commit -q --no-edit
   fi
-  pnpm install --frozen-lockfile
 fi
+# Always: the branch itself may add a package that this worktree has never installed.
+pnpm install --frozen-lockfile
 if [ -f package.json ] && node -e "process.exit(require('./package.json').scripts?.['check:code'] ? 0 : 1)"; then
   # Owner decision 2026-11-10: code first. Merges gate on check:code; diagrams are regenerated in a separate batch
   # (pnpm diagrams && pnpm diagrams:check), so generated files never block a merge.

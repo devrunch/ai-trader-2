@@ -73,3 +73,18 @@ export const IndicatorUpdateSchema = z.strictObject({
   instanceId: z.string().min(1).max(100), barTime: z.number().int(), values: z.record(z.string(), z.number().nullable()), seq: z.number().int().nonnegative(),
 });
 export type IndicatorUpdate = z.infer<typeof IndicatorUpdateSchema>;
+
+/** Live indicators on a bar subscription the socket already holds (FR-IN-5). Instance ids are the client's own. */
+export const IndicatorSubscribeSchema = z.strictObject({
+  subscriptionId: z.uuid(),
+  indicators: z.array(z.strictObject({ instanceId: z.string().min(1).max(100), indicator: IndicatorSpecSchema })).min(1).max(10),
+});
+export const IndicatorUnsubscribeSchema = z.strictObject({ subscriptionId: z.uuid(), instanceIds: z.array(z.string().min(1).max(100)).max(50).optional() });
+export const IndicatorSubscribeAckSchema = z.discriminatedUnion('ok', [
+  z.strictObject({ ok: z.literal(true), results: z.array(z.union([
+    z.strictObject({ instanceId: z.string(), result: IndicatorResultSchema }),
+    z.strictObject({ instanceId: z.string(), error: z.strictObject({ code: z.string(), message: z.string() }) }),
+  ])) }),
+  z.strictObject({ ok: z.literal(false), code: z.string(), message: z.string() }),
+]);
+export const LiveIndicatorSchema = z.strictObject({ subscriptionId: z.uuid(), ...IndicatorUpdateSchema.shape });

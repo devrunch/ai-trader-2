@@ -16,7 +16,7 @@ const result = (plots: Record<string, (number | null)[]>): IndicatorResult => ({
 function fakeChart() {
   const created: { options: IndicatorSeriesOptions; series: IndicatorSeriesLike & { setData: ReturnType<typeof vi.fn>; priceLine: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> } }[] = [];
   return { created, chart: { addIndicatorSeries: (options: IndicatorSeriesOptions) => {
-    const series = { setData: vi.fn(), priceLine: vi.fn(), remove: vi.fn() };
+    const series = { setData: vi.fn(), update: vi.fn(), priceLine: vi.fn(), remove: vi.fn() };
     created.push({ options, series });
     return series;
   } } };

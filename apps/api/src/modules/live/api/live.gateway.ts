@@ -1,6 +1,7 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server as SocketServer, type DefaultEventsMap, type Socket } from 'socket.io';
 import type { CurrentUser } from '../../auth/application/index';
+import type { LiveIndicators } from '../application/live-indicators';
 import type { LiveSubscriptions } from '../application/live-subscriptions';
 import { LiveAckSchema } from '@aitrader/contracts';
 
@@ -15,7 +16,8 @@ export class LiveGateway {
   private readonly sessionCheckMs: number;
   private readonly warn: (message: string) => void;
   private readonly now: () => number;
-  constructor(private readonly currentUser: Pick<CurrentUser, 'execute'>, options: GatewayOptions = {}, private readonly streams?: LiveSubscriptions) {
+  constructor(private readonly currentUser: Pick<CurrentUser, 'execute'>, options: GatewayOptions = {}, private readonly streams?: LiveSubscriptions,
+    private readonly indicators?: LiveIndicators) {
     this.sessionCheckMs = options.sessionCheckMs ?? 5 * 60_000;
     this.warn = options.warn ?? (message => { process.emitWarning(message); });
     this.now = options.now ?? Date.now;
@@ -38,6 +40,9 @@ export class LiveGateway {
     });
     io.on('connection', socket => { this.connected(socket); });
   }
+
+  /** Sends to one socket by id; used by live indicators, which are shared across sockets. */
+  emitTo(socketId: string, event: string, payload: unknown): void { this.io?.sockets.sockets.get(socketId)?.emit(event, payload); }
 
   async close(): Promise<void> {
     for (const timer of this.sessions.values()) clearInterval(timer);
@@ -68,6 +73,14 @@ export class LiveGateway {
     });
     // E14: clients measure their clock offset from this; bar boundaries stay server-side.
     socket.on('time', (ack: unknown) => { if (typeof ack === 'function') (ack as (reply: { now: number }) => void)({ now: this.now() }); });
+    socket.on('subscribeIndicators', (value: unknown, ack: (result: unknown) => void) => {
+      if (typeof ack !== 'function' || !this.indicators) return;
+      void this.indicators.subscribe(socket.id, value).then(ack).catch((error: unknown) => {
+        this.warn(`Live indicator subscribe failed: ${errorName(error)}`);
+        ack({ ok: false, code: 'UNAVAILABLE', message: 'Indicators unavailable' });
+      });
+    });
+    socket.on('unsubscribeIndicators', (value: unknown) => { this.indicators?.unsubscribe(socket.id, value); });
     socket.on('unsubscribe', (value: unknown) => { if (this.streams) void this.streams.unsubscribe(socket.id, value).catch((error: unknown) => { this.warn(`Live unsubscribe failed: ${errorName(error)}`); }); });
     const timer = setInterval(() => { void this.checkSession(socket).catch((error: unknown) => { this.warn(`Socket session check failed: ${errorName(error)}`); }); }, this.sessionCheckMs);
     this.sessions.set(socket.id, timer);

@@ -11,6 +11,9 @@ interface Subscription {
   lastSeq: number; resyncSent: boolean; unwatch: () => void;
 }
 type LiveAck = ReturnType<typeof LiveAckSchema.parse>;
+export interface SubscriptionRef { id: string; socketId: string; instrumentId: string; interval: Interval }
+/** Listens to every bar a subscription sends and to its end (unsubscribe, disconnect or resync): live indicators ride on it. */
+export interface BarTap { bar(sub: SubscriptionRef, bar: LiveBar, seq: number): void; ended(subscriptionId: string): void }
 const MAX_PENDING = 2000;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX = 20;
@@ -20,7 +23,16 @@ export class LiveSubscriptions {
   private readonly subscriptions = new Map<string, Subscription>();
   private readonly byInstrument = new Map<string, Set<string>>();
   private readonly lastSeq = new Map<string, number>();
+  private tap: BarTap | undefined;
   constructor(private readonly data: LiveData, private readonly clock: () => number = Date.now) {}
+
+  attachTap(tap: BarTap): void { this.tap = tap; }
+
+  /** The subscription's instrument and interval, if it belongs to this socket. */
+  describe(socketId: string, subscriptionId: string): SubscriptionRef | null {
+    const sub = this.subscriptions.get(subscriptionId);
+    return sub && sub.socketId === socketId ? { id: sub.id, socketId, instrumentId: sub.instrumentId, interval: sub.interval } : null;
+  }
 
   connect(socketId: string, userId: string, emit: Emit): boolean {
     const userSockets = [...this.clients.values()].filter(client => client.userId === userId).length;
@@ -145,7 +157,8 @@ export class LiveSubscriptions {
   private emitBar(sub: Subscription, update: BarUpdate): void {
     if (sub.resyncSent) return;
     const sent = sub.emit('bar', LiveBarSchema.parse({ subscriptionId: sub.id, seq: update.seq, kind: update.kind, bar: update.bar }));
-    if (!sent) this.resync(sub, 'SLOW_CONSUMER');
+    if (!sent) { this.resync(sub, 'SLOW_CONSUMER'); return; }
+    this.tap?.bar({ id: sub.id, socketId: sub.socketId, instrumentId: sub.instrumentId, interval: sub.interval }, update.bar, update.seq);
   }
 
   private flush(sub: Subscription, seq: number): void {
@@ -186,7 +199,7 @@ export class LiveSubscriptions {
   private async remove(id: string, ownerSocketId?: string): Promise<void> {
     const sub = this.subscriptions.get(id);
     if (!sub || (ownerSocketId !== undefined && sub.socketId !== ownerSocketId)) return;
-    this.subscriptions.delete(id); sub.unwatch();
+    this.subscriptions.delete(id); sub.unwatch(); this.tap?.ended(id);
     const client = this.clients.get(sub.socketId); client?.subscriptionIds.delete(id);
     const ids = this.byInstrument.get(sub.instrumentId); ids?.delete(id);
     if (ids?.size === 0) { this.byInstrument.delete(sub.instrumentId); this.lastSeq.delete(sub.instrumentId); await this.data.release(sub.instrumentId); }

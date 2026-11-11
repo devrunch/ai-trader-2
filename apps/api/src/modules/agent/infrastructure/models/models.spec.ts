@@ -3,7 +3,7 @@ import { bedrockMantleKey } from './bedrock-mantle-key';
 import { createLanguageModel, parseModelSpec, type ModelEnv } from './model-factory';
 
 const env: ModelEnv = {
-  ANTHROPIC_API_KEY: 'sk-ant-test', OPENAI_API_KEY: 'sk-test', XAI_API_KEY: 'xai-test',
+  ANTHROPIC_API_KEY: 'sk-ant-test', OPENAI_API_KEY: 'sk-test', XAI_API_KEY: 'xai-test', GOOGLE_GENERATIVE_AI_API_KEY: 'g-test',
   AGENT_BASE_URL: 'https://openrouter.ai/api/v1', AGENT_API_KEY: 'or-test',
   AWS_REGION: 'ap-south-1', BEDROCK_API_KEY: 'bedrock-api-key-test',
 };
@@ -14,7 +14,7 @@ describe('parseModelSpec (provider and model are configuration, not code)', () =
     expect(parseModelSpec('openai-compatible/meta-llama/llama-3.3-70b:free')).toEqual({ provider: 'openai-compatible', modelId: 'meta-llama/llama-3.3-70b:free' });
   });
   it('rejects unknown providers and missing model ids with the list of supported providers', () => {
-    expect(() => parseModelSpec('mystery/x')).toThrow(/bedrock-mantle, anthropic, xai, openai, openai-compatible/);
+    expect(() => parseModelSpec('mystery/x')).toThrow(/bedrock-mantle, anthropic, google, xai, openai, openai-compatible/);
     expect(() => parseModelSpec('anthropic/')).toThrow(/model id/);
   });
 });
@@ -23,6 +23,7 @@ describe('createLanguageModel', () => {
   it.each([
     ['anthropic/claude-sonnet-4-5', 'claude-sonnet-4-5'],
     ['xai/grok-4', 'grok-4'],
+    ['google/gemini-2.5-pro', 'gemini-2.5-pro'],
     ['openai/gpt-5', 'gpt-5'],
     ['openai-compatible/meta-llama/llama-3.3-70b', 'meta-llama/llama-3.3-70b'],
     ['bedrock-mantle/deepseek.v3.2', 'deepseek.v3.2'],
@@ -33,6 +34,7 @@ describe('createLanguageModel', () => {
   it('a missing key names the exact .env variable', () => {
     expect(() => createLanguageModel(parseModelSpec('anthropic/claude'), {})).toThrow('ANTHROPIC_API_KEY');
     expect(() => createLanguageModel(parseModelSpec('xai/grok-4'), {})).toThrow('XAI_API_KEY');
+    expect(() => createLanguageModel(parseModelSpec('google/gemini-2.5-pro'), {})).toThrow('GOOGLE_GENERATIVE_AI_API_KEY');
     expect(() => createLanguageModel(parseModelSpec('openai-compatible/x'), { AGENT_API_KEY: 'k' })).toThrow('AGENT_BASE_URL');
     expect(() => createLanguageModel(parseModelSpec('bedrock-mantle/deepseek.v3.2'), { AWS_REGION: 'ap-south-1' })).toThrow(/BEDROCK_API_KEY or AWS_ACCESS_KEY_ID/);
   });
