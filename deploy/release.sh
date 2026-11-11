@@ -21,6 +21,8 @@ pnpm --filter @aitrader/web build >/dev/null
 
 echo "== stage =="
 cp package.json pnpm-lock.yaml pnpm-workspace.yaml "$STAGE/"
+# pnpm applies patchedDependencies (PineTS) at install, so the patches travel with the release.
+if [ -d patches ]; then cp -r patches "$STAGE/"; fi
 for dir in apps/api apps/web packages/contracts packages/resilience packages/compute-client; do
   mkdir -p "$STAGE/$dir" && cp "$dir/package.json" "$STAGE/$dir/"
 done
