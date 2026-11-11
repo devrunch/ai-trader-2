@@ -88,6 +88,18 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
 
   useEffect(() => { adapterRef.current?.applyColors(readChartColors()); layerRef.current?.recolor(); }, [mode]);
   useEffect(() => { layerRef.current?.set(indicators.series); }, [indicators.series]);
+  // Indicators are computed on the server's bars; any the chart lacks (history filled after its page was read) are fetched.
+  const refetched = useRef('');
+  useEffect(() => {
+    const adapter = adapterRef.current;
+    if (!loaded || !adapter) return;
+    const missing = indicators.series.flatMap(s => adapter.missingTimes(s.result.times));
+    const key = `${symbol}|${interval}|${String(Math.max(0, ...missing))}`;
+    if (missing.length === 0 || refetched.current === key) return;
+    refetched.current = key;
+    apiFetch(`/v1/bars?${new URLSearchParams({ symbol, interval, limit: String(PAGE) }).toString()}`, { schema: BarsResponseSchema })
+      .then(page => { liveClient().mergeHistory(symbol, interval, page.bars); }).catch(() => undefined);
+  }, [indicators.series, loaded, symbol, interval]);
   // Per-tick indicator values over the socket (FR-IN-5); a resubscribe brings the full series back through the query cache.
   useEffect(() => {
     const client = liveClient();

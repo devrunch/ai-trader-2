@@ -60,3 +60,48 @@ factor = input.float(3.0, "Factor", minval = 0.01, step = 0.01)
 plot(direction < 0 ? supertrend : na, "Up Trend")
 plot(direction < 0 ? na : supertrend, "Down Trend")`,
 });
+
+export const HISTORICAL_VOLATILITY = defineBuiltin({
+  id: 'hv', name: 'Historical Volatility', shortName: 'HV', overlay: false, inputs: [lengthInput(10)],
+  plots: [line('hv', 'Historical Volatility', 'blue')], warmup: values => numberInput(values, 'length') + 1,
+  pine: `//@version=6
+indicator("Historical Volatility", "HV")
+length = input.int(10, "Length", minval = 1)
+annual = 365
+per = timeframe.isintraday or (timeframe.isdaily and timeframe.multiplier == 1) ? 1 : 7
+hv = 100 * ta.stdev(math.log(close / close[1]), length) * math.sqrt(annual / per)
+plot(hv, "Historical Volatility")`,
+});
+
+const bandInputs = [lengthInput(20), sourceInputDef(), { id: 'mult', title: 'StdDev', type: 'float' as const, default: 2, min: 0.001, max: 50, step: 0.1 }];
+const bandPine = (title: string, short: string, plots: string): string => `//@version=6
+indicator("${title}", "${short}")
+length = input.int(20, "Length", minval = 1)
+src = input.source(close, "Source")
+mult = input.float(2.0, "StdDev", minval = 0.001, maxval = 50)
+basis = ta.sma(src, length)
+dev = mult * ta.stdev(src, length)
+upper = basis + dev
+lower = basis - dev
+${plots}`;
+
+export const BOLLINGER_PERCENT_B = defineBuiltin({
+  id: 'bbpercentb', name: 'Bollinger Bands %B', shortName: 'BB %B', overlay: false, inputs: bandInputs,
+  plots: [line('percentB', 'Bollinger %B', 'teal')],
+  levels: [{ id: 'upper', title: 'Upper Band', value: 1 }, { id: 'middle', title: 'Middle Band', value: 0.5 }, { id: 'lower', title: 'Lower Band', value: 0 }],
+  warmup: values => numberInput(values, 'length'), pine: bandPine('Bollinger Bands %B', 'BB %B', 'plot((src - lower) / (upper - lower), "Bollinger %B")'),
+});
+
+export const BOLLINGER_WIDTH = defineBuiltin({
+  id: 'bbw', name: 'Bollinger BandWidth', shortName: 'BBW', overlay: false,
+  inputs: [...bandInputs, { id: 'expansion', title: 'Highest Expansion Length', type: 'int', default: 125, min: 1, max: 5000 },
+    { id: 'contraction', title: 'Lowest Contraction Length', type: 'int', default: 125, min: 1, max: 5000 }],
+  plots: [line('bbw', 'Bollinger Bands Width', 'blue'), line('highest', 'Highest Expansion', 'red'), line('lowest', 'Lowest Contraction', 'green')],
+  warmup: values => numberInput(values, 'length') + Math.max(numberInput(values, 'expansion'), numberInput(values, 'contraction')),
+  pine: bandPine('Bollinger BandWidth', 'BBW', `expansionLength = input.int(125, "Highest Expansion Length", minval = 1)
+contractionLength = input.int(125, "Lowest Contraction Length", minval = 1)
+bbw = (upper - lower) / basis
+plot(bbw, "Bollinger Bands Width")
+plot(ta.highest(bbw, expansionLength), "Highest Expansion")
+plot(ta.lowest(bbw, contractionLength), "Lowest Contraction")`),
+});

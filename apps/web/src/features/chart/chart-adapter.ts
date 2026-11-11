@@ -3,7 +3,7 @@ import type { Bar } from '@aitrader/contracts';
 export interface ChartColors { up: string; down: string; text: string; grid: string; background: string }
 interface CandlePoint { time: number; open: number; high: number; low: number; close: number }
 export type VolumePoint = { time: number; value: number; color: string } | { time: number };
-export type LinePoint = { time: number; value: number } | { time: number };
+export type LinePoint = { time: number; value: number; color?: string } | { time: number };
 export interface IndicatorSeriesOptions { kind: 'line' | 'histogram' | 'area' | 'step' | 'circles'; color: string; lineWidth: number; pane: number; title: string }
 export interface IndicatorSeriesLike { setData: (points: LinePoint[]) => void; update: (point: LinePoint) => void; priceLine: (value: number, title: string, color: string) => void; remove: () => void }
 
@@ -36,6 +36,14 @@ export class ChartAdapter {
   }
 
   onNeedOlder(cb: (before: number) => void): void { this.needOlder = cb; }
+
+  /** Times (ms) inside the span the chart holds that it has no bar for; older ones are just not paged in yet. */
+  missingTimes(times: readonly number[]): number[] {
+    const oldest = this.bars[0]?.time;
+    if (oldest === undefined) return [];
+    const held = new Set(this.bars.map(b => b.time));
+    return times.filter(time => time >= oldest && !held.has(time));
+  }
 
   /** The bar under the pointer (or null when not hovering) and the newest bar, for the OHLC legend. */
   onLegend(cb: (hovered: { bar: Bar; prevClose: number | undefined } | null) => void): () => void {

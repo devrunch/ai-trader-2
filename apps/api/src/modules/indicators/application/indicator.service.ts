@@ -12,7 +12,7 @@ import type { RuntimeResolver } from './runtime-resolver';
 const MAX_BARS = 5000;
 const PINE_WARMUP = 500;
 
-interface Plan { program: IndicatorProgram; ref: string; warmup: number; offset: number; plots: string[] | null }
+interface Plan { program: IndicatorProgram; ref: string; warmup: number; offsets: Readonly<Record<string, number>>; plots: string[] | null }
 
 /** FR-IN-31: the one entry point for indicator values; REST, sockets, agent tools, alerts and backtests all call it. */
 export class IndicatorService {
@@ -34,11 +34,11 @@ export class IndicatorService {
 
   /** Computes the range, then keeps the instance for live updates from saved state. The caller closes the stream. */
   async open(request: IndicatorComputeRequest): Promise<{ result: IndicatorResult; stream: IndicatorStream }> {
-    const { program, ref, warmup, offset, plots } = plan(request);
+    const { program, ref, warmup, offsets, plots } = plan(request);
     const runtime = this.runtimes.resolve(program);
     const { limit, before } = request.range;
     const page = await this.market.bars(request.symbol, request.interval, before === undefined ? { latest: true } : { before },
-      Math.min(MAX_BARS, limit + warmup + Math.max(0, offset)));
+      Math.min(MAX_BARS, limit + warmup + Math.max(0, ...Object.values(offsets))));
     const instance = runtime.create(program, { instrumentId: page.resolvedId, interval: request.interval, timezone: this.timezoneOf(page.resolvedId) });
     let rows: PlotValues[];
     try { rows = await instance.seed(page.bars); } catch (error) { instance.close(); throw error; }
@@ -48,19 +48,22 @@ export class IndicatorService {
     const result: IndicatorResult = {
       instrumentId: page.instrumentId, resolvedId: page.resolvedId, interval: request.interval, ref, inputs: { ...program.inputs },
       times: times.slice(from), status: page.status,
-      plots: ids.map(id => ({ id, values: shiftByOffset(rows.map(row => row[id] ?? null), offset).slice(from) })),
+      plots: ids.map(id => ({ id, values: shiftByOffset(rows.map(row => row[id] ?? null), offsets[id] ?? 0).slice(from) })),
     };
-    return { result, stream: new IndicatorStream(instance, ids, offset, { times, rows }, times.at(-1)) };
+    return { result, stream: new IndicatorStream(instance, ids, offsets, { times, rows }, times.at(-1)) };
   }
 }
 
 function plan(request: IndicatorComputeRequest): Plan {
   const spec = request.indicator;
-  if (spec.kind === 'pine') return { program: { kind: 'pine', source: spec.source, inputs: spec.inputs }, ref: 'pine', warmup: PINE_WARMUP, offset: 0, plots: null };
+  if (spec.kind === 'pine') return { program: { kind: 'pine', source: spec.source, inputs: spec.inputs }, ref: 'pine', warmup: PINE_WARMUP, offsets: {}, plots: null };
   const builtin = domain(() => findBuiltin(spec.id, spec.version));
   const inputs = domain(() => resolveInputs(builtin.definition.inputs, spec.inputs));
+  const shared = typeof inputs.offset === 'number' ? inputs.offset : 0;
+  const own = builtin.plotOffsets?.(inputs) ?? {};
+  const plots = builtin.definition.plots.map(p => p.id);
   return { program: { kind: 'builtin', builtin, inputs }, ref: builtin.definition.ref, warmup: builtin.warmup(inputs, request.interval),
-    offset: typeof inputs.offset === 'number' ? inputs.offset : 0, plots: builtin.definition.plots.map(p => p.id) };
+    offsets: Object.fromEntries(plots.map(id => [id, shared + (own[id] ?? 0)])), plots };
 }
 
 function domain<T>(run: () => T): T {

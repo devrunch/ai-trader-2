@@ -26,7 +26,7 @@ export class Watchlists {
   /** Reorder or edit in one go. Ids already on the list are kept as they are; new ones must resolve. */
   async replace(userId: string, items: string[]): Promise<Watchlist> {
     const current = new Set((await this.get(userId)).items);
-    const resolved = await Promise.all(items.map(s => (current.has(s) ? s : this.deps.canonical(s))));
+    const resolved = await Promise.all(items.map(s => (current.has(s) ? Promise.resolve(s) : this.deps.canonical(s))));
     return this.save(userId, [...new Set(resolved)]);
   }
 

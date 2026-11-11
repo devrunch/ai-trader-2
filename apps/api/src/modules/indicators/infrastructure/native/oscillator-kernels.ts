@@ -1,7 +1,8 @@
 import { numberInput, sourceInput, stringInput, type ResolvedInputs } from '../../domain/inputs';
 import { priceOf } from '../../domain/source';
 import { minus, type BarKernel, type BarKernelFactory } from './bar-kernel';
-import { RollingWindow, gated, rsiKernel, smaKernel, emaKernel } from './kernels';
+import { stochKernel } from './extremes-kernel';
+import { gated, rsiKernel, smaKernel, emaKernel } from './kernels';
 import { maKernel } from './moving-average-kernels';
 
 function rsi(inputs: ResolvedInputs): BarKernel {
@@ -26,21 +27,11 @@ function macd(inputs: ResolvedInputs): BarKernel {
 }
 
 function stoch(inputs: ResolvedInputs): BarKernel {
-  const periodK = numberInput(inputs, 'periodK');
-  const highs = new RollingWindow(periodK);
-  const lows = new RollingWindow(periodK);
+  const raw = stochKernel(numberInput(inputs, 'periodK'));
   const k = gated(smaKernel(numberInput(inputs, 'smoothK')));
   const d = gated(smaKernel(numberInput(inputs, 'periodD')));
   return { update(bar, replace) {
-    const high = highs.update(bar.high, replace);
-    const low = lows.update(bar.low, replace);
-    let raw: number | null = null;
-    if (high && low) {
-      const highest = Math.max(...high);
-      const lowest = Math.min(...low);
-      raw = highest === lowest ? null : 100 * (bar.close - lowest) / (highest - lowest);
-    }
-    const kValue = k.update(raw, replace);
+    const kValue = k.update(raw.update(bar.close, bar.high, bar.low, replace), replace);
     return { k: kValue, d: d.update(kValue, replace) };
   } };
 }
