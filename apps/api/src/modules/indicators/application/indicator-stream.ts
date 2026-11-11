@@ -10,10 +10,10 @@ export class IndicatorStream {
   private readonly offsets: Map<string, OffsetStream>;
   private queue: Promise<unknown> = Promise.resolve();
 
-  constructor(private readonly instance: IndicatorInstance, plots: readonly string[], offset: number,
+  constructor(private readonly instance: IndicatorInstance, plots: readonly string[], offsets: Readonly<Record<string, number>>,
     history: { times: readonly number[]; rows: readonly PlotValues[] }, private lastTime: number | undefined) {
-    this.offsets = new Map(plots.map(id => [id, new OffsetStream(offset)]));
-    const start = Math.max(0, history.times.length - Math.abs(offset) - 1);
+    this.offsets = new Map(plots.map(id => [id, new OffsetStream(offsets[id] ?? 0)]));
+    const start = Math.max(0, history.times.length - Math.max(0, ...Object.values(offsets).map(Math.abs)) - 1);
     for (let i = start; i < history.times.length; i++) {
       for (const [id, stream] of this.offsets) stream.push(history.times[i] ?? 0, history.rows[i]?.[id] ?? null, false);
     }
@@ -35,14 +35,14 @@ export class IndicatorStream {
     const replace = bar.time === this.lastTime;
     const row = await this.instance.update(bar, replace);
     this.lastTime = bar.time;
-    let barTime: number | null = null;
-    const values: Record<string, number | null> = {};
+    const byTime = new Map<number, Record<string, number | null>>();
     for (const [id, stream] of this.offsets) {
       const point = stream.push(bar.time, row[id] ?? null, replace);
-      if (!point) continue;
-      barTime = point.time;
-      values[id] = point.value;
+      if (point) byTime.set(point.time, { ...byTime.get(point.time), [id]: point.value });
     }
-    return barTime === null ? null : { barTime, values };
+    // Plots shifted into older bars (a negative offset) are left to the next full run; only the newest bar's plots are live.
+    const newest = Math.max(...byTime.keys());
+    const values = byTime.get(newest);
+    return values ? { barTime: newest, values } : null;
   }
 }
