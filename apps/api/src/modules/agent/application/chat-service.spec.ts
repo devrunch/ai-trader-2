@@ -5,10 +5,10 @@ import { ChatService, type AgentRunner, type ChatStores, type RunInput } from '.
 const prompt = { key: 'system', version: 3, content: 'be careful', source: 'admin' as const };
 const opts = { dailyTurns: 2, maxRounds: 4, turnTimeoutMs: 30_000, maxTokens: 10_000 };
 
-function setup(runner: AgentRunner | null = fakeRunner()) {
+function setup(runner: AgentRunner | null = fakeRunner(), memory?: ChatStores['memory']) {
   const fns = { start: vi.fn().mockResolvedValue(undefined), finish: vi.fn().mockResolvedValue(undefined),
     ensure: vi.fn().mockResolvedValue([{ id: 'old', role: 'user', parts: [] }]), saveMessages: vi.fn().mockResolvedValue(undefined) };
-  const stores: ChatStores = { turns: { start: fns.start, finish: fns.finish }, threads: { ensure: fns.ensure, saveMessages: fns.saveMessages } };
+  const stores: ChatStores = { turns: { start: fns.start, finish: fns.finish }, threads: { ensure: fns.ensure, saveMessages: fns.saveMessages }, ...(memory ? { memory } : {}) };
   const taken: string[] = [];
   const limiter = { take: vi.fn((key: string, limit: number) => { taken.push(key); return Promise.resolve(taken.filter(k => k === key).length <= limit); }) };
   const service = new ChatService(runner, { active: vi.fn().mockResolvedValue(prompt) }, stores, limiter, opts,
@@ -31,6 +31,16 @@ describe('ChatService (FR-AG-1..3, FR-AG-9)', () => {
     const { service } = setup(null);
     expect(service.status()).toEqual({ enabled: false, model: null });
     await expect(service.start(turn, new AbortController().signal)).rejects.toBeInstanceOf(UnavailableError);
+  });
+
+  it('adds what it remembers about the user to the system prompt', async () => {
+    const runner = fakeRunner();
+    const block = '\n\n## What you remember about this user\n- [abcd1234] Risks 1% per trade';
+    const promptFor = vi.fn().mockResolvedValue(block);
+    const { service } = setup(runner, { promptFor });
+    await service.start(turn, new AbortController().signal);
+    expect(promptFor).toHaveBeenCalledWith('u1');
+    expect(runner.last?.system).toBe(`be careful${block}`);
   });
 
   it('runs a turn with the active prompt version and records it from start to finish', async () => {

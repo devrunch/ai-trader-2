@@ -57,3 +57,10 @@ export const agentTasks = pgTable('agent_tasks', {
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
 });
+
+export const agentMemory = pgTable('agent_memory', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  note: text('note').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});

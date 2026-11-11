@@ -13,7 +13,7 @@ export interface TurnStart { id: string; userId: string; threadId: string; promp
 export interface TurnStore { start(turn: TurnStart): Promise<void>; finish(id: string, result: { outcome: string; tokens: number; finishedAt: string }): Promise<void> }
 /** `ensure` creates the thread on first use and returns its stored history; another user's thread is not found. */
 export interface ThreadHistoryStore { ensure(userId: string, threadId: string, firstText: string): Promise<unknown[]>; saveMessages(userId: string, threadId: string, messages: unknown[]): Promise<void> }
-export interface ChatStores { turns: TurnStore; threads: ThreadHistoryStore }
+export interface ChatStores { turns: TurnStore; threads: ThreadHistoryStore; memory?: { promptFor(userId: string): Promise<string> } }
 export interface WindowLimiter { take(key: string, limit: number, windowMs: number): Promise<boolean> }
 export interface ChatOptions { dailyTurns: number; maxRounds: number; turnTimeoutMs: number; maxTokens: number }
 export interface ChatTurn { userId: string; threadId: string; message: unknown }
@@ -55,7 +55,8 @@ export class ChatService {
     await this.stores.turns.start({ id: turnId, userId: turn.userId, threadId: turn.threadId, promptKey: prompt.key, promptVersion: prompt.version,
       model: runner.model, startedAt: new Date(now).toISOString() });
     const budget = new TurnBudget({ maxRounds: this.opts.maxRounds, maxMs: this.opts.turnTimeoutMs, maxTokens: this.opts.maxTokens });
-    const { stream, done } = runner.run({ system: prompt.content, messages: [...history, turn.message], budget,
+    const remembered = this.stores.memory ? await this.stores.memory.promptFor(turn.userId) : '';
+    const { stream, done } = runner.run({ system: prompt.content + remembered, messages: [...history, turn.message], budget,
       ctx: { userId: turn.userId, conversationId: turn.threadId, turnId },
       signal: AbortSignal.any([signal, AbortSignal.timeout(this.opts.turnTimeoutMs)]) });
     void this.record(turnId, turn, done);

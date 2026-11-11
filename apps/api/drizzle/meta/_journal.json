@@ -127,6 +127,13 @@
       "when": 1794300010000,
       "tag": "0020_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794300011000,
+      "tag": "0021_agent_memory",
+      "breakpoints": true
     }
   ]
 }
