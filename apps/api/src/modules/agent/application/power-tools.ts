@@ -164,3 +164,20 @@ export function buildWatchlistTools(list: WatchlistDesk, deps: GuardDeps): Array
       input: z.strictObject({ symbol: SYMBOL }), run: (o, ctx) => list.remove(ctx.userId, o.symbol) }, deps),
   ];
 }
+
+export interface MemoryDesk {
+  remember(userId: string, note: string): Promise<unknown>;
+  forget(userId: string, id: string): Promise<void>;
+}
+
+/** Lasting facts about the user, shown at the start of every turn. Never secrets, never one-off chatter. */
+export function buildMemoryTools(memory: MemoryDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+  return [
+    guardedTool({ name: 'remember',
+      description: 'Save a lasting fact about the user for future conversations (risk per trade, style, markets they trade, preferred timeframe). '
+        + 'Only when they state a preference or ask you to remember; never passwords, keys or one-off details. One short sentence.',
+      input: z.strictObject({ note: z.string().min(3).max(300) }), run: (o, ctx) => memory.remember(ctx.userId, o.note) }, deps),
+    guardedTool({ name: 'forget', description: 'Delete a remembered fact by the id shown in brackets in "What you remember about this user".',
+      input: z.strictObject({ id: z.string().min(8).max(40) }), run: async (o, ctx) => { await memory.forget(ctx.userId, o.id); return { forgotten: o.id }; } }, deps),
+  ];
+}
