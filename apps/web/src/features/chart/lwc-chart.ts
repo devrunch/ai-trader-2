@@ -1,5 +1,5 @@
 import { AreaSeries, CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, LineType, createChart, type IChartApi, type LineWidth, type Time, type UTCTimestamp } from 'lightweight-charts';
-import type { ChartColors, ChartLike, IndicatorSeriesLike, IndicatorSeriesOptions } from './chart-adapter';
+import type { ChartColors, ChartLike, LinePoint, IndicatorSeriesLike, IndicatorSeriesOptions } from './chart-adapter';
 
 const ts = (seconds: number): UTCTimestamp => seconds as UTCTimestamp;
 const seconds = (time: Time): number => (typeof time === 'number' ? time : 0);
@@ -59,9 +59,16 @@ function addIndicatorSeries(chart: IChartApi, { kind, color, lineWidth, pane, ti
     : chart.addSeries(LineSeries, { ...common, color, lineWidth: width(lineWidth), lineType: kind === 'step' ? LineType.WithSteps : LineType.Simple,
       lineVisible: kind !== 'circles', pointMarkersVisible: kind === 'circles' }, pane);
   return {
-    setData: points => { series.setData(points.map(p => ({ ...p, time: ts(p.time) }))); },
-    update: point => { series.update({ ...point, time: ts(point.time) }); },
+    setData: points => { series.setData(points.map(p => linePoint(p, kind))); },
+    update: point => { series.update(linePoint(point, kind)); },
     priceLine: (price, label, lineColor) => { series.createPriceLine({ price, title: label, color: lineColor, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false }); },
     remove: () => { chart.removeSeries(series); },
   };
+}
+
+/** A point's own colour; an area takes it for the line and both fills so a transparent point hides the fill too. */
+function linePoint({ time, ...rest }: LinePoint, kind: IndicatorSeriesOptions['kind']) {
+  if (kind !== 'area' || !('color' in rest)) return { ...rest, time: ts(time) };
+  const { color, ...value } = rest;
+  return { ...value, lineColor: color, topColor: color, bottomColor: color, time: ts(time) };
 }

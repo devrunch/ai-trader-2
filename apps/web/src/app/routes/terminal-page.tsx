@@ -6,7 +6,7 @@ import { Brand, CompactNav } from '../layout/app-shell';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
 import { IndicatorPicker } from '../../features/indicators';
-import { InstrumentBadge, IntervalPicker, Watchlist } from '../../features/terminal';
+import { InstrumentBadge, IntervalPicker, Watchlist, useWatchlistEdit } from '../../features/terminal';
 import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
 import { NewsPanel } from '../../features/news';
@@ -24,6 +24,8 @@ export function TerminalPage() {
   const open = useCallback((value: string) => { setInitial((current) => current ?? value); }, []);
   useOpenOnType(open);
   const [ticket, setTicket] = useState<PaperSide | null>(null);
+  const [adding, setAdding] = useState(false);
+  const watchlist = useWatchlistEdit();
   const addDrawing = useDrawingStore(s => s.add);
   const chatActions = useMemo(() => ({ openSymbol: (next: string, nextInterval?: Interval) => { void navigate({ to: '/terminal', search: { symbol: next, interval: nextInterval ?? interval } }); },
     addDrawing }), [navigate, interval, addDrawing]);
@@ -38,8 +40,9 @@ export function TerminalPage() {
   </div>;
   return <>
     <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
-      widgets={{ watchlist: <Watchlist />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
+      widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <NotYet what="Alerts" />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
     {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
+    {adding && <SymbolSearchDialog initial="" onClose={() => { setAdding(false); }} onSelect={(id) => { watchlist.add.mutate(id); }} />}
     {initial !== null && <SymbolSearchDialog initial={initial} onClose={() => { setInitial(null); }} onSelect={(id) => { void navigate({ to: '/terminal', search: { symbol: id, interval } }); }} />}
   </>;
 }
