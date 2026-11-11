@@ -23,6 +23,18 @@ const cases: [id: string, inputs: Record<string, unknown>][] = [
   ['vwap', {}], ['vwap', { anchor: 'Week' }], ['vwap', { anchor: 'Month' }], ['vwap', { anchor: 'Quarter' }], ['vwap', { anchor: 'Year' }],
   ['vwap', { bandsMode: 'Percentage', showBand2: true, showBand3: true, source: 'close' }],
   ['supertrend', {}], ['supertrend', { atrPeriod: 7, factor: 2.5 }],
+  ['dmi', {}], ['dmi', { adxSmoothing: 7, diLength: 10 }], ['adx', {}],
+  ['psar', {}], ['psar', { start: 0.01, increment: 0.03, maximum: 0.3 }],
+  ['ichimoku', {}], ['ichimoku', { conversionPeriods: 5, basePeriods: 13, laggingSpan2Periods: 26, displacement: 13 }],
+  ['donchian', {}], ['donchian', { length: 7 }],
+  ['kc', {}], ['kc', { exponential: false, bandsStyle: 'True Range', mult: 1.5, source: 'hl2' }], ['kc', { bandsStyle: 'Range', length: 10 }],
+  ['cci', {}], ['cci', { length: 9, source: 'close' }],
+  ['mfi', {}], ['mfi', { length: 7 }], ['obv', {}],
+  ['wpr', {}], ['wpr', { length: 5 }], ['roc', {}], ['roc', { length: 3, source: 'hl2' }], ['mom', {}], ['mom', { length: 20, source: 'ohlc4' }],
+  ['hma', {}], ['hma', { length: 14, source: 'hlc3' }], ['hma', { length: 2 }], ['vwma', {}], ['vwma', { length: 5, source: 'hl2' }],
+  ['dema', {}], ['dema', { length: 20 }], ['tema', {}], ['tema', { length: 20, source: 'hl2' }],
+  ['aroon', {}], ['aroon', { length: 5 }], ['cmf', {}], ['cmf', { length: 7 }],
+  ['pivots', {}],
 ];
 
 // FR-IN-2: every native built-in equals its own Pine source on PineTS (TradingView semantics), warm-up bars included.

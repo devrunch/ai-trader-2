@@ -76,7 +76,7 @@ describe('IndicatorService.compute (FR-IN-31)', () => {
 
   it('rejects an unknown built-in with NOT_FOUND', async () => {
     const { service } = setup();
-    await expect(service.compute(request({ kind: 'builtin', id: 'hma', inputs: {} }))).rejects.toMatchObject({ code: 'NOT_FOUND', details: { ref: 'builtin:hma' } });
+    await expect(service.compute(request({ kind: 'builtin', id: 'zigzag', inputs: {} }))).rejects.toMatchObject({ code: 'NOT_FOUND', details: { ref: 'builtin:zigzag' } });
   });
 
   it('rejects bad inputs naming the input', async () => {
@@ -95,7 +95,8 @@ describe('IndicatorService.compute (FR-IN-31)', () => {
 describe('IndicatorService catalog', () => {
   it('lists the wave-1 definitions and finds one by ref', () => {
     const { service } = setup();
-    expect(service.list().map(d => d.id)).toEqual(['sma', 'ema', 'wma', 'rsi', 'macd', 'bb', 'atr', 'stoch', 'vwap', 'supertrend']);
+    expect(service.list().map(d => d.id).slice(0, 10)).toEqual(['sma', 'ema', 'wma', 'rsi', 'macd', 'bb', 'atr', 'stoch', 'vwap', 'supertrend']);
+    expect(service.list()).toHaveLength(29);
     expect(service.get('builtin:rsi@1')).toMatchObject({ id: 'rsi', version: 1 });
     expect(() => service.get('builtin:rsi@9')).toThrow(expect.objectContaining({ code: 'NOT_FOUND' }));
   });
@@ -125,6 +126,19 @@ describe('IndicatorService.open (FR-IN-5, FR-IN-6)', () => {
     expect(await right.stream.push(bar(20 * 60_000, 99))).toEqual({ barTime: 20 * 60_000, values: { ma: 40 } });
     const left = await service.open(request(sma({ length: 3, offset: -1 }), 3));
     expect(await left.stream.push(bar(19 * 60_000, 99))).toEqual({ barTime: 18 * 60_000, values: { ma: 198 } });
+  });
+
+  it("shifts each plot by the built-in's own offset (Ichimoku spans), live plots only on the newest bar", async () => {
+    const { service, bars } = setup();
+    const ichimoku = { kind: 'builtin' as const, id: 'ichimoku', inputs: { conversionPeriods: 2, basePeriods: 3, laggingSpan2Periods: 4, displacement: 3 } };
+    const { result, stream } = await service.open(request(ichimoku, 5));
+    expect(bars).toHaveBeenCalledWith('NSE:X', '1', { latest: true }, 11);
+    const values = (id: string) => result.plots.find(p => p.id === id)?.values;
+    expect(values('conversion')).toEqual([32, 34, 36, 38, 40]);
+    expect(values('leadA')).toEqual([28, 30, 32, 34, 36]);
+    expect(values('leadB')).toEqual([28, 30, 32, 34, 36]);
+    expect(values('lagging')).toEqual([36, 38, 40, null, null]);
+    expect(await stream.push(bar(20 * 60_000, 21))).toEqual({ barTime: 20 * 60_000, values: { conversion: 42, base: 42, leadA: 38, leadB: 38 } });
   });
 
   it('applies pushes in order when the caller does not wait', async () => {

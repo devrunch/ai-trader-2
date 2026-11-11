@@ -1,14 +1,20 @@
 import type { Builtin } from './builtins/define';
-import { EMA, SMA, WMA } from './builtins/moving-averages';
+import { DONCHIAN, KELTNER } from './builtins/channels';
+import { DEMA, EMA, HMA, SMA, TEMA, VWMA, WMA } from './builtins/moving-averages';
+import { CCI, MFI, MOMENTUM, ROC, WILLIAMS_R } from './builtins/momentum';
 import { MACD, RSI, STOCH } from './builtins/oscillators';
 import { ATR, BB, SUPERTREND } from './builtins/volatility';
+import { PIVOTS } from './builtins/pivots';
+import { ADX, AROON, DMI, ICHIMOKU, PSAR } from './builtins/trend';
+import { CMF, OBV } from './builtins/volume';
 import { VWAP } from './builtins/vwap';
 import { UnknownIndicatorError } from './errors';
 
 export type { Builtin } from './builtins/define';
 
-/** Wave 1 (FR-IN-7), in TradingView's menu order. */
-export const BUILTINS: readonly Builtin[] = [SMA, EMA, WMA, RSI, MACD, BB, ATR, STOCH, VWAP, SUPERTREND];
+/** Wave 1 (FR-IN-7): the first ten, then the batch added in P4-13a. */
+export const BUILTINS: readonly Builtin[] = [SMA, EMA, WMA, RSI, MACD, BB, ATR, STOCH, VWAP, SUPERTREND,
+  DMI, ADX, PSAR, ICHIMOKU, DONCHIAN, KELTNER, CCI, MFI, OBV, WILLIAMS_R, ROC, MOMENTUM, HMA, VWMA, DEMA, TEMA, AROON, CMF, PIVOTS];
 
 export function findBuiltin(id: string, version?: number): Builtin {
   const found = BUILTINS.find(b => b.definition.id === id && (version === undefined || b.definition.version === version));

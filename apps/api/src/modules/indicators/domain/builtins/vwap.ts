@@ -1,11 +1,8 @@
-import type { Interval } from '@aitrader/contracts';
 import { stringInput } from '../inputs';
-import { defineBuiltin, line, offsetInput, sourceInputDef } from './define';
+import { barsInDays, defineBuiltin, line, offsetInput, sourceInputDef } from './define';
 
 const VWAP_ANCHORS = ['Session', 'Week', 'Month', 'Quarter', 'Year'];
 const anchorDays: Record<string, number> = { Session: 1, Week: 7, Month: 31, Quarter: 92, Year: 366 };
-const intervalDays: Record<Interval, number> = { '1': 1 / 1440, '3': 3 / 1440, '5': 5 / 1440, '15': 15 / 1440, '30': 30 / 1440,
-  '60': 1 / 24, '240': 1 / 6, '1D': 1, '1W': 7, '1M': 31 };
 
 const band = (n: number, show: boolean) => [
   { id: `showBand${String(n)}`, title: `Show Band #${String(n)}`, type: 'bool' as const, default: show },
@@ -24,7 +21,7 @@ export const VWAP = defineBuiltin({
   plots: [line('vwap', 'VWAP', 'blue'),
     ...[1, 2, 3].flatMap(n => [line(`upper${String(n)}`, `Upper Band #${String(n)}`, 'green'), line(`lower${String(n)}`, `Lower Band #${String(n)}`, 'green')])],
   // Enough bars to start at an anchor boundary; capped by the read limit.
-  warmup: (values, interval) => Math.ceil((anchorDays[stringInput(values, 'anchor')] ?? 1) / intervalDays[interval]),
+  warmup: (values, interval) => barsInDays(anchorDays[stringInput(values, 'anchor')] ?? 1, interval),
   pine: `//@version=6
 indicator("Volume Weighted Average Price", "VWAP", overlay = true)
 anchor = input.string("Session", "Anchor Period", options = ["Session", "Week", "Month", "Quarter", "Year"])
