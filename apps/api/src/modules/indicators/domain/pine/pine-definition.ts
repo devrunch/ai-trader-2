@@ -3,7 +3,7 @@ import { PRICE_SOURCES, INDICATOR_COLORS, type IndicatorDefinition, type Indicat
 /** What PineTS reports about a script: its `input.*` calls, plots and hlines. Only the fields the definition needs. */
 export interface PineInputMeta { type: string; title: string; defval: unknown; tooltip?: string | undefined; group?: string | undefined;
   minval?: number | undefined; maxval?: number | undefined; step?: number | undefined; options?: string[] | undefined }
-export interface PinePlotMeta { key: string; title: string; style?: string | undefined }
+interface PinePlotMeta { key: string; title: string; style?: string | undefined }
 export interface PineMeta { title: string; shortTitle: string; overlay: boolean; inputs: PineInputMeta[]; plots: PinePlotMeta[]; levels: { title: string; value: number }[] }
 
 const PLOT_KIND: Record<string, IndicatorPlotDef['kind']> = {
@@ -12,7 +12,7 @@ const PLOT_KIND: Record<string, IndicatorPlotDef['kind']> = {
 };
 
 /** `"MA type"` → `maType`; the same function names inputs, plots and levels so a result and its definition agree. */
-export function idFromTitle(title: string, taken: ReadonlySet<string>, fallback: string): string {
+function idFromTitle(title: string, taken: ReadonlySet<string>, fallback: string): string {
   const words = title.split(/[^A-Za-z0-9]+/).filter(Boolean);
   const camel = words.map((word, i) => i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1)).join('');
   const base = (/^[A-Za-z]/.test(camel) ? camel : `${fallback}${camel}`).slice(0, 36);

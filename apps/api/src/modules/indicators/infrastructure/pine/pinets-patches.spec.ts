@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 // FR-IN-29: one test per patch in patches/pinets@0.13.1.patch, against both builds PineTS ships (ESM for specs, CJS for the compiled API).
-// PINETS_DIR points a run at an unpatched copy to see these fail.
 interface Provider { configure(): void; getSymbolInfo(ticker: string): Promise<object>; getMarketData(ticker: string, timeframe: string, limit?: number, from?: number): Promise<Candle[]> }
 interface Candle { openTime: number; closeTime: number; open: number; high: number; low: number; close: number; volume: number }
 interface Stream { on(event: string, handler: (payload: unknown) => void): void; stop(): void }
@@ -12,10 +11,9 @@ const Module = z.object({ PineTS: z.custom<new (source: Provider, ticker: string
 const PlotsSchema = z.object({ plots: z.record(z.string(), z.object({ data: z.array(z.object({ time: z.number(), value: z.unknown() })) })) });
 
 const lastValue = (context: z.infer<typeof PlotsSchema>, plot: string): unknown => context.plots[plot]?.data.at(-1)?.value;
-const root = process.env.PINETS_DIR;
 const builds = {
-  cjs: () => Module.parse(createRequire(join(process.cwd(), 'package.json'))(root ?? 'pinets')),
-  es: async () => Module.parse(await import(/* @vite-ignore */ root ? join(root, 'dist', 'pinets.min.es.js') : 'pinets')),
+  cjs: () => Module.parse(createRequire(join(process.cwd(), 'package.json'))('pinets')),
+  es: async () => Module.parse(await import('pinets')),
 };
 
 const STEP = 60_000;

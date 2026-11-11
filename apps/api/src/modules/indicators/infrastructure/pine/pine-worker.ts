@@ -35,7 +35,7 @@ function isStreamContext(value: unknown): value is StreamContext {
 
 const port = parentPort;
 if (!port) throw new Error('pine-worker must run as a worker thread');
-const send = (message: WorkerMessage): void => port.postMessage(message);
+const send = (message: WorkerMessage): void => { port.postMessage(message); };
 
 const SECONDARY_TTL_MS = 5000;
 const NON_NUMERIC_STYLES = new Set(['hline', 'shape', 'background', 'char', 'label', 'table', 'linefill']);

@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 /** PineTS's candle shape. */
-export const CandleSchema = z.object({ openTime: z.number(), closeTime: z.number(), open: z.number(), high: z.number(), low: z.number(), close: z.number(), volume: z.number() });
+const CandleSchema = z.object({ openTime: z.number(), closeTime: z.number(), open: z.number(), high: z.number(), low: z.number(), close: z.number(), volume: z.number() });
 export type Candle = z.infer<typeof CandleSchema>;
 
-export const PlotRowSchema = z.record(z.string(), z.number().nullable());
+const PlotRowSchema = z.record(z.string(), z.number().nullable());
 export type PlotRow = z.infer<typeof PlotRowSchema>;
 
 const InputValues = z.record(z.string(), z.union([z.number(), z.boolean(), z.string()]));
