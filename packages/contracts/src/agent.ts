@@ -65,8 +65,16 @@ export const TaskTriggerSchema = z.discriminatedUnion('kind', [
 ]);
 export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
 export const TASK_STATES = ['active', 'paused', 'done', 'cancelled', 'expired'] as const;
+/** agent: a fire runs the assistant in the task's thread. notify: a user alert; a fire only notifies. */
+export const TASK_MODES = ['agent', 'notify'] as const;
+/** A user alert: a price or indicator condition, once or on every crossing. */
+export const AlertCreateSchema = z.strictObject({
+  trigger: TaskTriggerSchema.refine(t => t.kind !== 'schedule', { message: 'alerts need a price or indicator condition' }),
+  repeat: z.boolean().default(false), note: z.string().trim().max(200).optional(),
+});
+export type AlertCreate = z.infer<typeof AlertCreateSchema>;
 export const AgentTaskSchema = z.strictObject({
-  id: z.uuid(), threadId: z.uuid(), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
+  id: z.uuid(), threadId: z.uuid().nullable(), mode: z.enum(TASK_MODES), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
   runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
   lastError: z.string().nullable(), expiresAt: z.string(), createdAt: z.string(),
 });

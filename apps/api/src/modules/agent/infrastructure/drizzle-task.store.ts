@@ -8,13 +8,14 @@ import type { TaskStore } from '../application/agent-tasks';
 import type { AgentTask } from '../domain/agent-task';
 
 const State = z.enum(['active', 'paused', 'done', 'cancelled', 'expired']);
+const Mode = z.enum(['agent', 'notify']);
 const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
 const ms = (value: string | null) => (value === null ? null : Date.parse(value));
 type Row = typeof agentTasks.$inferSelect;
-const toTask = (r: Row): AgentTask => ({ id: r.id, userId: r.userId, threadId: r.threadId, title: r.title, instruction: r.instruction,
+const toTask = (r: Row): AgentTask => ({ id: r.id, userId: r.userId, threadId: r.threadId, mode: Mode.parse(r.mode), title: r.title, instruction: r.instruction,
   trigger: TaskTriggerSchema.parse(r.trigger), state: State.parse(r.state), runs: r.runs, maxRuns: r.maxRuns, armed: r.armed,
   lastRunAt: ms(r.lastRunAt), nextRunAt: ms(r.nextRunAt), lastError: r.lastError, expiresAt: Date.parse(r.expiresAt), createdAt: Date.parse(r.createdAt) });
-const toRow = (t: AgentTask) => ({ id: t.id, userId: t.userId, threadId: t.threadId, title: t.title, instruction: t.instruction, trigger: t.trigger,
+const toRow = (t: AgentTask) => ({ id: t.id, userId: t.userId, threadId: t.threadId, mode: t.mode, title: t.title, instruction: t.instruction, trigger: t.trigger,
   state: t.state, runs: t.runs, maxRuns: t.maxRuns, armed: t.armed, lastRunAt: iso(t.lastRunAt), nextRunAt: iso(t.nextRunAt), lastError: t.lastError,
   expiresAt: new Date(t.expiresAt).toISOString(), createdAt: new Date(t.createdAt).toISOString() });
 

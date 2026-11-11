@@ -75,3 +75,54 @@ describe('IndicatorLayer', () => {
     expect(created.at(-1)?.series.remove).toHaveBeenCalled();
   });
 });
+
+// B1: the chart joins the points either side of a null; the last value before a null is transparent so the bridge is invisible.
+describe('IndicatorLayer gaps', () => {
+  const times = [60_000, 120_000, 180_000, 240_000];
+  const paint = (values: (number | null)[], kind: 'line' | 'histogram' = 'line') => {
+    const at = times.slice(0, values.length);
+    const { chart, created } = fakeChart();
+    const layer = new IndicatorLayer(chart, token => token);
+    const def = definition('supertrend', true, ['up']);
+    const plots = def.plots.map(plot => ({ ...plot, kind }));
+    layer.set([{ key: 'a', definition: { ...def, plots }, result: { ...result({ up: values }), times: at } }]);
+    return { layer, created };
+  };
+
+  it('keeps one series and makes the last point before a null transparent', () => {
+    const { created } = paint([1, 2, null, 4]);
+    expect(created).toHaveLength(1);
+    expect(created[0]?.series.setData).toHaveBeenCalledWith([
+      { time: 60, value: 1 }, { time: 120, value: 2, color: 'transparent' }, { time: 180 }, { time: 240, value: 4 }]);
+  });
+
+  it('leaves histogram plots uncoloured', () => {
+    const { created } = paint([1, null, 3, 4], 'histogram');
+    expect(created[0]?.series.setData).toHaveBeenCalledWith([{ time: 60, value: 1 }, { time: 120 }, { time: 180, value: 3 }, { time: 240, value: 4 }]);
+  });
+
+  it('recolors the previous point when a live null arrives, and again when it turns into a value', () => {
+    const { layer, created } = paint([1, 2]);
+    const series = created[0]?.series;
+    layer.update('a', { barTime: 180_000, values: { up: null } });
+    expect(series?.setData).toHaveBeenLastCalledWith([{ time: 60, value: 1 }, { time: 120, value: 2, color: 'transparent' }, { time: 180 }]);
+    layer.update('a', { barTime: 180_000, values: { up: 3 } });
+    expect(series?.setData).toHaveBeenLastCalledWith([{ time: 60, value: 1 }, { time: 120, value: 2 }, { time: 180, value: 3 }]);
+    expect(created).toHaveLength(1);
+  });
+
+  it('updates in place when no null moves', () => {
+    const { layer, created } = paint([1, 2]);
+    layer.update('a', { barTime: 180_000, values: { up: 3 } });
+    layer.update('a', { barTime: 180_000, values: { up: 3.5 } });
+    expect(created[0]?.series.setData).toHaveBeenCalledTimes(1);
+    expect(created[0]?.series.update).toHaveBeenLastCalledWith({ time: 180, value: 3.5 });
+  });
+
+  it('a value after a null continues without touching the older points', () => {
+    const { layer, created } = paint([1, 2, null]);
+    layer.update('a', { barTime: 240_000, values: { up: 4 } });
+    expect(created[0]?.series.setData).toHaveBeenCalledTimes(1);
+    expect(created[0]?.series.update).toHaveBeenCalledWith({ time: 240, value: 4 });
+  });
+});

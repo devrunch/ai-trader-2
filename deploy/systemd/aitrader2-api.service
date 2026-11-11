@@ -1,0 +1,19 @@
+[Unit]
+Description=ai-trader-2 API (REST, live socket, agent, jobs)
+After=network-online.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+User=aitrader
+WorkingDirectory=/srv/aitrader2/current/apps/api
+EnvironmentFile=/srv/aitrader2/shared/api.env
+Environment=API_INSTANCE_ID=api-1
+# 1.8 GB box: the heap cap keeps one runaway from taking Postgres down with it.
+ExecStart=/opt/node/bin/node --max-old-space-size=448 dist/main.js
+Restart=always
+RestartSec=3
+MemoryMax=700M
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

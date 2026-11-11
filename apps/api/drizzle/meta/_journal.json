@@ -113,6 +113,20 @@
       "when": 1794300008000,
       "tag": "0018_paper_multi_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794300009000,
+      "tag": "0019_watchlists",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794300010000,
+      "tag": "0020_alerts",
+      "breakpoints": true
     }
   ]
 }

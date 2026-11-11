@@ -3,7 +3,7 @@ import type { JobScheduler } from '../../../shared/jobs';
 import type { AgentTasks } from '../application/agent-tasks';
 import type { ChatService } from '../application/chat-service';
 
-interface Notify { notify(n: { userId: string; kind: 'task'; title: string; body?: string | null; link?: { threadId?: string } }): Promise<void> }
+interface Notify { notify(n: { userId: string; kind: 'task' | 'alert'; title: string; body?: string | null; link?: { threadId?: string; symbol?: string } }): Promise<void> }
 
 const logger = new Logger('AgentTasks');
 
@@ -15,6 +15,12 @@ export class AgentTaskJob implements OnModuleInit {
     await this.scheduler.register({ name: 'agent-tasks', cron: '* * * * *', tz: 'Asia/Kolkata', graceMs: 0, maxRuntimeMs: 55_000,
       run: async signal => {
         const fired = await this.tasks.runDue(async (task, reason) => {
+          if (task.mode === 'notify' || task.threadId === null) {
+            const symbol = task.trigger.kind === 'schedule' ? undefined : task.trigger.symbol;
+            await this.notifications.notify({ userId: task.userId, kind: 'alert', title: `Alert: ${task.title}`,
+              body: [reason, task.instruction].filter(Boolean).join('\n'), ...(symbol ? { link: { symbol } } : {}) });
+            return null;
+          }
           const { error, reply } = await this.chat.runInBackground(task.userId, task.threadId,
             `[Background task "${task.title}" fired: ${reason}. Run ${String(task.runs + 1)} of ${String(task.maxRuns)}.]\n${task.instruction}`);
           // The last lines are the summary the prompt asks for; the full reply is in the task's thread.
