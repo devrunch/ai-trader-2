@@ -1,4 +1,4 @@
-import type { AgentTaskDto, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, TaskRuleError, type AgentTask } from '../domain/agent-task';
 
@@ -16,10 +16,12 @@ export interface ConditionReader { read(trigger: Condition): Promise<number | un
 export type FireTask = (task: AgentTask, reason: string) => Promise<string | null>;
 export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined }
 
+const num = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 });
+
 const MAX_ACTIVE_PER_USER = 20;
 const MAX_FIRES_PER_TICK = 25;
 
-const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, title: t.title, instruction: t.instruction, trigger: t.trigger, state: t.state,
+const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, mode: t.mode, title: t.title, instruction: t.instruction, trigger: t.trigger, state: t.state,
   runs: t.runs, maxRuns: t.maxRuns, lastRunAt: t.lastRunAt === null ? null : new Date(t.lastRunAt).toISOString(),
   nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError,
   expiresAt: new Date(t.expiresAt).toISOString(), createdAt: new Date(t.createdAt).toISOString() });
@@ -29,7 +31,15 @@ export class AgentTasks {
   constructor(private readonly store: TaskStore, private readonly conditions: ConditionReader,
     private readonly env: { now: () => number; id: () => string }) {}
 
-  async create(userId: string, threadId: string, input: NewTask): Promise<AgentTaskDto & { conditionNow: number | null }> {
+  /** A user alert: no model runs; each fire is an in-app notification. Repeating alerts fire on every fresh crossing for 30 days. */
+  async createAlert(userId: string, input: AlertCreate): Promise<AgentTaskDto & { conditionNow: number | null }> {
+    const t = input.trigger;
+    const what = t.kind === 'price' ? t.symbol : `${t.indicatorId.toUpperCase()}${t.plot ? ` ${t.plot}` : ''} ${t.symbol} ${t.interval}`;
+    return this.create(userId, null, { title: `${what} ${t.op} ${num.format(t.value)}`, instruction: input.note ?? '', trigger: t,
+      maxRuns: input.repeat ? 500 : 1, expiresInDays: 30 }, 'notify');
+  }
+
+  async create(userId: string, threadId: string | null, input: NewTask, mode: 'agent' | 'notify' = 'agent'): Promise<AgentTaskDto & { conditionNow: number | null }> {
     const active = (await this.store.list(userId)).filter(t => t.state === 'active').length;
     if (active >= MAX_ACTIVE_PER_USER) throw new ConflictError(`At most ${String(MAX_ACTIVE_PER_USER)} active tasks; cancel one first`);
     const now = this.env.now();
@@ -45,7 +55,7 @@ export class AgentTasks {
       conditionNow = observed ?? null;
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
-    const task: AgentTask = { id: this.env.id(), userId, threadId, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
+    const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
       runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : 1), armed, lastRunAt: null, nextRunAt, lastError: null,
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);

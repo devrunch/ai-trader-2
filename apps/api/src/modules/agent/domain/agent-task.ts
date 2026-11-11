@@ -3,7 +3,7 @@ import type { TaskTrigger } from '@aitrader/contracts';
 
 type TaskState = 'active' | 'paused' | 'done' | 'cancelled' | 'expired';
 export interface AgentTask {
-  id: string; userId: string; threadId: string; title: string; instruction: string; trigger: TaskTrigger; state: TaskState;
+  id: string; userId: string; threadId: string | null; mode: 'agent' | 'notify'; title: string; instruction: string; trigger: TaskTrigger; state: TaskState;
   runs: number; maxRuns: number; armed: boolean; lastRunAt: number | null; nextRunAt: number | null; lastError: string | null;
   expiresAt: number; createdAt: number;
 }

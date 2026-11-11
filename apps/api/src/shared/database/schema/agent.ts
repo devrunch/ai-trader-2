@@ -42,7 +42,8 @@ export const agentActions = pgTable('agent_actions', {
 export const agentTasks = pgTable('agent_tasks', {
   id: uuid('id').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  threadId: uuid('thread_id').notNull(),
+  threadId: uuid('thread_id'),
+  mode: text('mode').notNull().default('agent'),
   title: text('title').notNull(),
   instruction: text('instruction').notNull(),
   trigger: jsonb('trigger').notNull(),
