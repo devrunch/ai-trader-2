@@ -1,0 +1,18 @@
+[Unit]
+Description=ai-trader-2 market data (the one Kite websocket holder, bar builder)
+After=network-online.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+User=aitrader
+WorkingDirectory=/srv/aitrader2/current/apps/api
+EnvironmentFile=/srv/aitrader2/shared/api.env
+Environment=MD_INSTANCE_ID=md-1
+ExecStart=/opt/node/bin/node --max-old-space-size=256 dist/market-data.main.js
+Restart=always
+RestartSec=3
+MemoryMax=420M
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
