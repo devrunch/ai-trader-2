@@ -15,12 +15,17 @@ if [ "$(swapon --show --noheadings | wc -l)" = 0 ]; then
 fi
 sysctl -q vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/90-aitrader2.conf
 
-echo "== packages =="
+echo "== packages: Postgres 18 from apt.postgresql.org (the app sets transaction_timeout, new in 17; dev runs 18) =="
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y -qq curl xz-utils ca-certificates >/dev/null
+install -d /usr/share/postgresql-common/pgdg
+curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release; echo "$VERSION_CODENAME")-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 apt-get update -qq
-apt-get install -y -qq postgresql postgresql-contrib curl xz-utils >/dev/null
+apt-get install -y -qq postgresql-18 >/dev/null
 
 echo "== postgres, sized for a 1.8 GB box =="
-PGCONF=$(ls -d /etc/postgresql/*/main | tail -1)/conf.d
+PGCONF=/etc/postgresql/18/main/conf.d
 mkdir -p "$PGCONF"
 cat > "$PGCONF/aitrader2.conf" <<'CONF'
 listen_addresses = 'localhost'
@@ -32,7 +37,7 @@ maintenance_work_mem = 64MB
 wal_buffers = 4MB
 random_page_cost = 1.1
 CONF
-systemctl restart postgresql
+systemctl restart postgresql@18-main
 mkdir -p "$ROOT/shared"
 if [ ! -f "$ROOT/shared/db.pass" ]; then
   openssl rand -hex 24 > "$ROOT/shared/db.pass"; chmod 600 "$ROOT/shared/db.pass"
