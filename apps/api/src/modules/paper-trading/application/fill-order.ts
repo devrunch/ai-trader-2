@@ -45,6 +45,8 @@ export async function fillOrder(tx: PaperUnitOfWork, order: OrderRecord, facts: 
   await tx.saveAccount({ cash: roundMoney(account.cash + realised - charges.total), realisedPnl: roundMoney(account.realisedPnl + realised),
     charges: roundMoney(account.charges + charges.total) });
   await settleExits(tx, order, next, facts, deps);
+  deps.events?.filled({ userId: account.userId, instrumentId: order.instrumentId, side: order.side, quantity: order.quantity, price: facts.price,
+    realised, clientOrderId: order.clientOrderId });
   return true;
 }
 

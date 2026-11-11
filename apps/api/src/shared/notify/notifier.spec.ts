@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTransport } from 'nodemailer';
-import { DisabledNotifier, SmtpNotifier, maskAddress } from './notifier';
+import { DisabledNotifier, ResendNotifier, SmtpNotifier, maskAddress } from './notifier';
 import { AlertGate } from './alert-gate';
 import { createNotifier } from './notify.module';
 
@@ -56,5 +56,25 @@ describe('createNotifier', () => {
     expect(createNotifier({ SMTP_URL: undefined, ALERT_EMAIL_FROM: 'a@example.com', ALERT_EMAIL_TO: ['b@example.com'] }).configured).toBe(false);
     expect(createNotifier({ SMTP_URL: 'smtps://u:p@mail.example.com:465', ALERT_EMAIL_FROM: 'a@example.com', ALERT_EMAIL_TO: [] }).configured).toBe(false);
     expect(createNotifier({ SMTP_URL: 'smtps://u:p@mail.example.com:465', ALERT_EMAIL_FROM: 'a@example.com', ALERT_EMAIL_TO: ['b@example.com'] }).configured).toBe(true);
+  });
+});
+
+describe('ResendNotifier', () => {
+  it('posts to Resend from the verified domain and reports a rejection without throwing', async () => {
+    const calls: Array<{ url: string; body: string; auth: string | undefined }> = [];
+    const http = (url: string, init: { headers: Record<string, string>; body: string }) => { calls.push({ url, body: init.body, auth: init.headers.authorization }); return Promise.resolve({ ok: calls.length === 1, status: calls.length === 1 ? 200 : 422 }); };
+    const warn = vi.fn();
+    const n = new ResendNotifier('re_test', 'AI Trader <alerts@example.com>', ['me@example.com'], warn, http);
+    expect(await n.send({ subject: 'Zerodha not connected', text: 'Connect before 09:15' })).toBe('sent');
+    expect(calls[0]).toMatchObject({ url: 'https://api.resend.com/emails', auth: 'Bearer re_test' });
+    expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual({ from: 'AI Trader <alerts@example.com>', to: ['me@example.com'], subject: '[AI Trader] Zerodha not connected', text: 'Connect before 09:15' });
+    expect(await n.send({ subject: 'x', text: 'y' })).toBe('failed');
+    expect(warn).toHaveBeenCalledWith('alert email rejected by Resend (HTTP 422): x');
+  });
+
+  it('is chosen over SMTP when its key and domain are set', () => {
+    const base = { SMTP_URL: 'smtps://u:p@mail.example.com:465', ALERT_EMAIL_FROM: 'a@example.com', ALERT_EMAIL_TO: ['b@example.com'] };
+    expect(createNotifier({ ...base, RESEND_API_KEY: 're_x', RESEND_DOMAIN: 'example.com' })).toBeInstanceOf(ResendNotifier);
+    expect(createNotifier({ ...base, RESEND_API_KEY: undefined, RESEND_DOMAIN: undefined })).not.toBeInstanceOf(ResendNotifier);
   });
 });

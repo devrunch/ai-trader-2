@@ -14,6 +14,8 @@ import { GetQuote, MarketDataService } from '../market-data/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { NewsService } from '../news/application/index';
 import { NewsModule } from '../news/news.module';
+import { Notifications } from '../notifications/application/index';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { CancelOrder, PlaceOrder, ReadPortfolio } from '../paper-trading/application/index';
 import { PaperTradingModule } from '../paper-trading/paper-trading.module';
 import { ActionsController } from './api/actions.controller';
@@ -73,7 +75,7 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, NewsModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, NewsModule, NotificationsModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
@@ -96,8 +98,8 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService) => new AgentTaskJob(scheduler, tasks, chat) },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, chat, notifications) },
   ],
   exports: [PromptRegistry],
 })

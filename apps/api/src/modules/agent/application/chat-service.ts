@@ -63,15 +63,21 @@ export class ChatService {
   }
 
   /** A background run (a fired task): the same turn as a chat message, read to the end with nobody listening. */
-  async runInBackground(userId: string, threadId: string, text: string): Promise<string | null> {
+  async runInBackground(userId: string, threadId: string, text: string): Promise<{ error: string | null; reply: string }> {
+    let reply = '';
     try {
       const stream = await this.start({ userId, threadId, message: { id: this.env.id(), role: 'user', parts: [{ type: 'text', text }] } },
         AbortSignal.timeout(this.opts.turnTimeoutMs + 5000));
       const reader = stream.getReader();
-      for (;;) { if ((await reader.read()).done) break; }
-      return null;
+      for (;;) {
+        const next = await reader.read();
+        if (next.done) break;
+        const chunk = next.value as { type?: string; delta?: string };
+        if (chunk.type === 'text-delta' && typeof chunk.delta === 'string') reply += chunk.delta;
+      }
+      return { error: null, reply };
     } catch (error) {
-      return error instanceof Error ? error.message : 'background run failed';
+      return { error: error instanceof Error ? error.message : 'background run failed', reply };
     }
   }
 

@@ -10,6 +10,7 @@ import { InstrumentBadge, IntervalPicker, Watchlist } from '../../features/termi
 import { OrderDialog, TradingPanel } from '../../features/paper';
 import { ChatPanel } from '../../features/chat';
 import { NewsPanel } from '../../features/news';
+import { NotificationBell } from '../../features/notifications';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 // Loaded on first visit to /terminal: the chart library and live client stay out of the initial bundle.
@@ -33,7 +34,7 @@ export function TerminalPage() {
       <span className="shrink-0"><IntervalPicker /></span><Divider />
       <span className="shrink-0"><IndicatorPicker /></span>
     </div>
-    <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><CompactNav /><ThemeToggle /></div>
+    <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
   </div>;
   return <>
     <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
