@@ -1,14 +1,14 @@
 import { CronExpressionParser } from 'cron-parser';
 import type { TaskTrigger } from '@aitrader/contracts';
 
-export type TaskState = 'active' | 'paused' | 'done' | 'cancelled' | 'expired';
+type TaskState = 'active' | 'paused' | 'done' | 'cancelled' | 'expired';
 export interface AgentTask {
   id: string; userId: string; threadId: string; title: string; instruction: string; trigger: TaskTrigger; state: TaskState;
   runs: number; maxRuns: number; armed: boolean; lastRunAt: number | null; nextRunAt: number | null; lastError: string | null;
   expiresAt: number; createdAt: number;
 }
 
-export const MIN_SCHEDULE_GAP_MS = 5 * 60_000;
+const MIN_SCHEDULE_GAP_MS = 5 * 60_000;
 export const MAX_TASK_DAYS = 30;
 
 export class TaskRuleError extends Error { override readonly name = 'TaskRuleError'; }
