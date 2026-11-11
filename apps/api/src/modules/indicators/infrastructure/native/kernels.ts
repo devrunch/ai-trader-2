@@ -74,3 +74,43 @@ export function gated(kernel: SeriesKernel): { update(value: number | null, repl
     return result;
   } };
 }
+
+/** The value `bars` back; `null` before that, and where that value was `null`. */
+export function delayKernel(bars: number): { update(value: number | null, replace: boolean): number | null } {
+  const buffer: (number | null)[] = [];
+  return { update(value, replace) {
+    if (replace && buffer.length) buffer[buffer.length - 1] = value;
+    else { buffer.push(value); if (buffer.length > bars + 1) buffer.shift(); }
+    return buffer.length === bars + 1 ? buffer[0] ?? null : null;
+  } };
+}
+
+/** Pine's `ta.change`: the value less the previous one; `null` on the first. */
+export function changeKernel(): SeriesKernel {
+  const previous = delayKernel(1);
+  return { update(value, replace) {
+    const before = previous.update(value, replace);
+    return before === null ? null : value - before;
+  } };
+}
+
+/** Pine's `ta.roc`: percent change over `length` bars; `null` when the earlier value is 0. */
+export function rocKernel(length: number): SeriesKernel {
+  const previous = delayKernel(length);
+  return { update(value, replace) {
+    const before = previous.update(value, replace);
+    return before === null || before === 0 ? null : 100 * (value - before) / before;
+  } };
+}
+
+/** `reduce` over the last `length` inputs; `null` until full, and when any is `null` (Pine's `na` poisons a window). */
+export function windowKernel(length: number, reduce: (values: readonly number[]) => number): { update(value: number | null, replace: boolean): number | null } {
+  const window = new RollingWindow(length);
+  return { update(value, replace) {
+    const values = window.update(value ?? Number.NaN, replace);
+    const result = values ? reduce(values) : Number.NaN;
+    return Number.isFinite(result) ? result : null;
+  } };
+}
+
+export const sumOf = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);

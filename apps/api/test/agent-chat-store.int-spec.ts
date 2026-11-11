@@ -88,7 +88,7 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
   });
 
   it('background tasks round-trip, list per owner, and only active ones are picked up', async () => {
-    const task = { id: randomUUID(), userId: alice, threadId: randomUUID(), title: 'INFY breakout', instruction: 'buy 10',
+    const task = { id: randomUUID(), userId: alice, threadId: randomUUID(), mode: 'agent' as const, title: 'INFY breakout', instruction: 'buy 10',
       trigger: { kind: 'price' as const, symbol: 'NSE:INFY', op: 'above' as const, value: 1500 }, state: 'active' as const, runs: 0, maxRuns: 1, armed: true,
       lastRunAt: null, nextRunAt: null, lastError: null, expiresAt: Date.parse('2026-11-12T00:00:00Z'), createdAt: Date.parse('2026-11-11T00:00:00Z') };
     await tasks.create(task);

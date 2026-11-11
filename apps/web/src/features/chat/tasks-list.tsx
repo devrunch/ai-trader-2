@@ -25,9 +25,11 @@ export function TasksList({ onOpenThread }: { onOpenThread: (threadId: string) =
   });
   if (tasks.isPending) return <p className="text-muted-foreground">Loading tasks…</p>;
   if (tasks.isError) return <p role="alert" className="text-down">Tasks are unavailable right now.</p>;
-  if (tasks.data.length === 0) return <p className="text-muted-foreground">No background tasks. Ask the assistant, for example: “every weekday at 9:20, check NIFTY's trend and tell me”.</p>;
+  // Alerts live in the Alerts widget; this list is the assistant's own work.
+  const mine = tasks.data.filter((t): t is AgentTaskDto & { threadId: string } => t.mode === 'agent' && t.threadId !== null);
+  if (mine.length === 0) return <p className="text-muted-foreground">No background tasks. Ask the assistant, for example: “every weekday at 9:20, check NIFTY's trend and tell me”.</p>;
   return <ul aria-label="Background tasks" className="space-y-2">
-    {tasks.data.map(task => <li key={task.id} className="space-y-1 border p-2">
+    {mine.map(task => <li key={task.id} className="space-y-1 border p-2">
       <div className="flex items-center gap-2">
         <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" onClick={() => { onOpenThread(task.threadId); }}>{task.title}</button>
         <span className={task.state === 'active' ? 'text-up' : 'text-muted-foreground'}>{task.state}</span>

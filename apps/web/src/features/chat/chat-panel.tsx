@@ -83,7 +83,8 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
     prepareSendMessagesRequest: ({ id, messages }) => ({ body: { id, message: messages[messages.length - 1] } }),
   }), []);
   const chat = useChat({ id: threadId, messages: initial, transport,
-    onFinish: () => { void client.invalidateQueries({ queryKey: ['agent', 'threads'] }); } });
+    // The assistant may have traded or edited the watchlist during the turn.
+    onFinish: () => { for (const queryKey of [['agent', 'threads'], ['paper'], ['watchlist']]) void client.invalidateQueries({ queryKey }); } });
   const [input, setInput] = useState('');
   const busy = chat.status === 'submitted' || chat.status === 'streaming';
   const submit = (e: SyntheticEvent) => {
