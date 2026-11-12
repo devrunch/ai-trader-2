@@ -36,6 +36,7 @@ export const ZerodhaStatusSchema = z.strictObject({
   autoLogin: z.strictObject({
     enabled: z.boolean(), blockedUntil: z.iso.datetime().optional(), reason: z.string().optional(),
     attemptsToday: z.number().int().nonnegative(), cap: z.literal(6),
+    lastFailure: z.strictObject({ stage: z.string(), message: z.string(), httpStatus: z.number().int().optional(), at: z.iso.datetime() }).optional(),
   }),
   loginUrl: z.url(),
   redirectUrl: z.string().nullable(),

@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { withTimeout } from '@aitrader/resilience';
 import { UnavailableError } from '../../errors';
+import type { KiteFailureStage, KiteLoginFailure } from './kite-failure';
 
 export interface KiteSessionRecord { accessToken: string; mintedAt: Date; expiresAt: Date }
 export interface LoginAttemptReservation { allowed: boolean; retryAt: Date }
@@ -14,9 +15,12 @@ export interface KiteSessionRepository {
   autoLoginBlock(signal: AbortSignal): Promise<AutoLoginBlock>;
   blockAutoLogin(until: Date, reason: string, signal: AbortSignal): Promise<void>;
   clearAutoLoginBlock(signal: AbortSignal): Promise<void>;
+  recordLoginFailure(failure: KiteLoginFailure, signal: AbortSignal): Promise<void>;
+  lastLoginFailure(signal: AbortSignal): Promise<KiteLoginFailure | null>;
   disconnect(signal: AbortSignal): Promise<void>;
 }
 const rowSchema = z.object({ access_token: z.string(), minted_at: z.date(), expires_at: z.date() });
+const failureSchema = z.object({ stage: z.string(), message: z.string(), httpStatus: z.number().int().optional(), at: z.iso.datetime() });
 const attemptRowSchema = z.object({ login_attempts_day: z.union([z.string(), z.date()]).nullable(), login_attempts: z.number(), login_attempts_window: z.array(z.union([z.date(), z.string()])) });
 export class DrizzleKiteSessionRepository implements KiteSessionRepository {
   constructor(private readonly pool: Pool) {}
@@ -33,7 +37,7 @@ export class DrizzleKiteSessionRepository implements KiteSessionRepository {
       // The vendor primary key makes repeated refresh deliveries an idempotent upsert.
       await client.query(`insert into vendor_sessions (vendor, access_token, minted_at, expires_at) values ($1, $2, $3, $4)
         on conflict (vendor) do update set access_token = excluded.access_token,
-        minted_at = excluded.minted_at, expires_at = excluded.expires_at`,
+        minted_at = excluded.minted_at, expires_at = excluded.expires_at, last_login_failure = null`,
       ['kite', record.accessToken, record.mintedAt, record.expiresAt]);
     }, signal);
   }
@@ -85,6 +89,22 @@ export class DrizzleKiteSessionRepository implements KiteSessionRepository {
   }
   async clearAutoLoginBlock(signal: AbortSignal): Promise<void> {
     await this.query(async client => { await client.query(`update vendor_sessions set auto_login_blocked_until = null, auto_login_block_reason = null where vendor = 'kite'`, []); }, signal);
+  }
+  async recordLoginFailure(failure: KiteLoginFailure, signal: AbortSignal): Promise<void> {
+    const value = JSON.stringify({ stage: failure.stage, message: failure.message, at: failure.at.toISOString(),
+      ...(failure.httpStatus === undefined ? {} : { httpStatus: failure.httpStatus }) });
+    await this.query(async client => { await client.query(`insert into vendor_sessions (vendor, last_login_failure) values ('kite', $1::jsonb)
+      on conflict (vendor) do update set last_login_failure = excluded.last_login_failure`, [value]); }, signal);
+  }
+  async lastLoginFailure(signal: AbortSignal): Promise<KiteLoginFailure | null> {
+    return this.query(async client => {
+      const result = await client.query("select last_login_failure from vendor_sessions where vendor = 'kite' and last_login_failure is not null");
+      const row: unknown = result.rows[0];
+      if (!row) return null;
+      const parsed = failureSchema.parse((row as { last_login_failure: unknown }).last_login_failure);
+      return { stage: parsed.stage as KiteFailureStage, message: parsed.message, at: new Date(parsed.at),
+        ...(parsed.httpStatus === undefined ? {} : { httpStatus: parsed.httpStatus }) };
+    }, signal);
   }
   async disconnect(signal: AbortSignal): Promise<void> {
     await this.query(async client => { await client.query(`update vendor_sessions set access_token = null, minted_at = null, expires_at = null where vendor = 'kite'`, []); }, signal);

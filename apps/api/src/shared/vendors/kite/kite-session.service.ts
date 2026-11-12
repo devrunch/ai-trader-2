@@ -5,6 +5,7 @@ import { BadRequestValidationError, UnavailableError } from '../../errors';
 import type { KiteCredentials } from './kite-credentials';
 import type { KiteTokenExchange } from './kite-login';
 import { KiteLoginError } from './kite-login';
+import { sanitizeFailureMessage, type KiteLoginFailure } from './kite-failure';
 import type { KiteSessionRepository } from './kite-session.repository';
 
 type Login = (credentials: KiteCredentials, signal: AbortSignal) => Promise<{ requestToken: string }>;
@@ -23,7 +24,7 @@ export class KiteSessionService {
     private readonly login: Login,
     private readonly exchange: Exchange,
     private readonly now: () => number = Date.now,
-    private readonly logger: Pick<LoggerService, 'log'> = new Logger('KiteSession'),
+    private readonly logger: Pick<LoggerService, 'log' | 'warn'> = new Logger('KiteSession'),
     private autoLoginEnabled = false,
   ) { this.breaker = new CircuitBreaker({ failureThreshold: 3, openMs: 15 * 60000, now }); }
 
@@ -55,7 +56,10 @@ export class KiteSessionService {
     const exchange = typeof this.exchange === 'function' ? this.exchange(signal) : this.exchange;
     let session: Awaited<ReturnType<KiteTokenExchange['generateSession']>>;
     try { session = await withTimeout(() => exchange.generateSession(requestToken, credentials.apiSecret), 15000, signal); }
-    catch { throw new UnavailableError('Kite session exchange failed', { reason: 'EXCHANGE_FAILED' }); }
+    catch (error) {
+      if (error instanceof KiteLoginError) throw error;
+      throw new KiteLoginError('session', `session failed: ${errorDetail(error)}`, false, errorStatus(error));
+    }
     if (session.user_id.toUpperCase() !== credentials.userId.toUpperCase()) {
       try {
         await withTimeout(() => exchange.invalidateAccessToken?.(session.access_token) ?? Promise.resolve(false), 15000, signal);
@@ -65,12 +69,14 @@ export class KiteSessionService {
     return session.access_token;
   }
   async disconnect(signal = AbortSignal.timeout(1500)): Promise<void> { await this.repository.disconnect(signal); }
-  async adminStatus(): Promise<{ connected: boolean; expiresAt?: string; blockedUntil?: string; reason?: string; attemptsToday: number }> {
-    const [session, block] = await Promise.all([this.status(), this.repository.autoLoginBlock(AbortSignal.timeout(1500))]);
+  async adminStatus(): Promise<{ connected: boolean; expiresAt?: string; blockedUntil?: string; reason?: string; attemptsToday: number; lastFailure?: KiteLoginFailure }> {
+    const [session, block, failure] = await Promise.all([this.status(), this.repository.autoLoginBlock(AbortSignal.timeout(1500)),
+      this.repository.lastLoginFailure(AbortSignal.timeout(1500))]);
     const activeBlock = block.blockedUntil && block.blockedUntil.getTime() > this.now();
     const blockedUntil = activeBlock ? block.blockedUntil?.toISOString() : undefined;
     return { connected: session.valid, ...(session.expiresAt ? { expiresAt: session.expiresAt } : {}),
-      ...(blockedUntil && block.reason ? { blockedUntil, reason: block.reason } : {}), attemptsToday: block.attemptsToday };
+      ...(blockedUntil && block.reason ? { blockedUntil, reason: block.reason } : {}), attemptsToday: block.attemptsToday,
+      ...(failure ? { lastFailure: failure } : {}) };
   }
   async autoLoginNow(signal = AbortSignal.timeout(115000)): Promise<{ expiresAt: string }> { return this.mint(signal).then(async () => {
     const current = await this.status(); return { expiresAt: current.expiresAt ?? '' };
@@ -110,7 +116,8 @@ export class KiteSessionService {
       this.logger.log(`Kite session minted, expires ${expiresAt.toISOString()}`);
       return accessToken;
       }, 115000, signal));
-    }).catch((error: unknown) => {
+    }).catch(async (error: unknown) => {
+      if (!(error instanceof CircuitOpenError) && !isGateRefusal(error)) await this.recordFailure(error, credentials);
       if (error instanceof CircuitOpenError) throw new UnavailableError('Kite provider unavailable', { vendor: 'kite', retryAfterMs: error.retryAfterMs });
       if (error instanceof BadRequestValidationError) throw error;
       if (error instanceof UnavailableError && ['CAPTCHA_REQUIRED', 'NOT_CONNECTED'].includes(String(error.details?.reason))) throw error;
@@ -119,5 +126,26 @@ export class KiteSessionService {
     }).finally(() => { this.inFlight = undefined; });
     return this.inFlight;
   }
+  private async recordFailure(error: unknown, credentials: KiteCredentials): Promise<void> {
+    const secrets = [credentials.password, credentials.totpSecret, credentials.apiSecret, credentials.apiKey];
+    const failure: KiteLoginFailure = error instanceof KiteLoginError
+      ? { stage: error.stage, message: sanitizeFailureMessage(error.message, secrets), at: new Date(this.now()),
+        ...(error.httpStatus === undefined ? {} : { httpStatus: error.httpStatus }) }
+      : { stage: error instanceof BadRequestValidationError ? 'session' : 'unknown', at: new Date(this.now()),
+        message: sanitizeFailureMessage(error instanceof BadRequestValidationError ? error.message : `mint failed: ${errorDetail(error)}`, secrets) };
+    this.logger.warn(`Kite auto-login failed at ${failure.stage}${failure.httpStatus === undefined ? '' : ` (HTTP ${String(failure.httpStatus)})`}: ${failure.message}`);
+    try { await this.repository.recordLoginFailure(failure, AbortSignal.timeout(1500)); }
+    catch { this.logger.warn('Kite auto-login failure could not be stored'); }
+  }
   private unavailableFor(reason: string): UnavailableError { return new UnavailableError('Connect Zerodha to continue', { reason, action: 'connect_zerodha' }); }
+}
+function isGateRefusal(error: unknown): boolean {
+  return error instanceof UnavailableError && ['CAPTCHA_REQUIRED', 'NOT_CONNECTED', 'login attempts exhausted'].includes(String(error.details?.reason));
+}
+function errorDetail(error: unknown): string {
+  return error instanceof Error ? error.name : 'unknown error';
+}
+function errorStatus(error: unknown): number | undefined {
+  const status = typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+  return typeof status === 'number' ? status : undefined;
 }
