@@ -25,7 +25,7 @@ const draw = vi.fn().mockResolvedValue(drawing);
 
 describe('action cards (FR-AG-17)', () => {
   let now = Date.parse('2026-11-10T10:00:00Z');
-  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, { indicators: () => [rsi], draw }, { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
+  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, { indicators: () => [rsi], draw, checkPine: vi.fn(), savePine: vi.fn() }, { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
 
   it('the propose tool only records a pending card for the caller', async () => {
     const { store, cards } = setup();
@@ -110,7 +110,7 @@ describe('indicator tools', () => {
   });
 
   it('no tool the agent has can place, modify or cancel an order', () => {
-    const names = [...buildIndicatorTools({ list: () => [], compute: vi.fn() }, deps), ...buildActionTools({ propose: vi.fn() }, deps)].map(t => t.name);
+    const names = [...buildIndicatorTools({ list: () => [], compute: vi.fn() }, deps), ...buildActionTools({ propose: vi.fn(), proposePine: vi.fn() }, deps)].map(t => t.name);
     for (const name of names) expect(name).not.toMatch(/order|cancel|place|buy|sell|trade|broker|login|token/i);
   });
 });

@@ -1,12 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { Logger, Module } from '@nestjs/common';
 import type { Redis } from 'ioredis';
+import type { PineCheck } from '@aitrader/contracts';
+import { ValidationError } from '../../shared/errors';
 import { APP_CONFIG, type AppConfig } from '../../shared/config';
 import { DB, type Database } from '../../shared/database';
 import { JobScheduler } from '../../shared/jobs';
 import { REDIS } from '../../shared/redis';
 import { AuthModule } from '../auth/auth.module';
 import { IndicatorService } from '../indicators/application/index';
+import { PineScripts } from '../pine-scripts/application/index';
+import { PineScriptsModule } from '../pine-scripts/pine-scripts.module';
 import { IndicatorsModule } from '../indicators/indicators.module';
 import { SearchInstruments } from '../instruments/application/index';
 import { InstrumentsModule } from '../instruments/instruments.module';
@@ -85,16 +89,27 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
   return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools });
 }
 
+/** The runtime's description of a script, or the error with its line; an unavailable runtime stays an error to the caller. */
+async function checkPine(indicators: IndicatorService, source: string): Promise<PineCheck> {
+  try { return { ok: true, definition: await indicators.describe(source) }; }
+  catch (error) {
+    if (!(error instanceof ValidationError)) throw error;
+    const line = error.details?.['line'];
+    return { ok: false, error: error.message.slice(0, 300), ...(typeof line === 'number' && line > 0 ? { line } : {}) };
+  }
+}
+
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, ComputeModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, ComputeModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
-    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService],
-      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService) => {
+    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService, PineScripts],
+      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService, scripts: PineScripts) => {
         const drawings = new DrawingService(market);
-        return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent) }, { now: Date.now, id: randomUUID });
+        return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent), checkPine: source => checkPine(indicators, source),
+          savePine: async (userId, name, source) => (await scripts.create(userId, { name, source })).id }, { now: Date.now, id: randomUUID });
       } },
     { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService],
       useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService) =>

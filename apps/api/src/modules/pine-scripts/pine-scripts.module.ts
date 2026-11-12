@@ -9,6 +9,7 @@ import { DrizzlePineScriptStore } from './infrastructure/drizzle-pine-script.sto
 @Module({
   imports: [AuthModule],
   controllers: [PineScriptsController],
+  exports: [PineScripts],
   providers: [{ provide: PineScripts, inject: [DB], useFactory: (db: Database) => new PineScripts(new DrizzlePineScriptStore(db), { id: randomUUID, now: () => new Date() }) }],
 })
 export class PineScriptsModule {}

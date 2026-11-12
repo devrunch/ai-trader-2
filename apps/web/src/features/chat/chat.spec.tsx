@@ -178,3 +178,41 @@ it('shows which skill the assistant is following', async () => {
   const chip = await screen.findByText('Day trader');
   expect(chip.parentElement?.textContent).toBe('Using skillDay traderv2');
 });
+
+const pineDefinition = { ref: 'pine:0123456789ab@1', id: 'pine0123456789ab', version: 1, name: 'My EMA cross', shortName: 'EMAX', overlay: true,
+  inputs: [{ id: 'len', title: 'Length', type: 'int', default: 9 }], plots: [{ id: 'ema', title: 'EMA', kind: 'line', color: 'blue', lineWidth: 1 }], levels: [] };
+const pineCard = (check: unknown, patch: Record<string, unknown> = {}) => card({ action: { kind: 'add-pine', name: 'My EMA cross', source: 'plot(close)', check, scriptId: null }, ...patch });
+
+it('shows the shared Pine script\'s inputs and plots, then saves and adds it only when applied (FR-IN-25, FR-AG-17)', async () => {
+  useIndicatorStore.setState({ items: [] });
+  const ok = { ok: true, definition: pineDefinition };
+  let applies = 0;
+  server.use(
+    http.post('/api/v1/agent/chat', () => sse(proposal(pineCard(ok)))),
+    http.get(`/api/v1/agent/actions/${cardId}`, () => HttpResponse.json(pineCard(ok))),
+    http.post(`/api/v1/agent/actions/${cardId}/apply`, () => { applies += 1; return HttpResponse.json(pineCard(ok, { state: 'applied' })); }),
+  );
+  render(<Providers><ChatPanel /></Providers>);
+  await ask('here is my script');
+  expect(await screen.findByText('Save “My EMA cross” to My scripts and add it to the chart')).toBeDefined();
+  expect(screen.getByText('Inputs: Length (9)')).toBeDefined();
+  expect(screen.getByText('Plots: EMA')).toBeDefined();
+  expect(applies).toBe(0);
+  expect(useIndicatorStore.getState().items).toHaveLength(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(await screen.findByText('applied')).toBeDefined();
+  expect(applies).toBe(1);
+  expect(useIndicatorStore.getState().items).toMatchObject([{ id: 'pine:0123456789ab@1', pine: { source: 'plot(close)' } }]);
+});
+
+it('shows the error line for a Pine script that does not compile and offers no Apply', async () => {
+  const bad = { ok: false, error: 'Unexpected token', line: 3 };
+  server.use(
+    http.post('/api/v1/agent/chat', () => sse(proposal(pineCard(bad)))),
+    http.get(`/api/v1/agent/actions/${cardId}`, () => HttpResponse.json(pineCard(bad))),
+  );
+  render(<Providers><ChatPanel /></Providers>);
+  await ask('here is my script');
+  expect((await screen.findByRole('alert')).textContent).toBe('Line 3: Unexpected token');
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' }).disabled).toBe(true);
+});
