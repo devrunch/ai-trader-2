@@ -4,6 +4,13 @@ Method: `docs/TODO.md`, `docs/tasks/*.result.md` and file/keyword checks. Test f
 
 Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 
+Removed by owner 2026-11-12 (no longer tracked here):
+- FR-NT-2 Telegram linking and opt-in alerts.
+- NFR-OB-4 ops dashboards and alarms.
+- NFR-OB-2 OpenTelemetry, NFR-OB-3 Sentry.
+- NFR-RB-8 zero-downtime (rolling or blue-green) deploys.
+- Architecture diagram regeneration.
+
 ## Functional
 
 | ID | Requirement | Status | Evidence / what is absent |
@@ -75,7 +82,6 @@ Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 | FR-EV-2 | Event watcher | missing | none |
 | FR-EV-3 | Scorecard of predictions | missing | none |
 | FR-NT-1 | In-app bell and feed | done | P9-2 `features/notifications` |
-| FR-NT-2 | Telegram linking and opt-in alerts | dropped | deferred by owner |
 | FR-NT-3 | Ops alerts by email only | done | Resend (P3-8, T4) |
 | FR-AC-1 | Email+password and Google, rotating refresh | partial | P2-10b email/password sessions; no Google sign-in; session cookie model, rotation not confirmed |
 | FR-AC-2 | Admin: users, usage/caps, skills, job and provider health | partial | `admin-ops` provider/job health, prompts, Zerodha card; no users/usage/caps/skills UI |
@@ -124,7 +130,6 @@ Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 | NFR-RB-5 | Durable jobs | done | `shared/jobs/job-scheduler.ts`, heartbeat (E22) |
 | NFR-RB-6 | Honest `/health` and `/ready` | done | T-007, T-009; `health.controller.spec.ts` |
 | NFR-RB-7 | Graceful shutdown | partial | `main.ts` shutdown hooks; 20 s drain and reconnect hint not confirmed |
-| NFR-RB-8 | Zero-downtime deploys | missing | Coolify single instance; no rolling/blue-green |
 | NFR-PF-1 | Chart load/render budgets | partial | no measured numbers recorded |
 | NFR-PF-2 | Older-history page ≤ 800 ms p95 | partial | P2-3 designed to it; no recorded measurement |
 | NFR-PF-3 | Tick to paint ≤ 300 ms p95 | partial | T-011 harness; real session pending (T1) |
@@ -137,9 +142,6 @@ Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 | NFR-SC-4 | Compute private, IAM-authenticated | done | `sigv4-fetch.ts`, P6 (Lambda) |
 | NFR-SC-5 | Per-user rate limits on expensive endpoints | partial | `ip-rate-limit.guard.ts`, indicator and tool limiters; chat/backtest/scan coverage not confirmed |
 | NFR-OB-1 | Structured logs, request id across services | partial | `observability/request-id.ts`; propagation to Lambda compute not confirmed |
-| NFR-OB-2 | OpenTelemetry traces and metrics | missing | none |
-| NFR-OB-3 | Sentry | missing | none |
-| NFR-OB-4 | Dashboards | dropped | ops dashboards deferred by owner |
 | NFR-QL-1 | Strict TS, no `any` | done | lint-enforced (T-002) |
 | NFR-QL-2 | Coverage gates; test per §9 row | partial | gates enforced (T-003/4); not every E-row has a named test (see below) |
 | NFR-QL-3 | Carry over ~279 Python tests | partial | `services/compute` tests exist (P6); count not reconciled |
@@ -172,7 +174,7 @@ Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 | E22 | Job missed/hung: catch-up, kill, heartbeat email | done | P1-2, P1-5, P1-FIX1 |
 | E23 | Instrument renamed/delisted/expired | done | P1-1, P1-4, P1-5, P1-6 |
 | E24 | Multiple tabs: per-tab sockets, no duplicate alerts | partial | per-tab sockets; alert dedupe across tabs not confirmed |
-| E25 | Deploy in market hours: no skipped jobs | partial | P1-2 catch-up; rolling deploy missing (NFR-RB-8) |
+| E25 | Deploy in market hours: no skipped jobs | partial | P1-2 catch-up; single instance, so a deploy restarts the API (rolling deploy removed by owner) |
 | E26 | Pine runaway/crash: kill and replace | done | P4-6, `pine-runtime.spec.ts` (flaky under load) |
 | E27 | `request.security` without data: `na` + reason | done | P4-6 |
 | E28 | Indicator chain with failing parent | done | P4-9 |
@@ -193,13 +195,13 @@ Status: **done** / **partial** / **missing** / **dropped** (dropped-by-owner).
 
 ## Summary
 
-1. Counts (167 rows = 130 FR/NFR + 32 failure modes + 5 acceptance): done 88, partial 57, missing 16, dropped 6.
+1. Counts (162 rows after 5 owner removals): done 88, partial 57, missing 13, dropped 4.
 2. Missing 1: FR-AG-14/E20, skill scripts in an isolated sandbox (the SRD's safety story for skills).
 3. Missing 2: AC-3 staging day with forced drops and a zero-gap check, plus T1/T2/T11 real-session tests.
 4. Missing 3: FR-CH-3 multi-chart layouts and FR-CH-4 saved layouts.
 5. Missing 4: FR-CH-1 chart types (Heikin Ashi, Renko, Kagi, Point & Figure, footprint) and FR-IN-16 pane management.
 6. Missing 5: FR-SY-8 corporate actions (adjusted history), and FR-SY-9 migration of old data.
 7. Missing 6: FR-AC-1 Google sign-in and FR-AC-2 admin users/usage/caps/skill toggles (FR-AG-15).
-8. Missing 7: NFR-OB-2/3 OpenTelemetry and Sentry; NFR-RB-8 zero-downtime deploys.
-9. Missing 8: FR-EV-2/3 event watcher and scorecard, FR-HM-3 market/sentiment alerts, FR-IN-8 formula/compare, FR-IN-18 CSV export.
-10. Also open: T12 Kite auto-login from the Coolify IP (manual daily connect until fixed), FR-BT-1 Strategies page, FR-UI-2 Portfolio/Settings pages, and NFR-PF-* measurements.
+8. Missing 7: FR-EV-2/3 event watcher and scorecard, FR-HM-3 market/sentiment alerts, FR-IN-8 formula/compare, FR-IN-18 CSV export.
+9. Also open: T12 Kite auto-login from the Coolify IP (manual daily connect until fixed), FR-BT-1 Strategies page, FR-UI-2 Portfolio/Settings pages, and NFR-PF-* measurements.
+10. Owner priority 2026-11-12: agent, news, events (FR-AG-10/11/14/15, FR-HM-*, FR-EV-*) come first.

@@ -50,4 +50,9 @@ Live on Coolify (Novam server) at https://ai-trader.app.outlfy.com; the EC2 box 
 | Performance | API search index memory (~200 MB) | A compact form cost 5x query time and saved no memory; revisit |
 | Phase 9 | News impact tagging | |
 
-Out of scope until the owner asks: Telegram, ops (dashboards, alarms, diagram regeneration).
+Removed by owner 2026-11-12:
+- Telegram (FR-NT-2).
+- Ops dashboards and alarms.
+- OpenTelemetry and Sentry (NFR-OB-2/3).
+- Zero-downtime deploys (NFR-RB-8).
+- Diagram regeneration.

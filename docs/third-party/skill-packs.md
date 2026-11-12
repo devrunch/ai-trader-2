@@ -57,3 +57,41 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Trading skill packs added 2026-11-12 (AG-1)
+
+Rewritten to use this app's tools only; no upstream scripts, data feeds or order templates are carried over (FR-AG-7). Paper trading only.
+
+| Pack | Licence | Commit | Skills |
+|---|---|---|---|
+| https://github.com/tradermonty/claude-trading-skills | MIT, Copyright (c) 2026 TraderMonty | 6202e67 (2026-11-12) | `vcp-setup`, `breakout-trade-plan`, `momentum-burst`, `earnings-reaction`, `backtest-review` |
+| https://github.com/SKE-Labs/agent-trading-skills | Apache-2.0 (no copyright holder stated in the repo; author `ske-labs`) | b14565f (2026-07-18) | `breakout-trading`, `gap-trading`, `pullback-trading`, `momentum-trading` |
+| https://github.com/anthropics/financial-services | Apache-2.0 (no copyright holder stated in the repo) | 6056506 (2026-10-28) | `sector-overview`, `idea-screen` |
+
+The Apache-2.0 text is in `docs/third-party/LICENSE-Apache-2.0.txt`. The two Apache packs have no NOTICE file. These skills are changed from the originals (paraphrased and re-targeted to this app's tools).
+
+### tradermonty/claude-trading-skills licence
+
+```
+MIT License
+
+Copyright (c) 2026 TraderMonty
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
