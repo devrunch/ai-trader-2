@@ -1,6 +1,6 @@
 import type { TradePlanInput } from '@aitrader/contracts';
 
-export const PLAN_RISK_PCT = 0.5;
+const PLAN_RISK_PCT = 0.5;
 
 export type PlanGeometry = { ok: true; riskPerUnit: number; rewards: Array<{ price: number; rewardRisk: number }> } | { ok: false; reason: string };
 

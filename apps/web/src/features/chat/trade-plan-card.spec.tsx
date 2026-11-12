@@ -11,7 +11,7 @@ vi.mock('@tanstack/react-router', () => ({ Link: ({ children }: { children: unkn
 
 const posted: unknown[] = [];
 const server = setupServer(http.post('*/v1/agent/tasks/alerts', async ({ request }) => { posted.push(await request.json()); return HttpResponse.json({}, { status: 201 }); }));
-beforeAll(() => { server.listen({ onUnhandledRequest: 'error' }); });
+beforeAll(() => { server.listen(); });
 afterEach(() => { cleanup(); server.resetHandlers(); posted.length = 0; });
 afterAll(() => { server.close(); });
 

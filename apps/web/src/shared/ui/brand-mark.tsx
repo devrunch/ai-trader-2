@@ -1,5 +1,5 @@
 /** The mark: three candles whose last body is the agent's gradient. */
-export function BrandMark({ className = 'size-6' }: { className?: string }) {
+function BrandMark({ className = 'size-6' }: { className?: string }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false" className={className}>
     <defs>
       <linearGradient id="brand-ai" x1="0" y1="1" x2="1" y2="0">

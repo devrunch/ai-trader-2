@@ -27,7 +27,7 @@ export function CompactNav() {
   </nav>;
 }
 
-export function Brand() {
+function Brand() {
   return <span data-testid="app-root"><Wordmark className="px-1" /></span>;
 }
 
