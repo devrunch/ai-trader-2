@@ -152,7 +152,7 @@ it('renders the assistant reply as markdown and never as raw HTML', async () => 
 it('lists background tasks with what wakes them, and pauses one', async () => {
   const task = { id: '00000000-0000-4000-8000-0000000000t1'.replace('t1', 'a1'), threadId: '00000000-0000-4000-8000-0000000000b1', mode: 'agent', title: 'EURUSD vs EMA 20',
     instruction: 'check', trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' }, state: 'active', runs: 1, maxRuns: 2,
-    lastRunAt: '2026-11-11T18:45:00.000Z', nextRunAt: '2026-11-11T18:50:00.000Z', lastError: null, lastOutcome: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+    lastRunAt: '2026-11-11T18:45:00.000Z', nextRunAt: '2026-11-11T18:50:00.000Z', lastError: null, lastOutcome: null, autoTrade: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
   const verbs: string[] = [];
   server.use(
     http.get('/api/v1/agent/tasks', () => HttpResponse.json([task])),
@@ -215,4 +215,41 @@ it('shows the error line for a Pine script that does not compile and offers no A
   await ask('here is my script');
   expect((await screen.findByRole('alert')).textContent).toBe('Line 3: Unexpected token');
   expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Apply' }).disabled).toBe(true);
+});
+
+it('turns on auto-trade for a task with the default limits (paper only)', async () => {
+  const task = { id: '00000000-0000-4000-8000-0000000000a1', threadId: '00000000-0000-4000-8000-0000000000b1', mode: 'agent', title: 'Scan NIFTY',
+    instruction: 'scan', trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' }, state: 'active', runs: 0, maxRuns: 2,
+    lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+  const bodies: unknown[] = [];
+  server.use(
+    http.get('/api/v1/agent/tasks', () => HttpResponse.json([task])),
+    http.post('/api/v1/agent/tasks/:id/auto-trade', async ({ request }) => { bodies.push(await request.json()); return HttpResponse.json(task); }),
+  );
+  render(<Providers><ChatPanel /></Providers>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  const toggle = await screen.findByRole('switch', { name: /Auto-trade \(PAPER\)/ });
+  expect(toggle.getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(toggle);
+  expect(screen.getByText('Paper money only. Orders still pass the risk check.')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Save auto-trade' }));
+  await vi.waitFor(() => { expect(bodies).toEqual([{ autoTrade: { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 3, requireBacktest: true } }]); });
+});
+
+it('shows a place-order card as PAPER and applies it once', async () => {
+  const order = { kind: 'place-order', symbol: 'NSE:INFY', side: 'buy', type: 'market', product: 'MIS', quantity: 10, stopLoss: 1480, rationale: 'Breakout on volume', clientOrderId: null };
+  let applies = 0;
+  server.use(
+    http.post('/api/v1/agent/chat', () => sse(proposal(card({ action: order })))),
+    http.get(`/api/v1/agent/actions/${cardId}`, () => HttpResponse.json(card({ action: order }))),
+    http.post(`/api/v1/agent/actions/${cardId}/apply`, () => { applies += 1; return HttpResponse.json(card({ action: { ...order, clientOrderId: 'agent-1' }, state: 'applied' })); }),
+  );
+  render(<Providers><ChatPanel /></Providers>);
+  await ask('buy infy');
+  expect(await screen.findByText('Place PAPER order: BUY 10 NSE:INFY @ market, stop 1480')).toBeDefined();
+  expect(screen.getByText('Breakout on volume')).toBeDefined();
+  expect(screen.getByText('PAPER')).toBeDefined();
+  fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+  expect(await screen.findByText('applied')).toBeDefined();
+  expect(applies).toBe(1);
 });

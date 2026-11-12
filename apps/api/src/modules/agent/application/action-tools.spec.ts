@@ -25,7 +25,7 @@ const draw = vi.fn().mockResolvedValue(drawing);
 
 describe('action cards (FR-AG-17)', () => {
   let now = Date.parse('2026-11-10T10:00:00Z');
-  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, { indicators: () => [rsi], draw, checkPine: vi.fn(), savePine: vi.fn() }, { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
+  const setup = () => { const store = memoryStore(); return { store, cards: new ActionCards(store, { indicators: () => [rsi], draw, checkPine: vi.fn(), savePine: vi.fn(), submitOrder: vi.fn() }, { now: () => now, id: () => '00000000-0000-4000-8000-000000000001' }) }; };
 
   it('the propose tool only records a pending card for the caller', async () => {
     const { store, cards } = setup();

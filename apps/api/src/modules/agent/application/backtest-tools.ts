@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { INTERVALS, IndicatorInputValuesSchema, type IndicatorComputeRequest, type IndicatorResult, type Interval } from '@aitrader/contracts';
 import type { BacktestRequest, BacktestResponse } from '@aitrader/compute-client';
 import { ValidationError } from '../../../shared/errors';
-import { guardedTool, orJsonString, type GuardDeps, type GuardedTool } from './guarded-tool';
+import { guardedTool, orJsonString, type GuardDeps, type GuardedTool, type ToolContext } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
 const NAME = z.string().regex(/^[A-Za-z][A-Za-z0-9_]{0,31}$/);
@@ -44,14 +44,14 @@ export interface BacktestDesk {
 const round = (n: number | null, d = 2) => (n === null ? null : Math.round(n * 10 ** d) / 10 ** d);
 
 /** Strategy backtests on real bars with indicator series computed by the server, run by the Python compute service (Lambda). */
-export function buildBacktestTools(desk: BacktestDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+export function buildBacktestTools(desk: BacktestDesk, deps: GuardDeps, onResult?: (ctx: ToolContext, summary: string) => void): Array<GuardedTool<unknown, unknown>> {
   return [guardedTool({ name: 'runBacktest',
     description: 'Backtest a rule-based strategy on real bars: name indicator series (e.g. {name:"ema20", indicatorId:"ema", inputs:{length:20}}) and use them, '
       + 'or bar fields open/high/low/close/volume, in entry/exit conditions (compare with gt/lt/crossesAbove/crossesBelow, combine with all/any/not); '
       + 'stopLoss/takeProfit as percent or a series multiple (e.g. ATR). Pessimistic fills, costs on every fill. '
       + 'Always report drawdown, trade count, costs and the out-of-sample split with any return; say when the sample is too small or results are a coin flip.',
     input: BacktestInput,
-    run: async input => {
+    run: async (input, ctx) => {
       if (!desk.backtest) throw new ValidationError('Backtesting is not configured on this server (COMPUTE_URL)');
       const { bars } = await desk.market.bars(input.symbol, input.interval, { latest: true }, input.bars);
       if (bars.length < 100) throw new ValidationError(`Only ${String(bars.length)} bars for ${input.symbol} ${input.interval}; need at least 100`);
@@ -66,6 +66,7 @@ export function buildBacktestTools(desk: BacktestDesk, deps: GuardDeps): Array<G
       }
       const response = await desk.backtest.execute({ bars, series, strategy: input.strategy as BacktestRequest['strategy'], costs: input.costs }, AbortSignal.timeout(28_000));
       const m = response.metrics;
+      onResult?.(ctx, `${input.symbol} ${input.interval}, ${String(bars.length)} bars: return ${String(round(m.totalReturnPct))}%, max drawdown ${String(round(m.maxDrawdownPct))}%, ${String(m.tradeCount)} trades, profit factor ${String(round(m.profitFactor))}`);
       return {
         sample: { symbol: input.symbol, interval: input.interval, bars: bars.length, from: new Date(bars[0]?.time ?? 0).toISOString(), to: new Date(bars.at(-1)?.time ?? 0).toISOString() },
         costs: input.costs,

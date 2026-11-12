@@ -92,3 +92,27 @@ it('cancels a working order', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
   await waitFor(() => { expect(cancelled).toBe(1); });
 });
+
+const trade = { id: '00000000-0000-4000-8000-0000000000d1', createdAt: '2026-11-11T05:00:00.000Z', venue: 'paper', taskId: null, trigger: 'RSI crossed 30', skill: 'day-trader',
+  rationale: 'Bounce off support with rising volume', symbol: 'NSE:INFY', side: 'buy', quantity: 10, entry: 1490, stopLoss: 1480, target: 1520, riskAmount: 100, currency: 'INR',
+  backtest: null, clientOrderId: 'agent-1', status: 'filled', pnl: 150 };
+
+it('lists the assistant trades in the journal with P&L, rationale and PAPER label', async () => {
+  server.use(http.get('/api/v1/agent/trades', () => HttpResponse.json({ items: [trade] })));
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  fireEvent.click(screen.getByRole('tab', { name: 'Trade journal' }));
+  const row = await screen.findByRole('listitem');
+  expect(row.textContent).toContain('NSE:INFY');
+  expect(row.textContent).toContain('Bounce off support with rising volume');
+  expect(row.textContent).toContain('via day-trader');
+  expect(row.textContent).toContain('RSI crossed 30');
+  expect(row.textContent).toContain('PAPER');
+  expect(screen.getByText('+150.00').className).toContain('text-up');
+});
+
+it('says why the journal is empty', async () => {
+  server.use(http.get('/api/v1/agent/trades', () => HttpResponse.json({ items: [] })));
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  fireEvent.click(screen.getByRole('tab', { name: 'Trade journal' }));
+  expect(await screen.findByText('The assistant has not traded for you yet.')).toBeDefined();
+});

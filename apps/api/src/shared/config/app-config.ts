@@ -47,6 +47,8 @@ export const AppConfigSchema = z.object({
   AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(40)).default(15),
   AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
   AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
+  // Real-broker execution is a development-only experiment (a stub today); production refuses it.
+  EXECUTION_MODE: z.enum(['paper', 'broker']).default('paper'),
   AGENT_WATCH_DAILY_RUNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(1000)).default(40),
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.
@@ -68,6 +70,9 @@ export const AppConfigSchema = z.object({
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))
     .pipe(z.array(httpOrigin)).default([]),
 }).superRefine((config, context) => {
+  if (config.NODE_ENV === 'production' && config.EXECUTION_MODE === 'broker') {
+    context.addIssue({ code: 'custom', path: ['EXECUTION_MODE'], message: 'broker execution is not allowed in production; the assistant trades paper money only' });
+  }
   if (config.NODE_ENV !== 'production') return;
   if (!config.SESSION_SECRET) context.addIssue({ code: 'custom', path: ['SESSION_SECRET'], message: 'required in production' });
   for (const key of ['ZERODHA_API_KEY', 'ZERODHA_API_SECRET', 'ZERODHA_USER_ID', 'ZERODHA_PASSWORD', 'ZERODHA_TOTP_SECRET'] as const) {

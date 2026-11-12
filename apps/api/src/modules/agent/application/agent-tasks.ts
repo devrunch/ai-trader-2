@@ -1,4 +1,4 @@
-import type { AgentTaskDto, AlertCreate, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, AutoTrade, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
 import { describeWatch, dueEvents, eventReason, freshNews, isWatch } from '../domain/watch';
@@ -22,7 +22,7 @@ export interface WatchReader {
 /** Runs the assistant for a fired task; `error` is set when the run failed, `outcome` says how it ended. */
 export interface FireResult { error: string | null; outcome: TaskOutcome }
 export type FireTask = (task: AgentTask, reason: string) => Promise<FireResult>;
-export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined }
+export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; autoTrade?: AutoTrade | null | undefined }
 
 const num = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 });
 
@@ -31,7 +31,7 @@ const MAX_FIRES_PER_TICK = 25;
 
 const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, mode: t.mode, title: t.title, instruction: t.instruction, trigger: t.trigger, state: t.state,
   runs: t.runs, maxRuns: t.maxRuns, lastRunAt: t.lastRunAt === null ? null : new Date(t.lastRunAt).toISOString(),
-  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome,
+  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome, autoTrade: t.autoTrade,
   expiresAt: new Date(t.expiresAt).toISOString(), createdAt: new Date(t.createdAt).toISOString() });
 
 /** Background work for the assistant: scheduled runs and wake-on-condition (owner request 2026-11-10). */
@@ -66,10 +66,21 @@ export class AgentTasks {
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
     const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
-      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, seen: [],
+      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, seen: [],
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);
     return { ...dto(task), conditionNow };
+  }
+
+  /** Switch what a task may trade by itself; only an assistant task in a chat thread can (it needs a run to decide). */
+  async setAutoTrade(userId: string, id: string, autoTrade: AutoTrade | null): Promise<AgentTaskDto> {
+    const task = await this.store.get(userId, id);
+    if (!task) throw new NotFoundError('Task not found', { id });
+    if (task.mode !== 'agent' || task.threadId === null) throw new ConflictError('Auto-trade applies to assistant tasks, not plain alerts');
+    if (task.state === 'done' || task.state === 'cancelled' || task.state === 'expired') throw new ConflictError(`The task is ${task.state}`);
+    const next = { ...task, autoTrade };
+    await this.store.save(next);
+    return dto(next);
   }
 
   async list(userId: string): Promise<AgentTaskDto[]> { return (await this.store.list(userId)).map(dto); }

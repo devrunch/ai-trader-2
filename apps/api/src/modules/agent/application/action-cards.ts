@@ -38,6 +38,8 @@ export interface CardDeps {
   checkPine: (source: string) => Promise<PineCheck>;
   /** Saves to My scripts; returns the script id. */
   savePine: (userId: string, name: string, source: string) => Promise<string>;
+  /** Risk-checks and places a confirmed proposed order (paper) and journals it; returns its client order id. */
+  submitOrder: (userId: string, action: Extract<AgentAction, { kind: 'place-order' }>) => Promise<string>;
 }
 
 /** Proposed workspace changes the user confirms (FR-AG-17): pending, applied, dismissed, expired (15 min) or failed. */
@@ -72,7 +74,7 @@ export class ActionCards {
       if (problem) throw new ValidationError(problem);
     }
     const stored = await this.load(userId, id);
-    const decision = applyCard(stored, this.env.now(), edited?.kind === 'add-pine' ? undefined : edited);
+    const decision = applyCard(stored, this.env.now(), edited?.kind === 'add-pine' || edited?.kind === 'place-order' ? undefined : edited);
     if (!decision.ok) throw new ConflictError(`This card can no longer be applied (${decision.reason.toLowerCase().replace('_', ' ')})`, { reason: decision.reason });
     if (decision.card === stored) return dto(stored);
     const applied = await this.settle(userId, decision.card);
@@ -84,6 +86,7 @@ export class ActionCards {
   private async settle(userId: string, card: ActionCard): Promise<ActionCard> {
     const { action } = card;
     if (action.kind === 'draw') return { ...card, drawing: await this.deps.draw(action.intent) };
+    if (action.kind === 'place-order') return { ...card, action: { ...action, clientOrderId: await this.deps.submitOrder(userId, action) } };
     if (action.kind !== 'add-pine') return card;
     // Only the stored name and source count; an edited copy from the client is not trusted with the script.
     const check = await this.deps.checkPine(action.source);

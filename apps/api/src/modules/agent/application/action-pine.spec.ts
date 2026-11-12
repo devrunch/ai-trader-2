@@ -1,8 +1,8 @@
 import type { IndicatorDefinition, PineCheck } from '@aitrader/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { ActionCards, type ActionCardStore } from './action-cards';
-import { buildActionTools } from './action-tools';
 import type { ActionCard } from '../domain/action-card';
+import { buildActionTools } from './action-tools';
 
 const definition: IndicatorDefinition = {
   ref: 'pine:0123456789ab@1', id: 'pine0123456789ab', version: 1, name: 'My EMA cross', shortName: 'EMAX', overlay: true,
@@ -19,7 +19,7 @@ function setup(check: PineCheck = { ok: true, definition }) {
     get: (userId, id) => Promise.resolve(rows.get(id)?.userId === userId ? rows.get(id) ?? null : null) };
   const checkPine = vi.fn().mockResolvedValue(check);
   const savePine = vi.fn().mockResolvedValue('11111111-1111-4111-8111-111111111111');
-  const cards = new ActionCards(store, { indicators: () => [], draw: vi.fn(), checkPine, savePine }, { now: () => 1_000, id: () => '00000000-0000-4000-8000-000000000001' });
+  const cards = new ActionCards(store, { indicators: () => [], draw: vi.fn(), checkPine, savePine, submitOrder: vi.fn() }, { now: () => 1_000, id: () => '00000000-0000-4000-8000-000000000001' });
   return { cards, checkPine, savePine, rows };
 }
 const tool = (cards: ActionCards) => buildActionTools(cards, deps).find(t => t.name === 'proposePineScript');
@@ -69,5 +69,50 @@ describe('proposePineScript (FR-IN-25..28, FR-AG-17)', () => {
     const { cards } = setup();
     expect(await tool(cards)?.call(ctx, {})).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
     expect(await tool(cards)?.call(ctx, { source: SOURCE, url: 'https://gist.githubusercontent.com/a/raw/x.pine' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});
+
+describe('place-order cards (FR-AG-17)', () => {
+  const order = { kind: 'place-order' as const, symbol: 'NSE:INFY', side: 'buy' as const, type: 'market' as const, product: 'MIS' as const, quantity: 10, stopLoss: 1480, target: 1560,
+    rationale: 'RBI cut', clientOrderId: null };
+  function ordering() {
+    const rows = new Map<string, ActionCard>();
+    const store: ActionCardStore = { create: c => { rows.set(c.id, c); return Promise.resolve(); },
+      save: (c, from) => { if (rows.get(c.id)?.state !== from) return Promise.resolve(false); rows.set(c.id, c); return Promise.resolve(true); },
+      get: (userId, id) => Promise.resolve(rows.get(id)?.userId === userId ? rows.get(id) ?? null : null) };
+    const submitOrder = vi.fn().mockResolvedValue('agent-card-1234abcd');
+    const cards = new ActionCards(store, { indicators: () => [], draw: vi.fn(), checkPine: vi.fn(), savePine: vi.fn(), submitOrder }, { now: () => 1_000, id: () => '00000000-0000-4000-8000-000000000002' });
+    return { cards, submitOrder };
+  }
+
+  it('proposing places nothing; applying places once through the venue path and records the client order id', async () => {
+    const { cards, submitOrder } = ordering();
+    const card = await cards.propose('u1', order);
+    expect(card).toMatchObject({ state: 'pending', action: { kind: 'place-order', clientOrderId: null } });
+    expect(submitOrder).not.toHaveBeenCalled();
+    const applied = await cards.apply('u1', card.id);
+    expect(submitOrder).toHaveBeenCalledExactlyOnceWith('u1', order);
+    expect(applied).toMatchObject({ state: 'applied', action: { clientOrderId: 'agent-card-1234abcd' } });
+    await cards.apply('u1', card.id);
+    expect(submitOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('a dismissed card places nothing, and a client-edited order is not trusted', async () => {
+    const dismissed = ordering();
+    const a = await dismissed.cards.propose('u1', order);
+    await dismissed.cards.dismiss('u1', a.id);
+    expect(dismissed.submitOrder).not.toHaveBeenCalled();
+    const edited = ordering();
+    const b = await edited.cards.propose('u1', order);
+    await edited.cards.apply('u1', b.id, { ...order, quantity: 100000 });
+    expect(edited.submitOrder).toHaveBeenCalledWith('u1', expect.objectContaining({ quantity: 10 }));
+  });
+
+  it('a risk block at apply leaves the card pending and places nothing', async () => {
+    const { cards, submitOrder } = ordering();
+    submitOrder.mockRejectedValueOnce(new Error('Risk check BLOCK: loss'));
+    const card = await cards.propose('u1', order);
+    await expect(cards.apply('u1', card.id)).rejects.toThrow('Risk check BLOCK');
+    expect(await cards.get('u1', card.id)).toMatchObject({ state: 'pending' });
   });
 });

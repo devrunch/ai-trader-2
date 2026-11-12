@@ -1,6 +1,7 @@
 import { Logger, type OnModuleInit } from '@nestjs/common';
 import type { JobScheduler } from '../../../shared/jobs';
 import type { AgentTasks, FireResult } from '../application/agent-tasks';
+import type { BackgroundRuns } from '../application/agent-trader';
 import type { ChatService, WindowLimiter } from '../application/chat-service';
 import type { AgentTask } from '../domain/agent-task';
 import { isWatch, parseWatchReply, WATCH_REPLY_RULE } from '../domain/watch';
@@ -20,7 +21,7 @@ const symbolOf = (task: AgentTask): string | undefined => {
 /** Every minute: fire due background tasks. The scheduler runs it once per tick across instances. */
 export class AgentTaskJob implements OnModuleInit {
   constructor(private readonly scheduler: JobScheduler, private readonly tasks: AgentTasks, private readonly chat: ChatService, private readonly notifications: Notify,
-    private readonly watch: WatchLimits) {}
+    private readonly watch: WatchLimits, private readonly runs: BackgroundRuns) {}
 
   async onModuleInit(): Promise<void> {
     await this.scheduler.register({ name: 'agent-tasks', cron: '* * * * *', tz: 'Asia/Kolkata', graceMs: 0, maxRuntimeMs: 55_000,
@@ -44,7 +45,10 @@ export class AgentTaskJob implements OnModuleInit {
       return { error: null, outcome: 'capped' };
     }
     const header = `[Background ${watching ? 'watch' : 'task'} "${task.title}" fired: ${reason}. Run ${String(task.runs + 1)} of ${String(task.maxRuns)}.]`;
-    const { error, reply } = await this.chat.runInBackground(task.userId, task.threadId, `${header}\n${task.instruction}${watching ? `\n\n${WATCH_REPLY_RULE}` : ''}`);
+    const threadId = task.threadId;
+    const trading = task.autoTrade?.enabled ? '\n\nAuto-trade is ON for this task (PAPER money): you may place the entry yourself with placePaperOrder, with a stop, a rationale and the skill used, inside the limits you are given. Otherwise your order becomes a card for the user.' : '';
+    const { error, reply } = await this.runs.during(threadId, { task, reason, backtest: null },
+      () => this.chat.runInBackground(task.userId, threadId, `${header}\n${task.instruction}${trading}${watching ? `\n\n${WATCH_REPLY_RULE}` : ''}`));
     if (watching && !error) {
       const verdict = parseWatchReply(reply);
       if (!verdict.report) return { error: null, outcome: 'silent' };

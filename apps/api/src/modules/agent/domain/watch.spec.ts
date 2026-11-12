@@ -72,7 +72,7 @@ describe('dueEvents', () => {
 
 describe('tickWatch', () => {
   const base: AgentTask = { id: 't', userId: 'u', threadId: 'th', mode: 'agent', title: 'w', instruction: 'i', trigger: watch(), state: 'active', runs: 0, maxRuns: 3, armed: true,
-    lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, seen: [], expiresAt: t0 + 86_400_000, createdAt: t0 };
+    lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, seen: [], expiresAt: t0 + 86_400_000, createdAt: t0 };
   const typed = (patch: Partial<AgentTask> = {}) => ({ ...base, ...patch, trigger: watch() });
   it('fires with the new ids remembered, and does nothing without news', () => {
     const fired = tickWatch(typed(), t0, { ids: ['a'], reason: 'r' });

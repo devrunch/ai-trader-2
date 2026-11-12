@@ -91,6 +91,15 @@ describe('loadConfig', () => {
 
 // FR-MD-3, NFR-SC-1.
 describe('Kite configuration', () => {
+  it('defaults the execution mode to paper and refuses broker mode in production', () => {
+    expect(loadConfig(required).EXECUTION_MODE).toBe('paper');
+    expect(loadConfig({ ...required, EXECUTION_MODE: 'broker' }).EXECUTION_MODE).toBe('broker');
+    const production = { ...required, NODE_ENV: 'production', SESSION_SECRET: 'production-secret-length-at-least-32-characters', ZERODHA_API_KEY: 'key',
+      ZERODHA_API_SECRET: 'secret', ZERODHA_USER_ID: 'user', ZERODHA_PASSWORD: 'password', ZERODHA_TOTP_SECRET: 'totp' };
+    expect(loadConfig(production).EXECUTION_MODE).toBe('paper');
+    expect(() => loadConfig({ ...production, EXECUTION_MODE: 'broker' })).toThrow('EXECUTION_MODE (expected paper or broker; broker is not allowed in production');
+  });
+
   it('requires every Kite credential in production', () => {
     expect(kiteCredentials(loadConfig(required))).toBeNull();
     expect(kiteCredentials(loadConfig({ ...required, ZERODHA_API_KEY: 'key' }))).toBeNull();

@@ -134,3 +134,17 @@ describe('AgentTasks watches', () => {
     expect(reader.news).not.toHaveBeenCalled();
   });
 });
+
+describe('AgentTasks auto-trade', () => {
+  const limits = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 3, requireBacktest: true };
+  it('is switched on and off by the owner for assistant tasks only, never for plain alerts', async () => {
+    const { tasks } = setup([]);
+    const agent = await tasks.create('u1', 'th1', breakout);
+    expect(agent.autoTrade).toBeNull();
+    expect(await tasks.setAutoTrade('u1', agent.id, limits)).toMatchObject({ autoTrade: limits });
+    expect(await tasks.setAutoTrade('u1', agent.id, null)).toMatchObject({ autoTrade: null });
+    await expect(tasks.setAutoTrade('u2', agent.id, limits)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const alert = await tasks.createAlert('u1', { trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, repeat: false });
+    await expect(tasks.setAutoTrade('u1', alert.id, limits)).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
+});

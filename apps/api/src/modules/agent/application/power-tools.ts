@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, type AgentAction, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
+import { autoTradeBlocks } from '../domain/auto-trade';
 import { calculate, CalcError } from '../domain/calculator';
 import { describeWatch } from '../domain/watch';
-import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
+import type { AgentTrader, BackgroundRuns } from './agent-trader';
 import { guardedTool, orJsonString, type GuardDeps, type GuardedTool, type ToolContext } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
@@ -42,69 +43,51 @@ export function buildCalcTool(deps: GuardDeps): Array<GuardedTool<unknown, unkno
     } }, deps)];
 }
 
-export interface PaperDesk {
-  place(userId: string, request: PaperPlaceOrderRequest): Promise<unknown>;
-  cancel(userId: string, orderId: string): Promise<unknown>;
-  positions(userId: string): Promise<Array<{ instrumentId: string; product: string; quantity: number }>>;
-  /** Starting cash and currency of the account this symbol settles in. */
-  account(userId: string, symbol: string): Promise<{ initialCash: number; currency: string }>;
-  orders(userId: string): Promise<Array<{ instrumentId: string; currency: string; side: 'buy' | 'sell'; quantity: number; clientOrderId: string; status: string;
-    placedAt: number; limitPrice: number | null; fillPrice: number | null; stopLoss: number | null }>>;
-  price(symbol: string): Promise<number>;
-}
-
-const IST_MS = 19_800_000;
-const istMidnight = (now: number) => now - ((now + IST_MS) % 86_400_000);
-
-/** Today's assistant entries (not exits) in one currency, with the loss each planned at its stop. */
-async function todayEntries(desk: PaperDesk, userId: string, currency: string, now: number): Promise<TodayEntry[]> {
-  const since = istMidnight(now);
-  return (await desk.orders(userId)).filter(o => o.placedAt >= since && o.currency === currency && o.clientOrderId.startsWith('agent-') && (o.status === 'filled' || o.status === 'open'))
-    .map(o => {
-      const entry = o.fillPrice ?? o.limitPrice;
-      return { symbol: o.instrumentId, side: o.side, plannedLoss: entry !== null && o.stopLoss !== null ? o.quantity * Math.abs(entry - o.stopLoss) : 0 };
-    });
-}
-
 const orderId = (ctx: ToolContext): string => `agent-${ctx.turnId.slice(0, 8)}-${randomUUID().slice(0, 8)}`;
 const price = z.number().positive().max(1e9);
 
+/** What a background wake-up needs to place or propose orders. */
+export interface TradeContext { runs: BackgroundRuns; propose(userId: string, action: AgentAction): Promise<unknown> }
+
 /**
- * Paper trading only (owner decision 2026-11-10). Orders go through the same engine and risk limits as the user's own;
- * there is no broker in this module and no way to reach one.
+ * Paper trading only by default (owner decision 2026-11-10; a real broker is a development-only stub, see execution-venue.ts). Orders go through the same engine
+ * and risk limits as the user's own. In a chat the user is present and an entry goes through the risk gate; in a background wake-up an entry is placed only by a
+ * task with auto-trade switched on, inside its limits, and otherwise becomes an action card the user confirms.
  */
-export function buildPaperTools(desk: PaperDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
+export function buildPaperTools(trader: AgentTrader, deps: GuardDeps, background?: TradeContext): Array<GuardedTool<unknown, unknown>> {
   return [
     guardedTool({ name: 'placePaperOrder',
-      description: 'Place a PAPER order (simulated money). Market or limit; stopLoss and target exit it automatically. Every entry must pass the risk check (stop required, per-trade and daily loss limits, reward:risk >= 1.5, entries per day, NSE intraday window 09:35-15:00 IST); a BLOCK says which check failed. State the plan (entry, stop, size, money at risk) in your reply.',
+      description: 'Place a PAPER order (simulated money). Say why in rationale (and the skill you followed). In a background wake-up an entry is placed only if the task has auto-trade on, within its limits; otherwise it becomes a card the user confirms. Market or limit; stopLoss and target exit it automatically. Every entry must pass the risk check (stop required, per-trade and daily loss limits, reward:risk >= 1.5, entries per day, NSE intraday window 09:35-15:00 IST); a BLOCK says which check failed. State the plan (entry, stop, size, money at risk) in your reply.',
       input: z.strictObject({ symbol: SYMBOL, side: z.enum(['buy', 'sell']), type: z.enum(['market', 'limit']), product: z.enum(PAPER_PRODUCTS).default('MIS'),
-        quantity: z.number().int().positive().max(1_000_000), limitPrice: price.optional(), stopLoss: price.optional(), target: price.optional() })
+        quantity: z.number().int().positive().max(1_000_000), limitPrice: price.optional(), stopLoss: price.optional(), target: price.optional(),
+        rationale: z.string().max(500).optional(), skill: z.string().regex(/^[a-z0-9-]{1,57}$/).optional() })
         .refine(o => o.type === 'market' || o.limitPrice !== undefined, { message: 'limit orders need limitPrice', path: ['limitPrice'] }),
       run: async (o, ctx) => {
-        // Entries pass the risk gate; an order that only reduces an open position is an exit and goes straight through.
-        const open = (await desk.positions(ctx.userId)).find(p => p.instrumentId === o.symbol && p.product === o.product && p.quantity !== 0);
-        const reducing = open !== undefined && (o.side === 'sell' ? open.quantity > 0 : open.quantity < 0) && o.quantity <= Math.abs(open.quantity);
-        if (!reducing) {
-          const now = (deps.clock ?? Date.now)();
-          const entry = o.limitPrice ?? await desk.price(o.symbol);
-          const account = await desk.account(ctx.userId, o.symbol);
-          const verdict = checkEntry({ symbol: o.symbol, side: o.side, quantity: o.quantity, entry, stopLoss: o.stopLoss, target: o.target, intraday: o.product === 'MIS' },
-            await todayEntries(desk, ctx.userId, account.currency, now), defaultLimits(account.initialCash, o.symbol.split(':')[0] ?? ''), now);
-          if (!verdict.pass) throw new ValidationError(`Risk check BLOCK: ${verdict.blocks.join('; ')}`);
+        const clientOrderId = orderId(ctx);
+        if (await trader.isReducing(ctx.userId, o)) return trader.exit(ctx.userId, o, clientOrderId);
+        const run = background?.runs.get(ctx.conversationId);
+        const meta = { taskId: run?.task.id ?? null, trigger: run ? `${run.task.title}: ${run.reason}` : 'chat request', skill: o.skill ?? null, rationale: o.rationale ?? '',
+          backtest: run?.backtest ?? null, clientOrderId };
+        if (run && !run.task.autoTrade?.enabled) {
+          await trader.checkEntry(ctx.userId, o);
+          if (o.stopLoss === undefined || !background) throw new ValidationError('A proposed order needs a stop loss');
+          return background.propose(ctx.userId, { kind: 'place-order', symbol: o.symbol, side: o.side, type: o.type, product: o.product, quantity: o.quantity,
+            ...(o.limitPrice === undefined ? {} : { limitPrice: o.limitPrice }), stopLoss: o.stopLoss, ...(o.target === undefined ? {} : { target: o.target }),
+            rationale: (o.rationale ?? '').slice(0, 500), clientOrderId: null });
         }
-        return desk.place(ctx.userId, { clientOrderId: orderId(ctx), instrumentId: o.symbol, side: o.side, type: o.type, product: o.product,
-          quantity: o.quantity, ...(o.limitPrice === undefined ? {} : { limitPrice: o.limitPrice }), ...(o.stopLoss === undefined ? {} : { stopLoss: o.stopLoss }),
-          ...(o.target === undefined ? {} : { target: o.target }) });
+        const limits = run?.task.autoTrade;
+        return trader.enter(ctx.userId, o, meta, limits?.enabled && run
+          ? async checked => autoTradeBlocks(limits, { riskAmount: checked.riskAmount, initialCash: checked.initialCash, tradesToday: await trader.tradesToday(run.task.id), backtest: run.backtest })
+          : undefined);
       } }, deps),
     guardedTool({ name: 'cancelPaperOrder', description: 'Cancel one of the user\'s working PAPER orders by id (ids are in getPortfolio).',
-      input: z.strictObject({ orderId: z.string().min(1).max(64) }), run: (o, ctx) => desk.cancel(ctx.userId, o.orderId) }, deps),
+      input: z.strictObject({ orderId: z.string().min(1).max(64) }), run: (o, ctx) => trader.cancel(ctx.userId, o.orderId) }, deps),
     guardedTool({ name: 'closePaperPosition', description: 'Close an open PAPER position at market.',
       input: z.strictObject({ symbol: SYMBOL, product: z.enum(PAPER_PRODUCTS).default('MIS') }),
       run: async (o, ctx) => {
-        const position = (await desk.positions(ctx.userId)).find(p => p.instrumentId === o.symbol && p.product === o.product && p.quantity !== 0);
+        const position = (await trader.positions(ctx.userId)).find(p => p.instrumentId === o.symbol && p.product === o.product && p.quantity !== 0);
         if (!position) throw new ValidationError(`No open ${o.product} position in ${o.symbol}`);
-        return desk.place(ctx.userId, { clientOrderId: orderId(ctx), instrumentId: o.symbol, side: position.quantity > 0 ? 'sell' : 'buy', type: 'market',
-          product: o.product, quantity: Math.abs(position.quantity) });
+        return trader.exit(ctx.userId, { symbol: o.symbol, side: position.quantity > 0 ? 'sell' : 'buy', type: 'market', product: o.product, quantity: Math.abs(position.quantity) }, orderId(ctx));
       } }, deps),
   ];
 }

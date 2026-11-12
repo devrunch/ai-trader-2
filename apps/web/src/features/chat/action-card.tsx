@@ -5,6 +5,7 @@ import { apiFetch } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { useIndicatorStore } from '../indicators';
 import { useChatActions } from './chat-actions';
+import { describeOrder, OrderSummary } from './order-summary';
 import { PineSummary } from './pine-summary';
 
 type Inputs = Record<string, number | boolean | string>;
@@ -14,6 +15,7 @@ const describe = (action: AgentAction): string => {
   switch (action.kind) {
     case 'add-indicator': return `Add ${action.indicatorId.toUpperCase()} to the chart`;
     case 'add-pine': return `Save “${action.name}” to My scripts and add it to the chart`;
+    case 'place-order': return describeOrder(action);
     case 'open-symbol': return `Open ${action.symbol}${action.interval ? ` on ${action.interval}` : ''}`;
     case 'draw': {
       const { intent } = action;
@@ -49,7 +51,8 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
       if (!done.check.ok) throw new Error(done.check.error);
       void client.invalidateQueries({ queryKey: ['pine-scripts'] });
       addPine(done.source, done.check.definition);
-    } else if (done.kind === 'open-symbol') host.openSymbol(done.symbol, done.interval);
+    } else if (done.kind === 'place-order') return; // the server placed it on apply
+    else if (done.kind === 'open-symbol') host.openSymbol(done.symbol, done.interval);
     else if (applied.drawing && applied.drawing.segments.length > 0) host.addDrawing(applied.id, applied.drawing);
     else throw new Error(applied.drawing?.note ?? 'Nothing to draw');
   };
@@ -72,6 +75,7 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
   return <div role="group" aria-label="Proposed change" className="space-y-2 rounded border p-2 text-xs">
     <div className="flex items-center justify-between gap-2"><span className="font-medium">{describe(action)}</span><StateBadge card={current} /></div>
     {action.kind === 'add-pine' && <PineSummary action={action} />}
+    {action.kind === 'place-order' && <OrderSummary action={action} />}
     {pending && <Fields action={action} onChange={setDraft} />}
     {current.drawing && <DrawingPreview drawing={current.drawing} />}
     {current.state === 'failed' && current.reason && <p className="text-down">{current.reason}</p>}
@@ -113,7 +117,7 @@ function Fields({ action, onChange }: { action: AgentAction; onChange: (next: Ag
     }
     return null;
   }
-  if (action.kind === 'add-pine') return null;
+  if (action.kind === 'add-pine' || action.kind === 'place-order') return null;
   if (action.kind === 'open-symbol') {
     return <div className="flex flex-wrap gap-2">
       <label className="flex items-center gap-1">Symbol<input aria-label="Symbol" value={action.symbol} onChange={e => { onChange({ ...action, symbol: e.target.value.toUpperCase() }); }}

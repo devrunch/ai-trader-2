@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
 import { NEWS_IMPACTS } from './news.js';
+import { PAPER_PRODUCTS } from './paper.js';
 import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
 
@@ -52,9 +53,13 @@ const PineCheck = z.discriminatedUnion('ok', [
 export type PineCheck = z.infer<typeof PineCheck>;
 const AddPine = z.strictObject({ kind: z.literal('add-pine'), name: z.string().trim().min(1).max(PINE_SCRIPT_LIMITS.nameChars),
   source: z.string().min(1).max(PINE_SCRIPT_LIMITS.sourceChars), check: PineCheck, scriptId: z.uuid().nullable() });
+/** A paper order the assistant proposes for the user to confirm; applying it runs the risk check again and places it. `clientOrderId` is set once placed. */
+const PlaceOrderAction = z.strictObject({ kind: z.literal('place-order'), symbol: SymbolId, side: z.enum(['buy', 'sell']), type: z.enum(['market', 'limit']), product: z.enum(PAPER_PRODUCTS),
+  quantity: z.number().int().positive().max(1_000_000), limitPrice: z.number().positive().optional(), stopLoss: z.number().positive(), target: z.number().positive().optional(),
+  rationale: z.string().max(500), clientOrderId: z.string().max(64).nullable() });
 /** What the model may propose directly; drawings go through their intent so the server computes the geometry. */
 export const ChartActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol]);
-export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol, AddPine, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
+export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol, AddPine, PlaceOrderAction, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
 export type AgentAction = z.infer<typeof AgentActionSchema>;
 export const ACTION_CARD_STATES = ['pending', 'applied', 'dismissed', 'expired', 'failed'] as const;
 export const ActionCardSchema = z.strictObject({
@@ -81,6 +86,10 @@ export const TaskTriggerSchema = z.discriminatedUnion('kind', [
     minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5) }),
 ]);
 export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
+/** What a task may do on its own when it fires (paper money only): the limits it must stay inside. */
+export const AutoTradeSchema = z.strictObject({ enabled: z.boolean(), maxRiskPct: z.number().positive().max(5).default(0.5),
+  maxTradesPerDay: z.number().int().min(1).max(20).default(3), requireBacktest: z.boolean().default(true) });
+export type AutoTrade = z.infer<typeof AutoTradeSchema>;
 export const TASK_OUTCOMES = ['ran', 'report', 'silent', 'notified', 'capped', 'error'] as const;
 export type TaskOutcome = (typeof TASK_OUTCOMES)[number];
 export const TASK_STATES = ['active', 'paused', 'done', 'cancelled', 'expired'] as const;
@@ -95,6 +104,18 @@ export type AlertCreate = z.infer<typeof AlertCreateSchema>;
 export const AgentTaskSchema = z.strictObject({
   id: z.uuid(), threadId: z.uuid().nullable(), mode: z.enum(TASK_MODES), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
   runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
-  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), expiresAt: z.string(), createdAt: z.string(),
+  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), autoTrade: AutoTradeSchema.nullable(), expiresAt: z.string(), createdAt: z.string(),
 });
 export type AgentTaskDto = z.infer<typeof AgentTaskSchema>;
+
+/** One trade the assistant made on the user's behalf (paper), with why, and how it is going. */
+export const AgentTradeSchema = z.strictObject({
+  id: z.uuid(), createdAt: z.string(), venue: z.enum(['paper', 'broker']), taskId: z.uuid().nullable(), trigger: z.string(), skill: z.string().nullable(), rationale: z.string(),
+  symbol: SymbolId, side: z.enum(['buy', 'sell']), quantity: z.number().int(), entry: z.number().nullable(), stopLoss: z.number().nullable(), target: z.number().nullable(),
+  riskAmount: z.number().nullable(), currency: z.string(), backtest: z.string().nullable(), clientOrderId: z.string(),
+  /** Later: the entry order's status and the profit or loss so far (realised exits plus the open position, marked to the last price). */
+  status: z.string().nullable(), pnl: z.number().nullable(),
+});
+export type AgentTradeDto = z.infer<typeof AgentTradeSchema>;
+export const AgentTradesResponseSchema = z.strictObject({ items: z.array(AgentTradeSchema) });
+export const AutoTradeSetSchema = z.strictObject({ autoTrade: AutoTradeSchema.nullable() });

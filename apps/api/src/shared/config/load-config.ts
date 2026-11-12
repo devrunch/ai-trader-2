@@ -3,6 +3,7 @@ import { AppConfigSchema, type AppConfig } from './app-config';
 type ConfigIssue = { key: string; problem: string };
 
 const problems: Record<string, string> = {
+  EXECUTION_MODE: 'expected paper or broker; broker is not allowed in production (the assistant trades paper money only)',
   NODE_ENV: 'expected development, test or production',
   PORT: 'expected an integer from 1 to 65535',
   DATABASE_URL: 'expected a postgres or postgresql URL',

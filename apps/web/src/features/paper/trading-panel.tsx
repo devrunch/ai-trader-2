@@ -5,11 +5,12 @@ import { Button } from '../../shared/ui/button';
 import { Dialog } from '../../shared/ui/dialog';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { OrderTicket } from './order-ticket';
+import { TradeJournal, useAgentTrades } from './trade-journal';
 import { formatMoney, formatPnl } from './paper-format';
 import { useCancelPaperOrder, useOpenPaperOrders, usePaperAccounts, usePaperFills, usePaperPositions } from './use-paper';
 
 type Query<T> = { isPending: boolean; isError: boolean; error: unknown; data: T | undefined; refetch: () => unknown };
-type Tab = 'positions' | 'orders' | 'history';
+type Tab = 'positions' | 'orders' | 'history' | 'journal';
 const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 const tone = (value: number | null): string => (value === null || value === 0 ? 'text-muted-foreground' : value > 0 ? 'text-up' : 'text-down');
 
@@ -21,6 +22,7 @@ export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (si
   const positions = usePaperPositions();
   const orders = useOpenPaperOrders();
   const fills = usePaperFills(tab === 'history');
+  const trades = useAgentTrades(tab === 'journal');
   const open = positions.data?.positions.filter(p => p.quantity !== 0) ?? [];
   const all = accounts.data?.accounts ?? [];
   const a = all.find(x => x.currency === currency) ?? all[0];
@@ -29,6 +31,7 @@ export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (si
     { id: 'positions', label: `Positions${open.length ? ` ${String(open.length)}` : ''}` },
     { id: 'orders', label: `Orders${orders.data?.orders.length ? ` ${String(orders.data.orders.length)}` : ''}` },
     { id: 'history', label: 'History' },
+    { id: 'journal', label: 'Trade journal' },
   ];
 
   return <div className="flex h-full flex-col text-[13px]">
@@ -62,6 +65,8 @@ export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (si
         {d => <OrdersTable rows={d.orders} />}</Loaded>}
       {tab === 'history' && <Loaded query={fills} isEmpty={d => d.fills.length === 0} empty="No trades yet.">
         {d => <FillsTable rows={d.fills} />}</Loaded>}
+      {tab === 'journal' && <Loaded query={trades} isEmpty={d => d.items.length === 0} empty="The assistant has not traded for you yet.">
+        {d => <TradeJournal rows={d.items} />}</Loaded>}
     </div>
   </div>;
 }

@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { AgentTrader, BackgroundRuns, type TradeRow } from './agent-trader';
+import type { AgentTask } from '../domain/agent-task';
 import { buildCalcTool, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
@@ -6,12 +8,15 @@ const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
 const deps = { limiter: { take: () => Promise.resolve(true) }, audit: () => undefined, clock: () => tenAm };
 const desk = (patch: Record<string, unknown> = {}) => ({ place: vi.fn().mockResolvedValue({ id: 'o1' }), cancel: vi.fn(), positions: vi.fn().mockResolvedValue([]),
   account: vi.fn().mockResolvedValue({ initialCash: 1_000_000, currency: 'INR' }), orders: vi.fn().mockResolvedValue([]), price: vi.fn().mockResolvedValue(1500), ...patch });
+const journal = () => { const rows: TradeRow[] = []; return { rows, add: (r: TradeRow) => { rows.push(r); return Promise.resolve(); },
+  countSince: (taskId: string) => Promise.resolve(rows.filter(r => r.taskId === taskId).length), list: () => Promise.resolve(rows) }; };
+const trader = (d: ReturnType<typeof desk>, j = journal()) => new AgentTrader({ ...d, fills: vi.fn().mockResolvedValue([]) }, j, { now: () => tenAm, id: () => '00000000-0000-4000-8000-0000000000aa' });
 const byName = <T extends { name: string }>(tools: T[], name: string) => tools.find(t => t.name === name);
 
 describe('assistant power tools', () => {
   it('paper orders go to the paper desk for the caller, with an agent client id', async () => {
     const d = desk();
-    const place = byName(buildPaperTools(d, deps), 'placePaperOrder');
+    const place = byName(buildPaperTools(trader(d), deps), 'placePaperOrder');
     expect(await place?.call(ctx, { symbol: 'NSE:INFY', side: 'buy', type: 'market', quantity: 10, stopLoss: 1480 })).toMatchObject({ ok: true });
     expect(d.place).toHaveBeenCalledWith('u1', expect.objectContaining({ instrumentId: 'NSE:INFY', side: 'buy', product: 'MIS', quantity: 10, stopLoss: 1480,
       clientOrderId: expect.stringMatching(/^agent-turn-abc-[0-9a-f]{8}$/) as unknown }));
@@ -20,7 +25,7 @@ describe('assistant power tools', () => {
 
   it('entries go through the risk gate: a missing stop or an oversized loss is blocked with the reason', async () => {
     const d = desk();
-    const place = byName(buildPaperTools(d, deps), 'placePaperOrder');
+    const place = byName(buildPaperTools(trader(d), deps), 'placePaperOrder');
     expect(await place?.call(ctx, { symbol: 'NSE:INFY', side: 'buy', type: 'market', quantity: 10 }))
       .toMatchObject({ ok: false, reason: 'VALIDATION_FAILED', detail: 'Risk check BLOCK: stop: an entry needs a stop loss' });
     expect(await place?.call(ctx, { symbol: 'NSE:INFY', side: 'buy', type: 'market', quantity: 1000, stopLoss: 1480 }))
@@ -32,7 +37,7 @@ describe('assistant power tools', () => {
     const rupeeLoss = { instrumentId: 'NSE:INFY', currency: 'INR', side: 'buy', quantity: 1000, clientOrderId: 'agent-x', status: 'filled',
       placedAt: tenAm - 60_000, limitPrice: null, fillPrice: 1500, stopLoss: 1471 };
     const d = desk({ account: vi.fn().mockResolvedValue({ initialCash: 100_000, currency: 'USD' }), orders: vi.fn().mockResolvedValue([rupeeLoss]), price: vi.fn().mockResolvedValue(200) });
-    const place = byName(buildPaperTools(d, deps), 'placePaperOrder');
+    const place = byName(buildPaperTools(trader(d), deps), 'placePaperOrder');
     // $1,000 per-trade limit: 100 × $9 = $900 passes; ₹29,000 planned on INFY is another account's.
     expect(await place?.call(ctx, { symbol: 'NASDAQ:AAPL', side: 'buy', type: 'market', product: 'CNC', quantity: 100, stopLoss: 191, target: 215 })).toMatchObject({ ok: true });
     expect(d.account).toHaveBeenCalledWith('u1', 'NASDAQ:AAPL');
@@ -42,20 +47,20 @@ describe('assistant power tools', () => {
 
   it('an order that only reduces an open position is an exit and skips the gate', async () => {
     const d = desk({ positions: vi.fn().mockResolvedValue([{ instrumentId: 'NSE:INFY', product: 'MIS', quantity: 10 }]) });
-    const place = byName(buildPaperTools(d, deps), 'placePaperOrder');
+    const place = byName(buildPaperTools(trader(d), deps), 'placePaperOrder');
     expect(await place?.call(ctx, { symbol: 'NSE:INFY', side: 'sell', type: 'market', quantity: 10 })).toMatchObject({ ok: true });
   });
 
   it('closing a position sells a long and buys back a short, at market', async () => {
     const d = desk({ positions: vi.fn().mockResolvedValue([{ instrumentId: 'NSE:INFY', product: 'MIS', quantity: -5 }]) });
-    const close = byName(buildPaperTools(d, deps), 'closePaperPosition');
+    const close = byName(buildPaperTools(trader(d), deps), 'closePaperPosition');
     await close?.call(ctx, { symbol: 'NSE:INFY' });
     expect(d.place).toHaveBeenCalledWith('u1', expect.objectContaining({ side: 'buy', type: 'market', quantity: 5 }));
     expect(await close?.call(ctx, { symbol: 'NSE:TCS' })).toMatchObject({ ok: false, reason: 'VALIDATION_FAILED' });
   });
 
   it('no tool name suggests a real broker', () => {
-    const tools = [...buildPaperTools(desk(), deps), ...buildCalcTool(deps),
+    const tools = [...buildPaperTools(trader(desk()), deps), ...buildCalcTool(deps),
       ...buildSkillTools({ keys: () => [], active: vi.fn() }, deps), ...buildTaskTools({ create: vi.fn(), createAlert: vi.fn(), list: vi.fn(), setState: vi.fn() }, deps)];
     for (const { name } of tools) expect(name).not.toMatch(/broker|kite|zerodha|login|token|real|live/i);
     expect(tools.filter(t => /order|position/i.test(t.name)).every(t => /paper/i.test(t.name) && /PAPER/.test(t.description))).toBe(true);
@@ -138,5 +143,81 @@ describe('watch tools', () => {
       trigger: { kind: 'event', countries: ['INR'], title: 'policy', minImpact: 'High', afterMinutes: 5 } }));
     expect(await byName(tools, 'watchNews')?.call(ctx, { minImpact: 'extreme' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
     expect(await byName(tools, 'watchEvent')?.call(ctx, { countries: ['usa'] })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});
+
+const task = (patch: Partial<AgentTask> = {}): AgentTask => ({ id: 'task-1', userId: 'u1', threadId: ctx.conversationId, mode: 'agent', title: 'RBI watch', instruction: 'trade it', trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: [], minImpact: 'high' },
+  state: 'active', runs: 0, maxRuns: 5, armed: true, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, seen: [], expiresAt: tenAm + 1e9, createdAt: tenAm - 1e6, ...patch });
+const auto = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 2, requireBacktest: false };
+const entry = { symbol: 'NSE:INFY', side: 'buy' as const, type: 'market' as const, quantity: 10, stopLoss: 1480, target: 1560, rationale: 'RBI cut, banks and IT follow', skill: 'breakout-trading' };
+
+describe('agent orders and the trade journal', () => {
+  function background(t: AgentTask, patch: Record<string, unknown> = {}) {
+    const d = desk(patch);
+    const j = journal();
+    const runs = new BackgroundRuns();
+    const propose = vi.fn().mockResolvedValue({ id: 'card-1', state: 'pending' });
+    const place = byName(buildPaperTools(trader(d, j), deps, { runs, propose }), 'placePaperOrder');
+    const run = (input: Record<string, unknown>, backtest: string | null = null) => runs.during(ctx.conversationId, { task: t, reason: '1 new headline', backtest }, () => place?.call(ctx, input) ?? Promise.resolve(null));
+    return { d, j, propose, run };
+  }
+
+  it('a chat entry passes the risk gate, is placed, and is journaled with the rationale and skill', async () => {
+    const d = desk();
+    const j = journal();
+    const place = byName(buildPaperTools(trader(d, j), deps), 'placePaperOrder');
+    expect(await place?.call(ctx, entry)).toMatchObject({ ok: true });
+    expect(j.rows).toMatchObject([{ userId: 'u1', taskId: null, trigger: 'chat request', skill: 'breakout-trading', rationale: 'RBI cut, banks and IT follow', symbol: 'NSE:INFY',
+      side: 'buy', quantity: 10, entry: 1500, stopLoss: 1480, target: 1560, riskAmount: 200, currency: 'INR', venue: 'paper', backtest: null }]);
+    expect(j.rows[0]?.clientOrderId).toMatch(/^agent-turn-abc-/);
+  });
+
+  it('a blocked entry places nothing and journals nothing', async () => {
+    const d = desk();
+    const j = journal();
+    const place = byName(buildPaperTools(trader(d, j), deps), 'placePaperOrder');
+    expect(await place?.call(ctx, { ...entry, stopLoss: undefined })).toMatchObject({ ok: false, detail: expect.stringContaining('stop') as unknown });
+    expect(d.place).not.toHaveBeenCalled();
+    expect(j.rows).toEqual([]);
+  });
+
+  it('a background task with auto-trade on places the entry itself, journaled with the trigger', async () => {
+    const { d, j, propose, run } = background(task({ autoTrade: auto }));
+    expect(await run(entry, 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 40 trades')).toMatchObject({ ok: true });
+    expect(d.place).toHaveBeenCalledTimes(1);
+    expect(propose).not.toHaveBeenCalled();
+    expect(j.rows).toMatchObject([{ taskId: 'task-1', trigger: 'RBI watch: 1 new headline', backtest: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 40 trades' }]);
+  });
+
+  it('auto-trade refuses a risk over the task limit, a missing backtest and a full day, and the risk gate still applies', async () => {
+    const tight = background(task({ autoTrade: { ...auto, maxRiskPct: 0.01 } }));
+    expect(await tight.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('over this task') as unknown });
+    const needs = background(task({ autoTrade: { ...auto, requireBacktest: true } }));
+    expect(await needs.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('runBacktest') as unknown });
+    expect(await needs.run(entry, 'some backtest')).toMatchObject({ ok: true });
+    const capped = background(task({ autoTrade: { ...auto, maxTradesPerDay: 1 } }));
+    expect(await capped.run(entry)).toMatchObject({ ok: true });
+    expect(await capped.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('already 1 trades today') as unknown });
+    const noStop = background(task({ autoTrade: auto }));
+    expect(await noStop.run({ ...entry, stopLoss: undefined })).toMatchObject({ ok: false, detail: expect.stringContaining('Risk check BLOCK') as unknown });
+    for (const t of [tight, needs, capped, noStop]) expect(t.d.place.mock.calls.length).toBeLessThanOrEqual(1);
+    expect(tight.d.place).not.toHaveBeenCalled();
+  });
+
+  it('a background task without auto-trade proposes a card for the user and places nothing', async () => {
+    const { d, j, propose, run } = background(task({ autoTrade: null }));
+    expect(await run(entry)).toMatchObject({ ok: true, data: { id: 'card-1', state: 'pending' } });
+    expect(propose).toHaveBeenCalledWith('u1', expect.objectContaining({ kind: 'place-order', symbol: 'NSE:INFY', quantity: 10, stopLoss: 1480, clientOrderId: null }));
+    expect(d.place).not.toHaveBeenCalled();
+    expect(j.rows).toEqual([]);
+    const off = background(task({ autoTrade: { ...auto, enabled: false } }));
+    await off.run(entry);
+    expect(off.propose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a proposal without a stop is refused before a card is made', async () => {
+    const { propose, run } = background(task());
+    expect(await run({ ...entry, stopLoss: undefined })).toMatchObject({ ok: false });
+    expect(propose).not.toHaveBeenCalled();
   });
 });

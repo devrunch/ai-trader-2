@@ -45,6 +45,12 @@ import { DrawingService } from './application/drawing-service';
 import { PromptRegistry } from './application/prompt-registry';
 import { buildReadTools } from './application/read-tools';
 import { Threads } from './application/threads';
+import { AgentTrader, BackgroundRuns, TradeLog, type TradeJournal } from './application/agent-trader';
+import { BrokerVenue, VenueRouter } from './application/execution-venue';
+import { EXECUTION_SETTINGS, TradesController, type ExecutionSettings } from './api/trades.controller';
+import { DrizzleExecutionPrefs } from './infrastructure/drizzle-execution-prefs';
+import { DrizzleTradeJournal } from './infrastructure/drizzle-trade-journal';
+import { PaperVenue } from './infrastructure/paper-venue';
 import { AgentTaskJob } from './infrastructure/agent-task.job';
 import { MarketConditionReader } from './infrastructure/condition-reader';
 import { FeedWatchReader } from './infrastructure/feed-watch-reader';
@@ -60,11 +66,12 @@ import { RedisWindowLimiter } from './infrastructure/redis-window-limiter';
 const logger = new Logger('Agent');
 const RUNNER = Symbol('AGENT_RUNNER');
 const LIMITER = Symbol('AGENT_LIMITER');
+const TRADE_JOURNAL = Symbol('AGENT_TRADE_JOURNAL');
 const toolLimit = (key: string): [number, number] => (key.startsWith('agent:conversation:') ? [120, 600_000] : [30, 60_000]);
 
 interface ToolServices {
   quote: GetQuote; market: MarketDataService; search: SearchInstruments; portfolio: ReadPortfolio; indicators: IndicatorService; cards: ActionCards;
-  place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; backtest: RunBacktest | null;
+  trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; backtest: RunBacktest | null;
 }
 
 /** No AGENT_MODEL: the assistant is off and says so. A bad model setting fails at boot, naming the .env key. */
@@ -78,14 +85,10 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
       logger.log({ message: 'agent tool call', tool: entry.tool, userId: entry.userId, conversationId: entry.conversationId, turnId: entry.turnId, outcome: entry.outcome, ms: entry.ms });
     },
   };
-  const desk = { place: services.place.execute.bind(services.place), cancel: services.cancel.execute.bind(services.cancel),
-    positions: (userId: string) => services.portfolio.positions(userId),
-    account: (userId: string, symbol: string) => services.portfolio.accountForInstrument(userId, symbol),
-    orders: (userId: string) => services.portfolio.orders(userId, { openOnly: false, limit: 200 }),
-    price: async (symbol: string) => (await services.quote.execute(symbol)).price };
   const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
-    ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(desk, deps), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
-    ...buildBacktestTools({ market: services.market, compute: request => services.indicators.compute(request), backtest: services.backtest }, deps)];
+    ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
+    ...buildBacktestTools({ market: services.market, compute: request => services.indicators.compute(request), backtest: services.backtest }, deps,
+      (ctx, summary) => { services.runs.noteBacktest(ctx.conversationId, summary); })];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
   return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools });
 }
@@ -102,23 +105,40 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, ComputeModule],
-  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController],
+  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
-    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService, PineScripts],
-      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService, scripts: PineScripts) => {
+    { provide: TRADE_JOURNAL, inject: [DB], useFactory: (db: Database): TradeJournal => new DrizzleTradeJournal(db) },
+    { provide: DrizzleExecutionPrefs, inject: [DB], useFactory: (db: Database) => new DrizzleExecutionPrefs(db) },
+    { provide: VenueRouter, inject: [ReadPortfolio, PlaceOrder, CancelOrder, GetQuote, DrizzleExecutionPrefs, APP_CONFIG],
+      useFactory: (portfolio: ReadPortfolio, place: PlaceOrder, cancel: CancelOrder, quote: GetQuote, prefs: DrizzleExecutionPrefs, config: AppConfig) =>
+        new VenueRouter(new PaperVenue({ place, cancel, portfolio, quote }), new BrokerVenue(), prefs, { mode: config.EXECUTION_MODE, nodeEnv: config.NODE_ENV }) },
+    { provide: EXECUTION_SETTINGS, inject: [DrizzleExecutionPrefs, APP_CONFIG],
+      useFactory: (prefs: DrizzleExecutionPrefs, config: AppConfig): ExecutionSettings => ({ mode: config.EXECUTION_MODE, allowed: config.EXECUTION_MODE === 'broker' && config.NODE_ENV !== 'production',
+        enabled: userId => prefs.enabled(userId), set: (userId, value) => prefs.set(userId, value) }) },
+    { provide: AgentTrader, inject: [VenueRouter, TRADE_JOURNAL],
+      useFactory: (venues: VenueRouter, journal: TradeJournal) => new AgentTrader(venues.routed(), journal, { now: Date.now, id: randomUUID }) },
+    { provide: TradeLog, inject: [VenueRouter, TRADE_JOURNAL], useFactory: (venues: VenueRouter, journal: TradeJournal) => new TradeLog(journal, venues.routed()) },
+    { provide: BackgroundRuns, useFactory: () => new BackgroundRuns() },
+    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService, PineScripts, AgentTrader],
+      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService, scripts: PineScripts, trader: AgentTrader) => {
         const drawings = new DrawingService(market);
         return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent), checkPine: source => checkPine(indicators, source),
-          savePine: async (userId, name, source) => (await scripts.create(userId, { name, source })).id }, { now: Date.now, id: randomUUID });
+          savePine: async (userId, name, source) => (await scripts.create(userId, { name, source })).id,
+          submitOrder: async (userId, a) => {
+            const clientOrderId = `agent-card-${randomUUID().slice(0, 8)}`;
+            await trader.enter(userId, a, { taskId: null, trigger: 'confirmed proposal', skill: null, rationale: a.rationale, backtest: null, clientOrderId });
+            return clientOrderId;
+          } }, { now: Date.now, id: randomUUID });
       } },
     { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar],
       useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar) =>
         new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote), { now: Date.now, id: randomUUID }) },
-    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BACKTEST, LIMITER],
+    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BACKTEST, LIMITER, AgentTrader, BackgroundRuns],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
-        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, backtest: RunBacktest | null, limiter: WindowLimiter) =>
-        createRunner(config, { quote, market, search, portfolio, indicators, cards, place, cancel, prompts, tasks, news, watchlist, memory, calendar, backtest }, limiter) },
+        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, backtest: RunBacktest | null, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns) =>
+        createRunner(config, { quote, market, search, portfolio, indicators, cards, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, backtest }, limiter) },
     { provide: AgentMemory, inject: [DB], useFactory: (db: Database) => new AgentMemory(new DrizzleMemoryStore(db), { id: randomUUID }) },
     { provide: ChatService, inject: [RUNNER, PromptRegistry, DB, LIMITER, APP_CONFIG, AgentMemory],
       useFactory: (runner: AgentRunner | null, prompts: PromptRegistry, db: Database, limiter: WindowLimiter, config: AppConfig, memory: AgentMemory) =>
@@ -126,9 +146,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig) =>
-        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }) },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns) =>
+        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs) },
   ],
   exports: [PromptRegistry],
 })

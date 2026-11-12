@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AgentTaskSchema, type AgentTaskDto } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
+import { AutoTradeControl } from './auto-trade-control';
 
 const listSchema = z.array(AgentTaskSchema);
 const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -40,6 +41,7 @@ export function TasksList({ onOpenThread }: { onOpenThread: (threadId: string) =
         {task.nextRunAt && task.state === 'active' ? ` · next ${time.format(Date.parse(task.nextRunAt))}` : ''}
         {task.lastRunAt ? ` · last ${time.format(Date.parse(task.lastRunAt))}` : ''}</p>
       {task.lastError && <p className="text-[12px] text-down">Last run failed: {task.lastError}</p>}
+      {task.state === 'active' && <AutoTradeControl task={task} />}
       {(task.state === 'active' || task.state === 'paused') && <div className="flex gap-1">
         <Button size="xs" variant="outline" disabled={change.isPending}
           onClick={() => { change.mutate({ id: task.id, verb: task.state === 'active' ? 'pause' : 'resume' }); }}>{task.state === 'active' ? 'Pause' : 'Resume'}</Button>

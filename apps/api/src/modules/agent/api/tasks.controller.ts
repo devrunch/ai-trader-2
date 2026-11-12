@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, ParseUUIDPipe, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
-import { AlertCreateSchema } from '@aitrader/contracts';
+import { AlertCreateSchema, AutoTradeSetSchema } from '@aitrader/contracts';
 import type { Request } from 'express';
 import { CsrfHeaderGuard, SessionGuard } from '../../auth/api/index';
 import { AgentTasks } from '../application/agent-tasks';
@@ -22,6 +22,10 @@ export class TasksController {
   /** A user alert on a price or indicator condition. */
   @Post('alerts') @UseGuards(CsrfHeaderGuard)
   alert(@Body() body: unknown, @Req() req: AuthRequest) { return this.tasks.createAlert(userId(req), AlertCreateSchema.parse(body)); }
+
+  /** What the task may trade by itself (paper money); null switches it off. */
+  @Post(':id/auto-trade') @HttpCode(200) @UseGuards(CsrfHeaderGuard)
+  autoTrade(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @Req() req: AuthRequest) { return this.tasks.setAutoTrade(userId(req), id, AutoTradeSetSchema.parse(body).autoTrade); }
 
   @Post(':id/pause') @HttpCode(200) @UseGuards(CsrfHeaderGuard)
   pause(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) { return this.tasks.setState(userId(req), id, 'paused'); }
