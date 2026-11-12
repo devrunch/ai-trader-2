@@ -1,6 +1,6 @@
-import type { RawEvent } from '../application/calendar';
+import type { EconomicEvent } from '@aitrader/contracts';
 
-type Impact = RawEvent['impact'];
+type Impact = EconomicEvent['impact'];
 export interface ScheduledRelease { title: string; at: string; impact: Impact }
 
 /*

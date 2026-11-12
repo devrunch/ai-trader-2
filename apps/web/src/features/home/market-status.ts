@@ -1,4 +1,4 @@
-export type SessionState = { label: string; open: boolean };
+type SessionState = { label: string; open: boolean };
 export type MarketStatus = { nse: SessionState; us: SessionState; greeting: string; clock: string };
 
 const parts = (now: Date, timeZone: string) => {
