@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { ChartActionSchema, DrawingIntentSchema, INTERVALS, IndicatorInputValuesSchema, type ActionCardDto, type AgentAction, type IndicatorComputeRequest, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
+import { PINE_SCRIPT_LIMITS, ChartActionSchema, DrawingIntentSchema, INTERVALS, IndicatorInputValuesSchema, type ActionCardDto, type AgentAction, type IndicatorComputeRequest, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
+import { fetchPineSource } from './pine-source';
 import { guardedTool, orJsonString, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 const SYMBOL = z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/, 'canonical EXCHANGE:TICKER id');
@@ -9,7 +10,14 @@ export interface IndicatorToolServices {
   list(): IndicatorDefinition[];
   compute(request: IndicatorComputeRequest): Promise<IndicatorResult>;
 }
-export interface ActionCardPort { propose(userId: string, action: AgentAction): Promise<ActionCardDto> }
+export interface ActionCardPort {
+  propose(userId: string, action: AgentAction): Promise<ActionCardDto>;
+  proposePine(userId: string, input: { name?: string | undefined; source: string }): Promise<ActionCardDto>;
+}
+
+const PineShareSchema = z.strictObject({
+  source: z.string().min(1).max(PINE_SCRIPT_LIMITS.sourceChars).optional(), url: z.url().max(500).optional(), name: z.string().trim().min(1).max(PINE_SCRIPT_LIMITS.nameChars).optional(),
+}).refine(v => (v.source === undefined) !== (v.url === undefined), { message: 'give either source or url', path: ['source'] });
 
 /** Indicator reads (FR-AG-5): the catalog, and server-computed values (the model never computes numbers itself). */
 export function buildIndicatorTools(s: IndicatorToolServices, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
@@ -43,5 +51,11 @@ export function buildActionTools(cards: ActionCardPort, deps: GuardDeps): Array<
     guardedTool({ name: 'proposeDrawing',
       description: 'Propose chart drawings computed by the server from real bars: support/resistance levels, a trend line through recent swings, or the high/low of a time range. The result shows the computed prices; the user applies the card to draw them.',
       input: DrawingIntentSchema, run: (intent, ctx) => cards.propose(ctx.userId, { kind: 'draw', intent }) }, deps),
+    guardedTool({ name: 'proposePineScript',
+      description: 'When the user shares Pine Script (pasted, or a raw plain-text link such as a gist raw URL), propose saving it to My scripts and adding it to the chart. The script is checked first; the card shows its inputs and plots, or the error line. Nothing is saved until the user applies the card. Pass the source exactly as shared.',
+      input: PineShareSchema, run: async (input, ctx) => {
+        const source = input.source ?? await fetchPineSource(input.url ?? '');
+        return cards.proposePine(ctx.userId, { name: input.name, source });
+      } }, deps),
   ];
 }

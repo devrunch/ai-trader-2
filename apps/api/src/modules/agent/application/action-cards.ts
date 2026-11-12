@@ -1,4 +1,4 @@
-import type { ActionCardDto, AgentAction, Drawing, DrawingIntent, IndicatorDefinition } from '@aitrader/contracts';
+import type { ActionCardDto, AgentAction, Drawing, DrawingIntent, IndicatorDefinition, PineCheck } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { applyCard, CARD_TTL_MS, dismissCard, failCard, viewCard, type ActionCard } from '../domain/action-card';
 
@@ -32,7 +32,13 @@ function checkAction(action: AgentAction, indicators: IndicatorDefinition[]): st
 const dto = (card: ActionCard): ActionCardDto => ({ id: card.id, action: card.action, state: card.state, reason: card.reason,
   expiresAt: new Date(card.expiresAt).toISOString(), drawing: card.drawing });
 
-export interface CardDeps { indicators: () => IndicatorDefinition[]; draw: (intent: DrawingIntent) => Promise<Drawing> }
+export interface CardDeps {
+  indicators: () => IndicatorDefinition[]; draw: (intent: DrawingIntent) => Promise<Drawing>;
+  /** The Pine runtime's description of a script, or the error line; never throws for a bad script. */
+  checkPine: (source: string) => Promise<PineCheck>;
+  /** Saves to My scripts; returns the script id. */
+  savePine: (userId: string, name: string, source: string) => Promise<string>;
+}
 
 /** Proposed workspace changes the user confirms (FR-AG-17): pending, applied, dismissed, expired (15 min) or failed. */
 export class ActionCards {
@@ -50,6 +56,12 @@ export class ActionCards {
     return dto(card);
   }
 
+  /** Validates the script first, so a broken one still gets a card that shows the error and cannot be applied. */
+  async proposePine(userId: string, input: { name?: string | undefined; source: string }): Promise<ActionCardDto> {
+    const check = await this.deps.checkPine(input.source);
+    return this.propose(userId, { kind: 'add-pine', name: input.name ?? (check.ok ? check.definition.name : 'Shared script'), source: input.source, check, scriptId: null });
+  }
+
   async get(userId: string, id: string): Promise<ActionCardDto> {
     return dto(viewCard(await this.load(userId, id), this.env.now()));
   }
@@ -60,13 +72,24 @@ export class ActionCards {
       if (problem) throw new ValidationError(problem);
     }
     const stored = await this.load(userId, id);
-    const decision = applyCard(stored, this.env.now(), edited);
+    const decision = applyCard(stored, this.env.now(), edited?.kind === 'add-pine' ? undefined : edited);
     if (!decision.ok) throw new ConflictError(`This card can no longer be applied (${decision.reason.toLowerCase().replace('_', ' ')})`, { reason: decision.reason });
     if (decision.card === stored) return dto(stored);
-    const action = decision.card.action;
-    const applied = action.kind === 'draw' ? { ...decision.card, drawing: await this.deps.draw(action.intent) } : decision.card;
+    const applied = await this.settle(userId, decision.card);
     await this.commit(applied, stored.state);
     return dto(applied);
+  }
+
+  /** Work done at the moment of consent: a drawing is recomputed from fresh bars, a Pine script is re-checked and saved to My scripts. */
+  private async settle(userId: string, card: ActionCard): Promise<ActionCard> {
+    const { action } = card;
+    if (action.kind === 'draw') return { ...card, drawing: await this.deps.draw(action.intent) };
+    if (action.kind !== 'add-pine') return card;
+    // Only the stored name and source count; an edited copy from the client is not trusted with the script.
+    const check = await this.deps.checkPine(action.source);
+    if (!check.ok) throw new ValidationError(`The script no longer passes the check: ${check.error}`);
+    const scriptId = await this.deps.savePine(userId, action.name, action.source);
+    return { ...card, action: { ...action, check, scriptId } };
   }
 
   async dismiss(userId: string, id: string): Promise<ActionCardDto> {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { IndicatorInputValuesSchema } from './indicator.js';
+import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
+import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
 
 export const PROMPT_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -42,9 +43,17 @@ export type Drawing = z.infer<typeof DrawingSchema>;
 
 const AddIndicator = z.strictObject({ kind: z.literal('add-indicator'), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), inputs: IndicatorInputValuesSchema.default({}) });
 const OpenSymbol = z.strictObject({ kind: z.literal('open-symbol'), symbol: SymbolId, interval: z.enum(INTERVALS).optional() });
+/** Pine the user shared: the runtime's description of it (or the error line) and, once applied, the My scripts entry it was saved as. */
+const PineCheck = z.discriminatedUnion('ok', [
+  z.strictObject({ ok: z.literal(true), definition: IndicatorDefinitionSchema }),
+  z.strictObject({ ok: z.literal(false), error: z.string(), line: z.number().int().positive().optional() }),
+]);
+export type PineCheck = z.infer<typeof PineCheck>;
+const AddPine = z.strictObject({ kind: z.literal('add-pine'), name: z.string().trim().min(1).max(PINE_SCRIPT_LIMITS.nameChars),
+  source: z.string().min(1).max(PINE_SCRIPT_LIMITS.sourceChars), check: PineCheck, scriptId: z.uuid().nullable() });
 /** What the model may propose directly; drawings go through their intent so the server computes the geometry. */
 export const ChartActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol]);
-export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
+export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol, AddPine, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
 export type AgentAction = z.infer<typeof AgentActionSchema>;
 export const ACTION_CARD_STATES = ['pending', 'applied', 'dismissed', 'expired', 'failed'] as const;
 export const ActionCardSchema = z.strictObject({

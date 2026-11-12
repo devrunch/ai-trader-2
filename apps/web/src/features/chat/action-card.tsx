@@ -5,6 +5,7 @@ import { apiFetch } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { useIndicatorStore } from '../indicators';
 import { useChatActions } from './chat-actions';
+import { PineSummary } from './pine-summary';
 
 type Inputs = Record<string, number | boolean | string>;
 const key = (id: string) => ['agent', 'action', id] as const;
@@ -12,6 +13,7 @@ const key = (id: string) => ['agent', 'action', id] as const;
 const describe = (action: AgentAction): string => {
   switch (action.kind) {
     case 'add-indicator': return `Add ${action.indicatorId.toUpperCase()} to the chart`;
+    case 'add-pine': return `Save “${action.name}” to My scripts and add it to the chart`;
     case 'open-symbol': return `Open ${action.symbol}${action.interval ? ` on ${action.interval}` : ''}`;
     case 'draw': {
       const { intent } = action;
@@ -32,6 +34,7 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
   const client = useQueryClient();
   const host = useChatActions();
   const addIndicator = useIndicatorStore(state => state.add);
+  const addPine = useIndicatorStore(state => state.addPine);
   const card = useQuery({ queryKey: key(proposed.id), initialData: proposed, staleTime: 0,
     queryFn: ({ signal }) => apiFetch(`/v1/agent/actions/${proposed.id}`, { schema: ActionCardSchema, signal }) });
   const [draft, setDraft] = useState<AgentAction | null>(null);
@@ -42,7 +45,11 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
   const run = (applied: ActionCardDto) => {
     const { action: done } = applied;
     if (done.kind === 'add-indicator') addIndicator(done.indicatorId, done.inputs);
-    else if (done.kind === 'open-symbol') host.openSymbol(done.symbol, done.interval);
+    else if (done.kind === 'add-pine') {
+      if (!done.check.ok) throw new Error(done.check.error);
+      void client.invalidateQueries({ queryKey: ['pine-scripts'] });
+      addPine(done.source, done.check.definition);
+    } else if (done.kind === 'open-symbol') host.openSymbol(done.symbol, done.interval);
     else if (applied.drawing && applied.drawing.segments.length > 0) host.addDrawing(applied.id, applied.drawing);
     else throw new Error(applied.drawing?.note ?? 'Nothing to draw');
   };
@@ -64,12 +71,13 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
 
   return <div role="group" aria-label="Proposed change" className="space-y-2 rounded border p-2 text-xs">
     <div className="flex items-center justify-between gap-2"><span className="font-medium">{describe(action)}</span><StateBadge card={current} /></div>
+    {action.kind === 'add-pine' && <PineSummary action={action} />}
     {pending && <Fields action={action} onChange={setDraft} />}
     {current.drawing && <DrawingPreview drawing={current.drawing} />}
     {current.state === 'failed' && current.reason && <p className="text-down">{current.reason}</p>}
     {(apply.isError || dismiss.isError) && <p role="alert" className="text-down">Not done: the card may have expired or changed. {apply.error?.message ?? dismiss.error?.message}</p>}
     {pending && <div className="flex gap-2">
-      <Button size="xs" disabled={apply.isPending} onClick={() => { apply.mutate(); }}>{apply.isPending ? 'Applying…' : 'Apply'}</Button>
+      <Button size="xs" disabled={apply.isPending || (action.kind === 'add-pine' && !action.check.ok)} onClick={() => { apply.mutate(); }}>{apply.isPending ? 'Applying…' : 'Apply'}</Button>
       <Button size="xs" variant="ghost" disabled={dismiss.isPending} onClick={() => { dismiss.mutate(); }}>Dismiss</Button>
     </div>}
   </div>;
@@ -105,6 +113,7 @@ function Fields({ action, onChange }: { action: AgentAction; onChange: (next: Ag
     }
     return null;
   }
+  if (action.kind === 'add-pine') return null;
   if (action.kind === 'open-symbol') {
     return <div className="flex flex-wrap gap-2">
       <label className="flex items-center gap-1">Symbol<input aria-label="Symbol" value={action.symbol} onChange={e => { onChange({ ...action, symbol: e.target.value.toUpperCase() }); }}
