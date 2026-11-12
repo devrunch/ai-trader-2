@@ -13,7 +13,7 @@ export function loadRuntimeConfig(): ReturnType<typeof loadConfig> { return load
 async function bootstrap(): Promise<void> {
   const config = loadRuntimeConfig();
   const app = await NestFactory.create(AppModule.forRoot(config), { bufferLogs: true });
-  configureApp(app);
+  configureApp(app, config.TRUST_PROXY);
   app.useLogger(app.get(Logger));
   app.enableShutdownHooks();
   await app.listen(config.PORT);

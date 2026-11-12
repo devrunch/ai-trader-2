@@ -13,7 +13,7 @@ export class InstrumentHistory {
   }
 
   async held(signal: AbortSignal): Promise<string[]> {
-    const active = new Set((await this.repository.listForIndex(signal)).filter(i => i.status === 'active').map(i => String(i.id)));
+    const active = await this.repository.activeAmong(this.popular, signal);
     const held: string[] = [];
     for (const id of this.popular) {
       if (active.has(id) && await this.repository.getMapping(id, 'kite', signal)) held.push(id);
@@ -22,7 +22,7 @@ export class InstrumentHistory {
   }
 
   async heldForFeeds(signal: AbortSignal): Promise<string[]> {
-    const active = new Set((await this.repository.listForIndex(signal)).filter(i => i.status === 'active').map(i => String(i.id)));
+    const active = await this.repository.activeAmong(this.popular, signal);
     const held: string[] = [];
     for (const id of this.popular) {
       if (!active.has(id)) continue;

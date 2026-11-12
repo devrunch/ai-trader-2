@@ -4,3 +4,5 @@ packages:
 onlyBuiltDependencies:
   - "@swc/core"
   - esbuild
+patchedDependencies:
+  pinets@0.13.1: patches/pinets@0.13.1.patch

@@ -9,3 +9,4 @@ export { newsItems } from './news';
 export { notifications } from './notifications';
 export { watchlists } from './watchlists';
 export { economicEvents } from './calendar';
+export { indicatorPresets, indicatorTemplates } from './indicator-library';

@@ -10,7 +10,10 @@ function update(seq: number, time = start, close = 10, high = 10): BarUpdate { r
 
 function harness(options: { seq?: number; replay?: BarUpdate[] | null; read?: (interval: string, limit: number) => LiveBar[]; emit?: (event: string, payload: unknown) => boolean } = {}) {
   const listeners = new Set<(change: LiveChange) => void>();
+  const secondListeners = new Set<(kind: 'forming' | 'closed', bar: LiveBar) => void>();
   const release = vi.fn().mockResolvedValue(undefined);
+  const acquireSeconds = vi.fn().mockResolvedValue(undefined);
+  const releaseSeconds = vi.fn().mockResolvedValue(undefined);
   const events: Array<{ event: string; payload: unknown }> = [];
   const data: LiveData = {
     resolve: () => Promise.resolve('NSE:TEST'),
@@ -19,12 +22,14 @@ function harness(options: { seq?: number; replay?: BarUpdate[] | null; read?: (i
     replay: () => Promise.resolve(options.replay === undefined ? [] : options.replay),
     watch: (_id, listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     acquire: vi.fn().mockResolvedValue(undefined), release,
+    acquireSeconds, releaseSeconds,
+    watchSeconds: (_id, _interval, listener) => { secondListeners.add(listener); return () => { secondListeners.delete(listener); }; },
     aggregate: (bars, interval, id) => new AggregateLiveBars().execute(bars, interval, id),
   };
   const service = new LiveSubscriptions(data);
   const send = options.emit ?? ((event: string, payload: unknown) => { events.push({ event, payload }); return true; });
   service.connect('socket-1', 'user-1', send);
-  return { service, data, release, events, listeners, send, fire: (change: LiveChange) => { for (const listener of listeners) listener(change); } };
+  return { service, data, release, acquireSeconds, releaseSeconds, events, listeners, secondListeners, send, fire: (change: LiveChange) => { for (const listener of listeners) listener(change); } };
 }
 
 describe('LiveSubscriptions (FR-LS-1, FR-LS-2, E10, E11, E16, E24, NFR-RB-1)', () => {
@@ -49,6 +54,27 @@ describe('LiveSubscriptions (FR-LS-1, FR-LS-2, E10, E11, E16, E24, NFR-RB-1)', (
     h.fire({ type: 'bar', update: update(1, start + 180_000, 14, 15) });
     const emitted = h.events.find(event => event.event === 'bar')?.payload as { bar: LiveBar } | undefined;
     expect(emitted?.bar).toMatchObject({ time: start, open: 10, high: 15, low: 9, close: 14, volume: 4 });
+  });
+
+  it('second intervals snapshot from the ring, then number their own bars and ignore minute updates (FR-CH-8)', async () => {
+    const h = harness({ seq: 7, read: interval => interval === '5S' ? [bar(start, 10)] : [] });
+    const ack = await h.service.subscribe('socket-1', { symbol: 'NSE:TEST', interval: '5S', afterSeq: 3 });
+    expect(ack.ok).toBe(true);
+    expect(h.acquireSeconds).toHaveBeenCalledWith('NSE:TEST', '5S');
+    expect(h.events[0]).toMatchObject({ event: 'snapshot', payload: { interval: '5S', seq: 0, bars: [bar(start, 10)] } });
+    h.fire({ type: 'bar', update: update(8) });
+    for (const listener of h.secondListeners) { listener('forming', bar(start + 5000, 11)); listener('closed', bar(start + 5000, 12)); }
+    expect(h.events.slice(1).map(event => event.event)).toEqual(['bar', 'bar']);
+    expect(h.events.slice(1).map(event => (event.payload as { seq: number }).seq)).toEqual([1, 2]);
+  });
+
+  it('releasing a seconds subscription releases its seconds lease (FR-CH-8)', async () => {
+    const h = harness();
+    const ack = await h.service.subscribe('socket-1', { symbol: 'NSE:TEST', interval: '1S' });
+    if (!ack.ok) throw new Error('subscribe failed');
+    await h.service.unsubscribe('socket-1', { subscriptionId: ack.subscriptionId });
+    expect(h.releaseSeconds).toHaveBeenCalledWith('NSE:TEST', '1S');
+    expect(h.secondListeners.size).toBe(0);
   });
 
   it('seq gap emits resync', async () => {

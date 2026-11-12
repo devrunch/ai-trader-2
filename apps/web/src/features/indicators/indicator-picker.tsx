@@ -5,11 +5,13 @@ import { Command, CommandInput, CommandItem, CommandList } from '../../shared/ui
 import { Dialog } from '../../shared/ui/dialog';
 import { useIndicatorStore } from './state/indicator-store';
 import { useIndicatorCatalog } from './use-chart-indicators';
+import { defaultOf, useIndicatorPresets } from './use-indicator-library';
 
-/** Toolbar button that opens a searchable list of indicators; picking one adds it to the chart. */
+/** Toolbar button that opens a searchable list of indicators; picking one adds it with the user's default inputs. */
 export function IndicatorPicker() {
   const [open, setOpen] = useState(false);
   const catalog = useIndicatorCatalog();
+  const presets = useIndicatorPresets();
   const add = useIndicatorStore(state => state.add);
   return <>
     <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => { setOpen(true); }} disabled={!catalog.data}>
@@ -20,7 +22,7 @@ export function IndicatorPicker() {
         <CommandInput autoFocus placeholder="Search indicators" />
         <CommandList>
           {catalog.data?.map(definition => <CommandItem key={definition.id} value={`${definition.name} ${definition.shortName}`}
-            onSelect={() => { add(definition.id); setOpen(false); }}>
+            onSelect={() => { add(definition.id, defaultOf(presets.data, definition.id)?.inputs); setOpen(false); }}>
             <span className="flex-1">{definition.name}</span><span className="text-[11px] text-muted-foreground">{definition.shortName}</span>
           </CommandItem>)}
         </CommandList>

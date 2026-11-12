@@ -3,3 +3,5 @@ export { indicatorQueryKey, useChartIndicators, useIndicatorCatalog } from './us
 export { useIndicatorStore } from './state/indicator-store';
 export { indicatorLabel } from './source-refs';
 export { IndicatorPicker } from './indicator-picker';
+export { defaultStyle, isCustomColor, sameJson, type IndicatorStyle } from './style';
+export { IndicatorTemplatesMenu } from './indicator-templates-menu';

@@ -174,4 +174,21 @@ describe('FR-CH-5 FR-CH-6 FR-MD-2 cursor history', () => {
   it('rejects invalid instrument IDs and unsupported calendars', async () => {
     for (const id of ['invalid', 'UNKNOWN:TEST']) await expect(fixture().read.execute(id, '1', { latest: true }, 1)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
   });
+  it('answers second intervals from the ring and never reads or fills candles (FR-CH-8)', async () => {
+    const f = fixture(0);
+    const ring = [bar(5000), bar(10000), bar(15000)];
+    const seconds = { put: vi.fn(), read: vi.fn((_id: string, _i: string, limit: number, before?: number) =>
+      Promise.resolve(ring.filter(b => before === undefined || b.time < before).slice(-limit))) };
+    const fill = { execute: vi.fn() };
+    const reader = new ReadBars(f.store, f.redis, () => start, fill, seconds);
+    expect(await reader.execute('NSE:TEST', '5S', { latest: true }, 2)).toMatchObject({ bars: [bar(10000), bar(15000)], nextBefore: 10000, status: { ok: true } });
+    expect(await reader.execute('NSE:TEST', '5S', { before: 10000 }, 5)).toMatchObject({ bars: [bar(5000)] });
+    expect(await reader.execute('NSE:TEST', '5S', { since: 10000 }, 5)).toMatchObject({ bars: [bar(10000), bar(15000)] });
+    expect(fill.execute).not.toHaveBeenCalled();
+  });
+  it('an empty second ring is an empty ok page, not a missing-data error (FR-CH-8)', async () => {
+    const f = fixture(0);
+    const reader = new ReadBars(f.store, f.redis, () => start, undefined, { put: vi.fn(), read: vi.fn().mockResolvedValue([]) });
+    expect(await reader.execute('NSE:TEST', '1S', { latest: true }, 5)).toMatchObject({ bars: [], nextBefore: null, status: { ok: true } });
+  });
 });

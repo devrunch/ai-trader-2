@@ -22,6 +22,8 @@ const rsi: IndicatorDefinition = {
 const bodies: unknown[] = [];
 const server = setupServer(
   http.get('/api/v1/indicators', () => HttpResponse.json({ indicators: [sma, rsi] })),
+  http.get('/api/v1/indicators/presets', () => HttpResponse.json({ presets: [] })),
+  http.get('/api/v1/indicators/templates', () => HttpResponse.json({ templates: [] })),
   http.post('/api/v1/indicators/compute', async ({ request }) => {
     const body: unknown = await request.json();
     bodies.push(body);
@@ -37,11 +39,11 @@ const server = setupServer(
 );
 // cmdk scrolls the active item into view; jsdom has no layout.
 beforeAll(() => { server.listen(); Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: () => undefined }); });
-afterEach(() => { cleanup(); bodies.length = 0; useIndicatorStore.setState({ items: [] }); });
+afterEach(() => { cleanup(); bodies.length = 0; useIndicatorStore.setState({ items: [], presentation: {} }); });
 afterAll(() => { server.close(); Reflect.deleteProperty(Element.prototype, 'scrollIntoView'); });
 
-function Harness() {
-  const { rows } = useChartIndicators('NSE:A', '1');
+function Harness({ interval = '1' }: { interval?: '1' | '60' }) {
+  const { rows } = useChartIndicators('NSE:A', interval);
   return <><IndicatorPicker /><IndicatorLegend rows={rows} /></>;
 }
 
@@ -99,4 +101,92 @@ it('offers other indicators\' plots as a source, sends the chain, and shows sour
   useIndicatorStore.setState({ items: [parent, child] });
   expect(await screen.findByText('3.50')).toBeDefined();
   expect(screen.queryByRole('alert')).toBeNull();
+});
+
+const openTab = (name: string) => { fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0 }); };
+const openSettings = async (name: string) => { fireEvent.click(await screen.findByRole('button', { name: `Settings for ${name}` })); };
+
+// FR-IN-10: presentation is web-side, so a style change never reaches the compute endpoint.
+it('applies a style and precision without a compute request, and shows the precision in the legend', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+  render(<Providers><Harness /></Providers>);
+  expect(await screen.findByText('9.50')).toBeDefined();
+  const requests = bodies.length;
+  await openSettings('SMA');
+  openTab('Style');
+  fireEvent.change(await screen.findByRole('combobox', { name: 'MA colour' }), { target: { value: 'red' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'MA width' }), { target: { value: '3' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'MA line style' }), { target: { value: 'dotted' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'MA plot type' }), { target: { value: 'step' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Precision' }), { target: { value: '4' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
+  expect(await screen.findByText('9.5000')).toBeDefined();
+  expect(bodies).toHaveLength(requests);
+  expect(useIndicatorStore.getState().presentation.k?.style.plots.ma).toEqual({ visible: true, color: 'red', lineWidth: 3, lineStyle: 'dotted', type: 'step' });
+});
+
+it('offers a custom colour next to the theme tokens', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+  render(<Providers><Harness /></Providers>);
+  await openSettings('SMA');
+  openTab('Style');
+  fireEvent.change(await screen.findByRole('combobox', { name: 'MA colour' }), { target: { value: 'custom' } });
+  fireEvent.change(screen.getByLabelText('MA colour custom'), { target: { value: '#112233' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
+  expect(useIndicatorStore.getState().presentation.k?.style.plots.ma?.color).toBe('#112233');
+});
+
+// FR-IN-11
+it('hides the legend values on 5m-style intervals when only hours are enabled, and shows them again on 1h', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+  const { rerender } = render(<Providers><Harness /></Providers>);
+  expect(await screen.findByText('9.50')).toBeDefined();
+  await openSettings('SMA');
+  openTab('Visibility');
+  for (const group of ['seconds', 'minutes', 'days', 'weeks', 'months']) fireEvent.click(await screen.findByRole('checkbox', { name: `${group} enabled` }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
+  expect(await screen.findByText('hidden on this interval')).toBeDefined();
+  rerender(<Providers><Harness interval="60" /></Providers>);
+  expect(await screen.findByText('9.50')).toBeDefined();
+  expect(screen.queryByText('hidden on this interval')).toBeNull();
+});
+
+// FR-IN-10: the pane choice exists only for an indicator fed by another.
+it('offers the pane choice for a chained child only', async () => {
+  const parent = { key: 'p', id: 'rsi', inputs: {} };
+  useIndicatorStore.setState({ items: [parent, { key: 'c', id: 'sma', inputs: { length: 3, source: { from: 'p', plot: 'rsi' } } }] });
+  render(<Providers><Harness /></Providers>);
+  await openSettings('RSI');
+  openTab('Style');
+  expect(screen.queryByRole('combobox', { name: 'Pane' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  await openSettings('SMA');
+  openTab('Style');
+  const pane = await screen.findByRole('combobox', { name: 'Pane' });
+  expect(Array.from(pane.querySelectorAll('option')).map(o => o.textContent)).toEqual(["Parent's pane", 'Own pane', 'Price pane']);
+  fireEvent.change(pane, { target: { value: 'price' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
+  expect(useIndicatorStore.getState().presentation.c?.style.pane).toBe('price');
+});
+
+it('cancel keeps the stored style, reset to defaults restores the definition\'s look and stores nothing', async () => {
+  useIndicatorStore.setState({ items: [{ key: 'k', id: 'sma', inputs: {} }] });
+  render(<Providers><Harness /></Providers>);
+  await openSettings('SMA');
+  openTab('Style');
+  fireEvent.change(await screen.findByRole('combobox', { name: 'MA colour' }), { target: { value: 'red' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(useIndicatorStore.getState().presentation).toEqual({});
+
+  await openSettings('SMA');
+  openTab('Style');
+  fireEvent.change(await screen.findByRole('combobox', { name: 'MA colour' }), { target: { value: 'red' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }));
+  expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'MA colour' }).value).toBe('blue');
+  openTab('Visibility');
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'hours enabled' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }));
+  expect(screen.getByRole<HTMLInputElement>('checkbox', { name: 'hours enabled' }).checked).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Ok' }));
+  expect(useIndicatorStore.getState().presentation).toEqual({});
 });

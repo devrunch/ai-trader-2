@@ -31,14 +31,19 @@ export const IndicatorLevelSchema = z.strictObject({ id, title: z.string().min(1
 /** `builtin:<id>@<version>`; `script:<id>@<version>` arrives with saved scripts (FR-IN-31). */
 export const IndicatorRefSchema = z.string().regex(/^builtin:[a-z][a-z0-9]{0,39}@[1-9]\d{0,3}$/);
 
+/** A pasted Pine script's identity: a hash of its source (the script is not saved yet). */
+export const PineRefSchema = z.string().regex(/^pine:[0-9a-f]{12}@1$/);
+
 export const IndicatorDefinitionSchema = z.strictObject({
-  ref: IndicatorRefSchema, id: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), version: z.number().int().positive(),
+  ref: z.union([IndicatorRefSchema, PineRefSchema]), id: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), version: z.number().int().positive(),
   name: z.string().min(1).max(120), shortName: z.string().min(1).max(40),
   /** `true` draws on the price pane; `false` in its own pane. */
   overlay: z.boolean(),
   inputs: z.array(IndicatorInputDefSchema), plots: z.array(IndicatorPlotDefSchema).min(1), levels: z.array(IndicatorLevelSchema),
 });
 export type IndicatorDefinition = z.infer<typeof IndicatorDefinitionSchema>;
+/** The definition of a Pine script (its `input.*` calls and plots), so the settings dialog works for it like for a built-in. */
+export const IndicatorDescribeRequestSchema = z.strictObject({ source: z.string().min(1).max(100_000) });
 export const IndicatorListResponseSchema = z.strictObject({ indicators: z.array(IndicatorDefinitionSchema) });
 /** Every built-in also exists as Pine; users can read and fork it (FR-IN-31). */
 export const IndicatorDetailResponseSchema = z.strictObject({ definition: IndicatorDefinitionSchema, pine: z.string() });
@@ -89,6 +94,8 @@ export type IndicatorPlotSeries = z.infer<typeof IndicatorPlotSeriesSchema>;
 export const IndicatorResultSchema = z.strictObject({
   instrumentId: z.string(), resolvedId: z.string(), interval: z.enum(INTERVALS), ref: z.string(), inputs: IndicatorChartInputsSchema,
   times: z.array(z.number().int()), plots: z.array(IndicatorPlotSeriesSchema), status: DataStatusSchema,
+  /** Why some values are `na` beyond warm-up, for example no data for a `request.security` symbol (E27). */
+  reason: z.string().max(300).optional(),
 }).refine(result => result.plots.every(plot => plot.values.length === result.times.length), { message: 'One value per bar time', path: ['plots'] });
 export type IndicatorResult = z.infer<typeof IndicatorResultSchema>;
 

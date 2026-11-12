@@ -32,7 +32,7 @@ vi.mock('./lwc-chart', () => ({
     const chart: ChartLike = {
       candles: { setData: vi.fn(), update }, volume: { setData: vi.fn(), update: vi.fn() },
       onCrosshair: () => () => undefined, onVisibleRange: cb => { scroll = cb; return () => undefined; }, applyColors: vi.fn(), remove: vi.fn(),
-      addIndicatorSeries: () => { const update = vi.fn(); indicatorUpdates.push(update); return { setData: vi.fn(), update, priceLine: vi.fn(), remove: vi.fn() }; },
+      addIndicatorSeries: () => { const update = vi.fn(); indicatorUpdates.push(update); return { setData: vi.fn(), update, applyStyle: vi.fn(), setLevels: vi.fn(), remove: vi.fn() }; },
     };
     charts.push(chart);
     return chart;
@@ -107,6 +107,12 @@ it('market closed or provider down says why instead of an empty canvas (FR-UI-7)
   const closed: DataStatus = { state: 'stale', reason: 'MARKET_CLOSED' };
   act(() => { subscriptions[0]?.handlers.onReset([]); subscriptions[0]?.handlers.onStatus(closed); });
   expect(screen.getByText(/Market closed/)).toBeDefined();
+});
+
+it('an empty seconds chart says seconds bars start when the market streams (FR-CH-8)', () => {
+  render(<Providers><LiveChart symbol="NSE:A" interval="5S" /></Providers>);
+  act(() => { subscriptions[0]?.handlers.onReset([]); });
+  expect(screen.getByText('Seconds bars start when the market streams; no history.')).toBeDefined();
 });
 
 it('indicators load once over HTTP, then each tick arrives over the socket straight to the chart (FR-IN-5)', async () => {

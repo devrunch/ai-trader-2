@@ -16,8 +16,7 @@ describe('FR-MD-1 FR-MD-2 instrument history routing', () => {
   });
   it('holds only active popular instruments with Kite mappings', async () => {
     const repo = repository(); const signal = new AbortController().signal;
-    repo.listForIndex.mockResolvedValue([instrument('NSE:TEST'), instrument('NSE:OTHER'),
-      instrument('NSE:INACTIVE', { status: 'suspended' }), instrument('NASDAQ:AAPL')]);
+    repo.activeAmong.mockResolvedValue(new Set(['NSE:TEST', 'NASDAQ:AAPL']));
     repo.getMapping.mockImplementation(id => Promise.resolve(id === 'NSE:TEST'
       ? { id, provider: 'kite', providerSymbol: 'TEST' } : undefined));
     expect(await new InstrumentHistory(repo, ['NSE:TEST', 'NSE:INACTIVE', 'NASDAQ:AAPL']).held(signal)).toEqual(['NSE:TEST']);
@@ -25,7 +24,7 @@ describe('FR-MD-1 FR-MD-2 instrument history routing', () => {
   });
   it('holds popular instruments mapped to any live feed vendor (FR-MD-5)', async () => {
     const repo = repository(); const signal = new AbortController().signal;
-    repo.listForIndex.mockResolvedValue([instrument('NSE:TEST'), instrument('OANDA:XAUUSD'), instrument('NASDAQ:AAPL')]);
+    repo.activeAmong.mockResolvedValue(new Set(['NSE:TEST', 'OANDA:XAUUSD', 'NASDAQ:AAPL']));
     repo.getMapping.mockImplementation((id, provider) => Promise.resolve(
       (id === 'NSE:TEST' && provider === 'kite') || (id === 'OANDA:XAUUSD' && provider === 'deriv')
         || (id === 'NASDAQ:AAPL' && provider === 'us-delayed') ? { id, provider, providerSymbol: 'mapped' } : undefined));

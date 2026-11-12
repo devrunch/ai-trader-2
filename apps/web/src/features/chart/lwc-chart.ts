@@ -1,18 +1,18 @@
-import { AreaSeries, CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, LineType, createChart, type IChartApi, type LineWidth, type Time, type UTCTimestamp } from 'lightweight-charts';
-import type { ChartColors, ChartLike, LinePoint, IndicatorSeriesLike, IndicatorSeriesOptions } from './chart-adapter';
+import { AreaSeries, CandlestickSeries, ColorType, HistogramSeries, LineSeries, LineStyle, LineType, createChart, type IChartApi, type IPriceLine, type LineWidth, type Time, type UTCTimestamp } from 'lightweight-charts';
+import type { ChartColors, ChartLike, IndicatorSeriesLike, IndicatorSeriesOptions, LinePoint, SeriesStyle } from './chart-adapter';
 
 const ts = (seconds: number): UTCTimestamp => seconds as UTCTimestamp;
 const seconds = (time: Time): number => (typeof time === 'number' ? time : 0);
 
 /** Binds Lightweight Charts 5 to ChartLike. Candles in pane 0, volume in its own pane below. Times shown in the exchange's zone. */
-export function createLwcChart(container: HTMLElement, timeZone: string): ChartLike {
-  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hour12: false });
+export function createLwcChart(container: HTMLElement, timeZone: string, showSeconds = false): ChartLike {
+  const clock = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', ...(showSeconds ? { second: '2-digit' } : {}), hour12: false });
   const day = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short' });
-  const full = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const full = new Intl.DateTimeFormat('en-GB', { timeZone, day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit', ...(showSeconds ? { second: '2-digit' } : {}), hour12: false });
   const chart = createChart(container, {
     autoSize: true,
     localization: { timeFormatter: (time: Time) => full.format(seconds(time) * 1000) },
-    timeScale: { timeVisible: true, secondsVisible: false, rightOffset: 4,
+    timeScale: { timeVisible: true, secondsVisible: showSeconds, rightOffset: 4,
       tickMarkFormatter: (time: Time, type: number) => (type <= 2 ? day : clock).format(seconds(time) * 1000) },
   });
   const candles = chart.addSeries(CandlestickSeries, { borderVisible: false });
@@ -51,17 +51,33 @@ export function createLwcChart(container: HTMLElement, timeZone: string): ChartL
 }
 
 const width = (value: number): LineWidth => (value >= 4 ? 4 : value === 3 ? 3 : value === 2 ? 2 : 1);
+const LINE_STYLE = { solid: LineStyle.Solid, dashed: LineStyle.Dashed, dotted: LineStyle.Dotted } as const;
+const priceFormat = (precision: number | null) => ({ type: 'price' as const, precision: precision ?? 2, minMove: 10 ** -(precision ?? 2) });
 
-function addIndicatorSeries(chart: IChartApi, { kind, color, lineWidth, pane, title }: IndicatorSeriesOptions): IndicatorSeriesLike {
+function addIndicatorSeries(chart: IChartApi, options: IndicatorSeriesOptions): IndicatorSeriesLike {
+  const { kind, pane, title } = options;
   const common = { title, priceLineVisible: false, lastValueVisible: true };
-  const series = kind === 'histogram' ? chart.addSeries(HistogramSeries, { ...common, color }, pane)
-    : kind === 'area' ? chart.addSeries(AreaSeries, { ...common, lineColor: color, topColor: color, bottomColor: 'transparent', lineWidth: width(lineWidth) }, pane)
-    : chart.addSeries(LineSeries, { ...common, color, lineWidth: width(lineWidth), lineType: kind === 'step' ? LineType.WithSteps : LineType.Simple,
-      lineVisible: kind !== 'circles', pointMarkersVisible: kind === 'circles' }, pane);
+  const series = kind === 'histogram' ? chart.addSeries(HistogramSeries, common, pane)
+    : kind === 'area' ? chart.addSeries(AreaSeries, { ...common, bottomColor: 'transparent' }, pane)
+    : chart.addSeries(LineSeries, common, pane);
+  // The style tab only offers types of the plot's own series class, so a restyle never needs a new series.
+  const applyStyle = (style: SeriesStyle) => {
+    const shared = { visible: style.visible, priceFormat: priceFormat(style.precision) };
+    if (kind === 'histogram') series.applyOptions({ ...shared, color: style.color });
+    else if (kind === 'area') series.applyOptions({ ...shared, lineColor: style.color, topColor: style.color, lineWidth: width(style.lineWidth), lineStyle: LINE_STYLE[style.lineStyle] });
+    else series.applyOptions({ ...shared, color: style.color, lineWidth: width(style.lineWidth), lineStyle: LINE_STYLE[style.lineStyle],
+      lineType: style.type === 'step' ? LineType.WithSteps : LineType.Simple, lineVisible: style.type !== 'circles', pointMarkersVisible: style.type === 'circles' });
+  };
+  applyStyle(options);
+  let lines: IPriceLine[] = [];
   return {
     setData: points => { series.setData(points.map(p => linePoint(p, kind))); },
     update: point => { series.update(linePoint(point, kind)); },
-    priceLine: (price, label, lineColor) => { series.createPriceLine({ price, title: label, color: lineColor, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false }); },
+    applyStyle,
+    setLevels: levels => {
+      for (const line of lines) series.removePriceLine(line);
+      lines = levels.map(level => series.createPriceLine({ price: level.value, title: level.title, color: level.color, lineWidth: 1, lineStyle: LINE_STYLE[level.lineStyle], axisLabelVisible: false }));
+    },
     remove: () => { chart.removeSeries(series); },
   };
 }

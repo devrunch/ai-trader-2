@@ -13,7 +13,7 @@ function fakeChart() {
     volume: { setData: vi.fn(), update: vi.fn() },
     onCrosshair: () => () => undefined, onVisibleRange: vi.fn((cb: (from: number | null) => void) => { rangeListener = cb; return vi.fn(); }),
     applyColors: vi.fn(),
-    addIndicatorSeries: vi.fn(() => ({ setData: vi.fn(), update: vi.fn(), priceLine: vi.fn(), remove: vi.fn() })),
+    addIndicatorSeries: vi.fn(() => ({ setData: vi.fn(), update: vi.fn(), applyStyle: vi.fn(), setLevels: vi.fn(), remove: vi.fn() })),
     remove: vi.fn(),
   } satisfies ChartLike;
   return { chart, scroll: (from: number | null) => { rangeListener?.(from); } };
@@ -72,4 +72,24 @@ describe('ChartAdapter (FR-CH-1, FR-CH-5)', () => {
     adapter.destroy();
     expect(chart.remove).toHaveBeenCalled();
   });
+
+  it('replays from a chosen bar: later bars hide, step forward adds one like a live close, live ticks wait until replay ends', () => {
+    const { chart } = fakeChart();
+    const adapter = new ChartAdapter(chart, colors);
+    adapter.reset([bar(0, 10, 11), bar(1, 11, 12), bar(2, 12, 13), bar(3, 13, 14)]);
+    expect(adapter.replayFrom(t0 + 90_000)).toBe(t0 + 60_000);
+    expect(chart.candles.setData.mock.calls.at(-1)?.[0]).toHaveLength(2);
+    chart.candles.update.mockClear();
+    adapter.update(bar(4, 14, 15));
+    expect(chart.candles.update).not.toHaveBeenCalled();
+    expect(adapter.replayStep(1)).toBe(t0 + 120_000);
+    expect(chart.candles.update).toHaveBeenCalledWith({ time: t0 / 1000 + 120, open: 12, high: 13, low: 12, close: 13 });
+    expect(adapter.replayStep(-1)).toBe(t0 + 60_000);
+    expect(chart.candles.setData.mock.calls.at(-1)?.[0]).toHaveLength(2);
+    for (let i = 0; i < 5; i++) adapter.replayStep(1);
+    expect(adapter.replayAtEnd()).toBe(true);
+    adapter.replayStop();
+    expect(chart.candles.setData.mock.calls.at(-1)?.[0]).toHaveLength(5);
+  });
 });
+

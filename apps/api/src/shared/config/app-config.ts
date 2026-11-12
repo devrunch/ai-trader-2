@@ -42,6 +42,8 @@ export const AppConfigSchema = z.object({
   AWS_ACCESS_KEY_ID: unsetIfBlank(secret),
   AWS_SECRET_ACCESS_KEY: unsetIfBlank(secret),
   AWS_SESSION_TOKEN: unsetIfBlank(secret),
+  // Python compute (backtests): a Lambda Function URL (signed with the AWS keys above) or a plain http URL on the box.
+  COMPUTE_URL: unsetIfBlank(z.url({ protocol: /^https?$/ })),
   AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(40)).default(15),
   AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
   AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
@@ -58,6 +60,8 @@ export const AppConfigSchema = z.object({
   DATABASE_POOL_MAX: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).default(10),
   REDIS_URL: z.url({ protocol: /^rediss?$/ }),
   SESSION_SECRET: z.string().min(32).optional(),
+  // Express 'trust proxy' value: keyword, CIDR list or hop count.
+  TRUST_PROXY: z.string().min(1).default('loopback'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   CORS_ORIGINS: z.string()
     .transform((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean))

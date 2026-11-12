@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from '@nestjs/common';
-import { IndicatorComputeRequestSchema, type IndicatorResult } from '@aitrader/contracts';
+import { IndicatorComputeRequestSchema, IndicatorDescribeRequestSchema, type IndicatorDefinition, type IndicatorResult } from '@aitrader/contracts';
 import { IndicatorService } from '../application';
 import { IndicatorsRateLimitGuard } from './indicators-rate-limit.guard';
 
@@ -17,6 +17,13 @@ export class IndicatorsController {
   @Get(':ref')
   detail(@Param('ref') ref: string): { definition: ReturnType<IndicatorService['get']>; pine: string } {
     return { definition: this.indicators.get(ref), pine: this.indicators.source(ref) };
+  }
+
+  /** A Pine script's inputs and plots as a definition, so the settings dialog works for it (FR-IN-31). */
+  @Post('describe')
+  @HttpCode(200)
+  async describe(@Body() body: unknown): Promise<{ definition: IndicatorDefinition }> {
+    return { definition: await this.indicators.describe(IndicatorDescribeRequestSchema.parse(body).source) };
   }
 
   @Post('compute')

@@ -1,16 +1,19 @@
 import type { Redis } from 'ioredis';
 import { Logger } from '@nestjs/common';
-import { BarUpdateSchema, DataStatusSchema, PROVIDER_REASONS } from '@aitrader/contracts';
+import { BarSchema, BarUpdateSchema, DataStatusSchema, PROVIDER_REASONS } from '@aitrader/contracts';
 import { z } from 'zod';
-import type { LiveChange } from '../application/ports/live-data';
+import type { LiveBar, LiveChange, SecondInterval } from '../application/ports/live-data';
 
 const feedChange = z.object({ vendor: z.enum(['kite', 'deriv', 'us-delayed']), state: z.enum(['connecting', 'live', 'reconnecting', 'stale', 'stopped']), reason: z.enum(PROVIDER_REASONS).optional(), at: z.number().int() });
 type Listener = (change: LiveChange) => void;
+type SecondsListener = (kind: 'forming' | 'closed', bar: LiveBar) => void;
+const secondBar = z.object({ kind: z.enum(['forming', 'closed']), bar: BarSchema });
 const reasonDefaults = 'PROVIDER_DOWN' as const;
 
 export class RedisLiveUpdateBus {
   private readonly redis: Redis;
   private readonly listeners = new Map<string, Set<Listener>>();
+  private readonly secondListeners = new Map<string, Set<SecondsListener>>();
   private ready: Promise<void>;
   private reconnecting = false;
   private readonly warn: (message: string) => void;
@@ -19,7 +22,7 @@ export class RedisLiveUpdateBus {
     this.warn = warn ?? (message => { logger.warn(message); });
     this.redis = redis.duplicate();
     this.ready = new Promise<void>((resolve, reject) => {
-      const subscribe = () => { void this.redis.psubscribe('md:bars:*').then(() => this.redis.subscribe('md:feed-state:changed')).then(() => { resolve(); }, reject); };
+      const subscribe = () => { void this.redis.psubscribe('md:bars:*', 'md:sbars:*').then(() => this.redis.subscribe('md:feed-state:changed')).then(() => { resolve(); }, reject); };
       if (this.redis.status === 'ready') subscribe();
       else if (this.redis.status === 'wait') void this.redis.connect().then(subscribe, reject);
       else this.redis.once('ready', subscribe);
@@ -41,15 +44,33 @@ export class RedisLiveUpdateBus {
     listeners.add(listener); this.listeners.set(instrumentId, listeners); void this.ready.catch((error: unknown) => { this.warn(`Live Redis subscription failed: ${errorName(error)}`); });
     return () => { listeners.delete(listener); if (listeners.size === 0) this.listeners.delete(instrumentId); };
   }
-  close(): void { this.listeners.clear(); this.redis.disconnect(); }
+  watchSeconds(instrumentId: string, interval: SecondInterval, listener: SecondsListener): () => void {
+    const key = `${instrumentId}|${interval}`;
+    const listeners = this.secondListeners.get(key) ?? new Set<SecondsListener>();
+    listeners.add(listener); this.secondListeners.set(key, listeners); void this.ready.catch(() => undefined);
+    return () => { listeners.delete(listener); if (listeners.size === 0) this.secondListeners.delete(key); };
+  }
+  close(): void { this.listeners.clear(); this.secondListeners.clear(); this.redis.disconnect(); }
   onModuleDestroy(): void { this.close(); }
   private onBar(channel: string, raw: string): void {
+    if (channel.startsWith('md:sbars:')) { this.onSecondBar(channel, raw); return; }
     let decoded: unknown;
     try { decoded = JSON.parse(raw); } catch { this.warn('Malformed live bar message: SyntaxError'); return; }
     const parsed = BarUpdateSchema.safeParse(decoded);
     if (!parsed.success) { this.warn('Malformed live bar message: ZodError'); return; }
     const instrumentId = channel.slice('md:bars:'.length);
     for (const listener of this.listeners.get(instrumentId) ?? []) listener({ type: 'bar', update: parsed.data });
+  }
+  private onSecondBar(channel: string, raw: string): void {
+    const rest = channel.slice('md:sbars:'.length);
+    const cut = rest.lastIndexOf(':');
+    const listeners = this.secondListeners.get(`${rest.slice(0, cut)}|${rest.slice(cut + 1)}`);
+    if (!listeners) return;
+    let decoded: unknown;
+    try { decoded = JSON.parse(raw); } catch { this.warn('Malformed second bar message: SyntaxError'); return; }
+    const parsed = secondBar.safeParse(decoded);
+    if (!parsed.success) { this.warn('Malformed second bar message: ZodError'); return; }
+    for (const listener of listeners) listener(parsed.data.kind, parsed.data.bar);
   }
   private onFeedState(raw: string): void {
     let decoded: unknown;

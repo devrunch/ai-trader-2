@@ -15,6 +15,10 @@ export class SourcedInstance implements IndicatorInstance {
 
   constructor(private readonly child: IndicatorInstance, private readonly parent: IndicatorInstance, private readonly plot: string) {}
 
+  get latestWins(): boolean { return this.child.latestWins === true || this.parent.latestWins === true; }
+
+  get reason(): string | undefined { return this.child.reason ?? this.parent.reason; }
+
   async seed(bars: readonly Bar[]): Promise<PlotValues[]> {
     const parentRows = await this.parent.seed(bars);
     const rows: PlotValues[] = [];
