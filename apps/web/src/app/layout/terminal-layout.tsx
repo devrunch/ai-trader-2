@@ -82,11 +82,11 @@ function PhoneLayout({ toolbar, chart, bottom, widgets }: Props) {
   const [tab, setTab] = useState<PhoneTab>('chart');
   const content = tab === 'chart' ? chart : tab === 'trade' ? bottom : widgets[tab];
   return <div className="flex min-h-0 flex-1 flex-col bg-background">
-    <div className="flex h-10 shrink-0 items-center overflow-x-auto border-b bg-panel">{toolbar}</div>
+    <div className="flex h-11 shrink-0 items-center overflow-x-auto border-b bg-panel [&_a]:min-h-10 [&_a]:min-w-10 [&_button]:min-h-10 [&_button]:min-w-10">{toolbar}</div>
     <section aria-label={PHONE_TABS.find(t => t.id === tab)?.label} className={`min-h-0 flex-1 ${tab === 'chart' ? '' : 'overflow-auto bg-panel'}`}>{content}</section>
     <div role="tablist" aria-label="Sections" className="grid shrink-0 grid-cols-6 border-t bg-panel">
       {PHONE_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
-        className={`h-11 text-[11px] ${tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
+        className={`h-11 min-w-0 truncate text-[11px] ${tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
     </div>
   </div>;
 }

@@ -53,3 +53,12 @@ it('writes the pre-market brief on request', async () => {
   expect(await screen.findByText(/NIFTY held 25,200/)).toBeDefined();
   expect(briefs).toBe(1);
 });
+
+it('shows the greeting, IST market status and quick actions', async () => {
+  await renderHome();
+  const status = screen.getByRole('status', { name: 'Market status' });
+  expect(status.textContent).toMatch(/NSE (open|closed)/);
+  expect(status.textContent).toMatch(/US (open|closed|extended hours)/);
+  expect(screen.getByRole('button', { name: 'Open terminal' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Ask the assistant' })).toBeDefined();
+});
