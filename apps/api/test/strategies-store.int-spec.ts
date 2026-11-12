@@ -55,6 +55,7 @@ describe('strategies and trade journal stores (migrations 0028-0030)', () => {
     await journal.add(row('agent-2', '2026-11-12T05:00:00.000Z', 'backtest has 12 trades; at least 20 are needed'));
     expect((await journal.list(alice, 10)).map(r => [r.clientOrderId, r.skipped])).toEqual([['agent-2', 'backtest has 12 trades; at least 20 are needed'], ['agent-1', null]]);
     expect(await journal.list(bob, 10)).toEqual([]);
-    expect(await journal.countSince(taskId, Date.parse('2026-11-12T04:30:00Z'))).toBe(1);
+    expect(await journal.countSince(taskId, Date.parse('2026-11-12T03:30:00Z'))).toBe(1);
+    expect(await journal.countSince(taskId, Date.parse('2026-11-12T04:30:00Z'))).toBe(0);
   });
 });
