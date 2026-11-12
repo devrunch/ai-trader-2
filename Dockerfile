@@ -11,16 +11,16 @@ COPY apps/web/package.json apps/web/
 COPY packages/contracts/package.json packages/contracts/
 COPY packages/resilience/package.json packages/resilience/
 COPY packages/compute-client/package.json packages/compute-client/
-# pnpm applies patchedDependencies (PineTS) during install.
+# pnpm applies patchedDependencies (PineTS) during install. Builds run at nice 19: the server also hosts other sites.
 COPY patches patches
-RUN pnpm install --frozen-lockfile
+RUN nice -n 19 pnpm install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps apps
-RUN pnpm build:packages \
+RUN nice -n 19 sh -c 'pnpm build:packages \
  && pnpm --filter @aitrader/api build \
  && pnpm --filter @aitrader/web build \
- && pnpm --filter @aitrader/api --prod deploy --legacy /out
+ && pnpm --filter @aitrader/api --prod deploy --legacy /out'
 
 FROM node:${NODE_VERSION}-alpine AS api
 ENV NODE_ENV=production
