@@ -3,6 +3,7 @@ import { IndicatorListResponseSchema, IndicatorResultSchema, type IndicatorDefin
 import { apiFetch } from '../../shared/api/http';
 import { ApiError } from '../../shared/api/api-error';
 import { resolveStyle, visibleOn, type IndicatorStyle, type Presentation } from './style';
+import { definitionOf, specOf } from './indicator-spec';
 import { chainOthers, indicatorLabel, parentKeyOf, sourceUnavailable } from './source-refs';
 import { useIndicatorStore, type ChartIndicator } from './state/indicator-store';
 
@@ -38,8 +39,8 @@ export function useChartIndicators(symbol: string, interval: Interval) {
     queryFn: ({ signal }: { signal: AbortSignal }) => {
       const others = chainOthers(items, item, catalog.data);
       return apiFetch('v1/indicators/compute', { method: 'POST', schema: IndicatorResultSchema, signal, body: { symbol, interval,
-        indicator: { kind: 'builtin', id: item.id, inputs: item.inputs }, range: { limit: LIMIT },
-        ...(parentKeyOf(item) !== undefined && { instanceId: item.key, label: indicatorLabel(catalog.data?.find(d => d.id === item.id), item), others }) } });
+        indicator: specOf(item), range: { limit: LIMIT },
+        ...(parentKeyOf(item) !== undefined && { instanceId: item.key, label: indicatorLabel(definitionOf(item, catalog.data), item), others }) } });
     },
   })) });
   // A child whose parent is gone or failed shows "source unavailable" and paints nothing, never the last good values (E28).
@@ -49,7 +50,7 @@ export function useChartIndicators(symbol: string, interval: Interval) {
     const error = query?.error;
     const unavailable = sourceUnavailable(items, item, failed);
     const saved = presentation[item.key];
-    return { item, presentation: saved, hidden: saved !== undefined && !visibleOn(saved.visibility, interval), definition: catalog.data?.find(d => d.id === item.id), result: unavailable ? undefined : query?.data, loading: !unavailable && (query?.isPending ?? true),
+    return { item, presentation: saved, hidden: saved !== undefined && !visibleOn(saved.visibility, interval), definition: definitionOf(item, catalog.data), result: unavailable ? undefined : query?.data, loading: !unavailable && (query?.isPending ?? true),
       error: unavailable ? SOURCE_UNAVAILABLE : error ? (error instanceof ApiError ? error.message : 'Indicator failed to load') : undefined };
   });
   const series: ChartIndicatorSeries[] = rows.flatMap(row => (row.definition && row.result

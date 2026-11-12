@@ -14,3 +14,5 @@ export * from './news.js';
 export * from './watchlist.js';
 export * from './calendar.js';
 export * from './indicator-library.js';
+export * from './pine-script.js';
+export * from './pine-coverage.js';

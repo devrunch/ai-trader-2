@@ -10,3 +10,4 @@ export { notifications } from './notifications';
 export { watchlists } from './watchlists';
 export { economicEvents } from './calendar';
 export { indicatorPresets, indicatorTemplates } from './indicator-library';
+export { pineScripts, pineScriptVersions } from './pine-scripts';

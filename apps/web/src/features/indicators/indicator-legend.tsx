@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Settings2, X } from 'lucide-react';
+import { Pencil, Settings2, X } from 'lucide-react';
 import type { IndicatorDefinition, IndicatorResult } from '@aitrader/contracts';
 import { Button } from '../../shared/ui/button';
+import { usePineDialog } from './pine/pine-dialog-store';
 import { IndicatorSettingsDialog } from './indicator-settings-dialog';
 import { inputSummary } from './input-draft';
 import { defaultPresentation, formatValue, sameJson, type Presentation } from './style';
@@ -13,6 +14,7 @@ import type { IndicatorRow } from './use-chart-indicators';
 export function IndicatorLegend({ rows }: { rows: IndicatorRow[] }) {
   const { update, remove, setPresentation } = useIndicatorStore();
   const [editing, setEditing] = useState<string | null>(null);
+  const openPine = usePineDialog(state => state.open);
   const open = rows.find(row => row.item.key === editing);
   // Settings equal to the defaults are stored as none, so the built-in's look stays the single source.
   const savePresentation = (key: string, definition: IndicatorDefinition, presentation: Presentation) => { setPresentation(key, sameJson(presentation, defaultPresentation(definition)) ? undefined : presentation); };
@@ -27,12 +29,15 @@ export function IndicatorLegend({ rows }: { rows: IndicatorRow[] }) {
       {row.error ? <span role="alert" className="text-destructive">{row.error}</span>
         : row.hidden ? <span className="text-muted-foreground">hidden on this interval</span>
         : row.loading ? <span className="text-muted-foreground">loading</span> : <span className="num">{latestValues(row.result, row.presentation?.style.precision ?? null)}</span>}
+      {row.result?.reason && !row.error && <span className="max-w-64 truncate text-muted-foreground" title={row.result.reason} data-testid="indicator-reason">{row.result.reason}</span>}
+      {row.item.pine && <Button size="icon-xs" variant="ghost" aria-label={`Edit ${row.definition?.shortName ?? row.item.id}`}
+        onClick={() => { if (row.item.pine) openPine({ tab: 'editor', source: row.item.pine.source, key: row.item.key }); }}><Pencil /></Button>}
       <Button size="icon-xs" variant="ghost" aria-label={`Settings for ${row.definition?.shortName ?? row.item.id}`} disabled={!row.definition}
         onClick={() => { setEditing(row.item.key); }}><Settings2 /></Button>
       <Button size="icon-xs" variant="ghost" aria-label={`Remove ${row.definition?.shortName ?? row.item.id}`} onClick={() => { remove(row.item.key); }}><X /></Button>
     </div>)}
     {open && editingDefinition && <IndicatorSettingsDialog definition={editingDefinition} inputs={open.item.inputs} presentation={open.presentation ?? defaultPresentation(editingDefinition)}
-      chained={parentKeyOf(open.item) !== undefined} sources={sourceOptions(items, open.item, definitions)}
+      chained={parentKeyOf(open.item) !== undefined} sources={open.item.pine ? [] : sourceOptions(items, open.item, definitions)}
       onApply={(values, presentation) => { if (inputsChanged(editingDefinition, open.item.inputs, values)) update(open.item.key, values); savePresentation(open.item.key, editingDefinition, presentation); }} onClose={() => { setEditing(null); }} />}
   </div>;
 }

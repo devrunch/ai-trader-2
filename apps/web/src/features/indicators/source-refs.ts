@@ -1,4 +1,5 @@
 import { isSourceRef, type IndicatorChartInstance, type IndicatorDefinition, type IndicatorSourceRef } from '@aitrader/contracts';
+import { definitionOf, specOf } from './indicator-spec';
 import type { ChartIndicator } from './state/indicator-store';
 
 /** Source choices in the dropdown: a price source is its own name, another indicator's plot is `ref:<key>:<plotId>`. */
@@ -38,8 +39,8 @@ export function ancestorsOf(items: readonly ChartIndicator[], item: ChartIndicat
 
 /** What the server needs to compute `item`: its ancestors, named by key. */
 export function chainOthers(items: readonly ChartIndicator[], item: ChartIndicator, definitions: readonly IndicatorDefinition[] | undefined): IndicatorChartInstance[] {
-  return ancestorsOf(items, item).map(parent => ({ instanceId: parent.key, label: indicatorLabel(definitions?.find(d => d.id === parent.id), parent),
-    indicator: { kind: 'builtin', id: parent.id, inputs: parent.inputs } }));
+  return ancestorsOf(items, item).map(parent => ({ instanceId: parent.key, label: indicatorLabel(definitionOf(parent, definitions), parent),
+    indicator: specOf(parent) }));
 }
 
 /** E28: the parent was removed (or is itself unavailable), so the child has no source until it is back. */
@@ -55,7 +56,7 @@ export interface SourceOption { value: string; label: string }
 /** Other indicators' plots this one may use as source: not itself and not anything that already uses it. */
 export function sourceOptions(items: readonly ChartIndicator[], self: ChartIndicator, definitions: readonly IndicatorDefinition[] | undefined): SourceOption[] {
   return items.filter(other => other.key !== self.key && !ancestorsOf(items, other).some(a => a.key === self.key)).flatMap(other => {
-    const definition = definitions?.find(d => d.id === other.id);
+    const definition = definitionOf(other, definitions);
     return (definition?.plots ?? []).map(plot => ({ value: encodeRef({ from: other.key, plot: plot.id }), label: `${indicatorLabel(definition, other)}: ${plot.title}` }));
   });
 }
