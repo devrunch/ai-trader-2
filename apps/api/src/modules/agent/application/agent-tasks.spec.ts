@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AgentTasks, type TaskStore } from './agent-tasks';
+import { AgentTasks, type Dispatcher, type FireTask, type TaskStore } from './agent-tasks';
 import type { AgentTask } from '../domain/agent-task';
+
+/** A dispatcher that runs everything inline, like a plain alert. */
+const inline = (fire: FireTask): Dispatcher => ({ queues: () => false, enqueue: vi.fn(), runInline: fire });
 
 const t0 = Date.parse('2026-11-11T03:45:00Z');
 
@@ -28,7 +31,7 @@ describe('AgentTasks', () => {
     expect(created).toMatchObject({ state: 'active', maxRuns: 1, conditionNow: 1490 });
     advance();
     const fire = vi.fn().mockResolvedValue({ error: null, outcome: 'ran' });
-    expect(await tasks.runDue(fire, new AbortController().signal)).toBe(1);
+    expect(await tasks.runDue(inline(fire), new AbortController().signal)).toBe(1);
     expect(fire).toHaveBeenCalledWith(expect.objectContaining({ title: 'INFY breakout' }), 'NSE:INFY price is 1505, above 1500');
     expect([...store.rows.values()][0]).toMatchObject({ state: 'done', runs: 1, lastError: null });
   });
@@ -37,13 +40,13 @@ describe('AgentTasks', () => {
     const { tasks } = setup([1510, 1512]);
     await tasks.create('u1', 'th1', breakout);
     const fire = vi.fn().mockResolvedValue({ error: null, outcome: 'ran' });
-    expect(await tasks.runDue(fire, new AbortController().signal)).toBe(0);
+    expect(await tasks.runDue(inline(fire), new AbortController().signal)).toBe(0);
   });
 
   it('records a failed run instead of crashing the pass', async () => {
     const { tasks, store } = setup([1490, 1505]);
     await tasks.create('u1', 'th1', { ...breakout, maxRuns: 3 });
-    await tasks.runDue(() => Promise.reject(new Error('Daily assistant limit reached')), new AbortController().signal);
+    await tasks.runDue(inline(() => Promise.reject(new Error('Daily assistant limit reached'))), new AbortController().signal);
     expect([...store.rows.values()][0]).toMatchObject({ state: 'active', runs: 1, lastError: 'Daily assistant limit reached' });
   });
 
@@ -52,7 +55,7 @@ describe('AgentTasks', () => {
     await tasks.create('u1', 'th1', breakout);
     await tasks.create('u1', 'th1', { ...breakout, title: 'second' });
     read.mockClear();
-    await tasks.runDue(vi.fn().mockResolvedValue({ error: null, outcome: 'ran' }), new AbortController().signal);
+    await tasks.runDue(inline(vi.fn().mockResolvedValue({ error: null, outcome: 'ran' })), new AbortController().signal);
     expect(read).toHaveBeenCalledTimes(1);
   });
 
@@ -72,7 +75,7 @@ describe('AgentTasks', () => {
     const alert = await tasks.createAlert('u1', { trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, repeat: true, note: 'check volume' });
     expect(alert).toMatchObject({ mode: 'notify', threadId: null, title: 'NSE:INFY above 1,500', instruction: 'check volume', maxRuns: 500, state: 'active' });
     const fire = vi.fn().mockResolvedValue({ error: null, outcome: 'ran' });
-    for (let i = 0; i < 3; i++) { advance(); await tasks.runDue(fire, new AbortController().signal); }
+    for (let i = 0; i < 3; i++) { advance(); await tasks.runDue(inline(fire), new AbortController().signal); }
     expect(fire).toHaveBeenCalledTimes(2);
     expect(fire.mock.calls[0]?.[0]).toMatchObject({ mode: 'notify', runs: 0 });
   });
@@ -100,14 +103,14 @@ describe('AgentTasks watches', () => {
     await tasks.create('u1', 'th1', { title: 'RBI watch', instruction: 'assess', trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: ['rbi'], minImpact: 'high' }, maxRuns: 5 });
     feed.news.push(headline('a', 'RBI cuts repo rate', 30_000), headline('b', 'Sensex gains', 40_000));
     clock.now = t0 + 60_000;
-    expect(await tasks.runDue(fire, signal)).toBe(1);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(1);
     expect(fire).toHaveBeenCalledWith(expect.objectContaining({ title: 'RBI watch' }), expect.stringContaining('RBI cuts repo rate'));
     expect(fire.mock.calls[0]?.[1]).not.toContain('Sensex gains');
     clock.now = t0 + 120_000;
-    expect(await tasks.runDue(fire, signal)).toBe(0);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(0);
     feed.news.push(headline('c', 'RBI governor speaks', 100_000));
     clock.now = t0 + 180_000;
-    expect(await tasks.runDue(fire, signal)).toBe(1);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(1);
     expect([...store.rows.values()][0]).toMatchObject({ seen: ['a', 'c'], runs: 2, lastOutcome: 'silent', state: 'active' });
   });
 
@@ -118,13 +121,13 @@ describe('AgentTasks watches', () => {
     const { tasks, fire, reader } = watching(clock, feed);
     await tasks.create('u1', 'th1', { title: 'x', instruction: 'assess', trigger: { kind: 'event', countries: ['INR'], minImpact: 'High', afterMinutes: 5 } });
     clock.now = release + 4 * 60_000;
-    expect(await tasks.runDue(fire, signal)).toBe(0);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(0);
     clock.now = release + 5 * 60_000;
-    expect(await tasks.runDue(fire, signal)).toBe(1);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(1);
     expect(reader.changes).toHaveBeenCalledWith(['NSE:NIFTY']);
     expect(fire.mock.calls[0]?.[1]).toBe(`RBI Policy Rate Decision (INR, High) was due ${new Date(release).toISOString()}; forecast 5.25%, previous 5.50%. Moves since: NSE:NIFTY +0.60% on the day.`);
     clock.now = release + 6 * 60_000;
-    expect(await tasks.runDue(fire, signal)).toBe(0);
+    expect(await tasks.runDue(inline(fire), signal)).toBe(0);
   });
 
   it('a news alert is a notify task named in plain words, with no condition read', async () => {
@@ -147,4 +150,86 @@ describe('AgentTasks auto-trade', () => {
     const alert = await tasks.createAlert('u1', { trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, repeat: false });
     await expect(tasks.setAutoTrade('u1', alert.id, limits)).rejects.toMatchObject({ code: 'CONFLICT' });
   });
+});
+
+describe('AgentTasks queueing (AG-6)', () => {
+  function queueing(prices: number[]) {
+    const store = memory();
+    let n = 0;
+    let clock = t0;
+    const read = vi.fn(() => Promise.resolve(prices.shift()));
+    const tasks = new AgentTasks(store, { read }, { news: () => Promise.resolve([]), events: () => Promise.resolve([]), changes: () => Promise.resolve([]) }, { now: () => clock, id: () => `task-${String(++n)}` });
+    const jobs = new Map<string, { taskId: string; key: string }>();
+    const enqueue = vi.fn((task: { id: string }, key: string) => { jobs.set(`${task.id}-${key}`, { taskId: task.id, key }); return Promise.resolve(); });
+    const dispatcher: Dispatcher = { queues: () => true, enqueue, runInline: vi.fn() };
+    return { store, tasks, jobs, enqueue, dispatcher, at: (ms: number) => { clock = t0 + ms; } };
+  }
+  const signal = new AbortController().signal;
+  const schedule = { title: 'Daily', instruction: 'brief', trigger: { kind: 'schedule' as const, cron: '*/10 * * * *', tz: 'UTC' } };
+
+  it('a due task is saved as queued with what to run, and only then enqueued: the tick runs no model', async () => {
+    const q = queueing([]);
+    const created = await q.tasks.create('u1', 'th1', schedule);
+    q.at(11 * 60_000);
+    expect(await q.tasks.runDue(q.dispatcher, signal)).toBe(1);
+    const saved = q.store.rows.get(created.id);
+    expect(saved).toMatchObject({ runState: 'queued', runs: 0, lastOutcome: null, pendingFire: { reason: expect.stringContaining('scheduled run') as unknown } });
+    expect(q.enqueue).toHaveBeenCalledOnce();
+    expect(q.jobs.size).toBe(1);
+  });
+
+  it('a queued task is not fired again while its run is pending, so one fire is one job', async () => {
+    const q = queueing([]);
+    await q.tasks.create('u1', 'th1', schedule);
+    q.at(11 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    q.at(15 * 60_000);
+    expect(await q.tasks.runDue(q.dispatcher, signal)).toBe(0);
+    expect(q.enqueue).toHaveBeenCalledOnce();
+  });
+
+  it('the fire key is the same for the same fire and differs for the next one', async () => {
+    const q = queueing([]);
+    const created = await q.tasks.create('u1', 'th1', schedule);
+    q.at(11 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    const first = q.store.rows.get(created.id)?.pendingFire?.key;
+    const task = q.store.rows.get(created.id);
+    if (!task) throw new Error('missing');
+    q.store.rows.set(task.id, { ...task, runState: 'idle', pendingFire: null, runs: 1 });
+    q.at(21 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    expect(q.store.rows.get(created.id)?.pendingFire?.key).not.toBe(first);
+    expect(q.jobs.size).toBe(2);
+  });
+
+  it('if the queue is down the task goes back as it was and fires on the next tick instead of being lost', async () => {
+    const q = queueing([]);
+    const created = await q.tasks.create('u1', 'th1', schedule);
+    q.enqueue.mockRejectedValueOnce(new Error('redis down'));
+    q.at(11 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    expect(q.store.rows.get(created.id)).toMatchObject({ runState: 'idle', pendingFire: null, runs: 0 });
+    q.at(12 * 60_000);
+    expect(await q.tasks.runDue(q.dispatcher, signal)).toBe(1);
+    expect(q.store.rows.get(created.id)).toMatchObject({ runState: 'queued' });
+  });
+
+  it('recovers a queued run nobody picked up for ten minutes by queueing the same fire again', async () => {
+    const q = queueing([]);
+    const created = await q.tasks.create('u1', 'th1', schedule);
+    q.at(11 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    const key = q.store.rows.get(created.id)?.pendingFire?.key;
+    q.at(15 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    expect(q.enqueue).toHaveBeenCalledTimes(1);
+    q.at(22 * 60_000);
+    await q.tasks.runDue(q.dispatcher, signal);
+    expect(q.enqueue).toHaveBeenCalledTimes(2);
+    expect(q.enqueue).toHaveBeenLastCalledWith(expect.objectContaining({ id: created.id }), key);
+    expect(q.jobs.size).toBe(1);
+    expect(q.store.rows.get(created.id)?.runStateAt).toBe(t0 + 22 * 60_000);
+  });
+
 });

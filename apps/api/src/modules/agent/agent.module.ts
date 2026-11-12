@@ -56,9 +56,14 @@ import { DeskBacktests } from './application/desk-backtest';
 import { DeskTaskRunner } from './application/desk-task';
 import { TradingDesk, type DeskModel } from './application/trading-desk';
 import { DeskController } from './api/desk.controller';
+import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
 import { DrizzleDeskBacktestStore, DrizzleDeskRunStore } from './infrastructure/drizzle-desk.stores';
 import { AgentTaskJob } from './infrastructure/agent-task.job';
+import { AgentRunQueue } from './infrastructure/agent-run-queue';
+import { RUN_QUEUE } from './application/run-queue';
+import { RunProcessor } from './application/run-processor';
+import { TaskFirer } from './application/task-firer';
 import { MarketConditionReader } from './infrastructure/condition-reader';
 import { FeedWatchReader } from './infrastructure/feed-watch-reader';
 import { DrizzleActionStore } from './infrastructure/drizzle-action.store';
@@ -112,7 +117,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule],
-  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController, DeskController],
+  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -170,9 +175,14 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         new DrizzleDeskBacktestStore(db), { now: Date.now, id: randomUUID }) },
     { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications],
       useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications) => new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns, DeskTaskRunner],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns, desk: DeskTaskRunner) =>
-        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs, desk) },
+    { provide: TaskFirer, inject: [ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns, DeskTaskRunner],
+      useFactory: (chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns, desk: DeskTaskRunner) =>
+        new TaskFirer(chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs, desk) },
+    { provide: AgentRunQueue, inject: [APP_CONFIG, DB, TaskFirer],
+      useFactory: (config: AppConfig, db: Database, firer: TaskFirer) => new AgentRunQueue(config.REDIS_URL, new RunProcessor(new DrizzleTaskStore(db), firer, { now: Date.now }), config.AGENT_RUN_CONCURRENCY) },
+    { provide: RUN_QUEUE, useExisting: AgentRunQueue },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, AgentRunQueue, Notifications],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, queue: AgentRunQueue, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, queue, notifications) },
   ],
   exports: [PromptRegistry],
 })

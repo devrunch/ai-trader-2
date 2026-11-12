@@ -1,7 +1,7 @@
 import type { OpsFeeds } from '@aitrader/contracts';
 import { Button } from '../../shared/ui/button';
 import { Badge, PanelState, formatIst, relative } from './panel-states';
-import { useFeeds, useInstrumentSources, useJobs, useRefreshInstruments, useRunJob } from './use-admin';
+import { useAgentQueue, useFeeds, useInstrumentSources, useJobs, useRefreshInstruments, useRunJob } from './use-admin';
 
 const stateTone = { live: 'up', stale: 'down', stopped: 'down', reconnecting: 'warning', connecting: 'warning', unknown: 'muted' } as const;
 const outcomeTone = { ok: 'up', failed: 'down', skipped: 'warning' } as const;
@@ -36,10 +36,23 @@ function FeedsView({ feeds }: { feeds: OpsFeeds }) {
   </div>;
 }
 
+/** The assistant's background run queue: runs waiting, running now, and runs that failed for good in the last day. */
+function AgentQueueCard() {
+  const queue = useAgentQueue();
+  return <section aria-label="Assistant run queue" className="mb-4 rounded border p-3">
+    <h3 className="mb-2 text-sm font-medium">Assistant run queue</h3>
+    <PanelState query={queue}>{q => <dl className="flex flex-wrap gap-x-8 gap-y-1 text-sm">
+      <div><dt className="text-muted-foreground">Waiting</dt><dd className="num">{q.depth}</dd></div>
+      <div><dt className="text-muted-foreground">Running (of {q.concurrency})</dt><dd className="num">{q.running}</dd></div>
+      <div><dt className="text-muted-foreground">Failed, last 24 h</dt><dd className={`num ${q.failed24h > 0 ? 'text-down' : ''}`}>{q.failed24h}</dd></div>
+    </dl>}</PanelState>
+  </section>;
+}
+
 export function JobsPanel() {
   const jobs = useJobs();
   const run = useRunJob();
-  return <PanelState query={jobs} isEmpty={data => data.length === 0} empty="No jobs are registered in this API instance.">{data =>
+  return <><AgentQueueCard /><PanelState query={jobs} isEmpty={data => data.length === 0} empty="No jobs are registered in this API instance.">{data =>
     <table className={table}>
       <thead><tr><th>Job</th><th>Last run</th><th>Outcome</th><th>Next run</th><th /></tr></thead>
       <tbody>{data.map(job => {
@@ -54,7 +67,7 @@ export function JobsPanel() {
         </tr>;
       })}</tbody>
     </table>}
-  </PanelState>;
+  </PanelState></>;
 }
 
 export function InstrumentsPanel() {

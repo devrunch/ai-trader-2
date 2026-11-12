@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createMemoryHistory, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -23,6 +23,7 @@ const server = setupServer(
   http.get('/api/v1/admin/zerodha', () => HttpResponse.json(zerodhaBody)),
   http.get('/api/v1/admin/ops/feeds', () => { feedCalls++; return HttpResponse.json(feeds()); }),
   http.get('/api/v1/admin/ops/jobs', () => HttpResponse.json(jobs)),
+  http.get('/api/v1/admin/ops/agent-queue', () => HttpResponse.json({ depth: 4, running: 2, failed24h: 1, concurrency: 2 })),
   http.get('/api/v1/admin/ops/instruments', () => HttpResponse.json(instruments)),
 );
 beforeAll(() => { server.listen(); });
@@ -152,4 +153,13 @@ it('zerodha card shows the last auto-login failure under the attempts count', as
     lastFailure: { stage: 'twofa', message: 'twofa failed: HTTP 403 Invalid TOTP', httpStatus: 403, at: '2026-11-12T03:15:00.000Z' } } });
   await renderAt('/admin');
   expect(await screen.findByText(/Last auto-login failed at twofa · .*08:45 IST: twofa failed: HTTP 403 Invalid TOTP/, {}, { timeout: 5000 })).toBeDefined();
+});
+
+it('shows the assistant run queue on the Jobs tab: waiting, running and failed in the last day', async () => {
+  await renderAt('/admin?tab=jobs');
+  const card = await screen.findByRole('region', { name: 'Assistant run queue' });
+  await within(card).findByText('Waiting');
+  expect(card.textContent).toContain('Waiting4');
+  expect(card.textContent).toContain('Running (of 2)2');
+  expect(card.textContent).toContain('Failed, last 24 h1');
 });

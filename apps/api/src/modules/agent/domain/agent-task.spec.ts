@@ -4,7 +4,7 @@ import { afterRun, nextScheduled, tick, type AgentTask } from './agent-task';
 const t0 = Date.parse('2026-11-11T03:45:00Z'); // 09:15 IST
 const task = (patch: Partial<AgentTask> = {}): AgentTask => ({
   id: 't', userId: 'u', threadId: 'th', mode: 'agent', title: 'Breakout', instruction: 'buy', state: 'active', runs: 0, maxRuns: 1, armed: true,
-  trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, seen: [],
+  trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, runState: 'idle' as const, runStateAt: null, pendingFire: null, seen: [],
   expiresAt: t0 + 86_400_000, createdAt: t0, ...patch,
 });
 

@@ -91,6 +91,8 @@ export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
 export const AutoTradeSchema = z.strictObject({ enabled: z.boolean(), maxRiskPct: z.number().positive().max(5).default(0.5),
   maxTradesPerDay: z.number().int().min(1).max(20).default(3), requireBacktest: z.boolean().default(true) });
 export type AutoTrade = z.infer<typeof AutoTradeSchema>;
+/** queued: a fire waits for a worker; running: a worker has it; idle: nothing pending (the outcome is in `lastOutcome`). */
+export const TASK_RUN_STATES = ['idle', 'queued', 'running'] as const;
 export const TASK_OUTCOMES = ['ran', 'report', 'silent', 'notified', 'capped', 'error'] as const;
 export type TaskOutcome = (typeof TASK_OUTCOMES)[number];
 export const TASK_STATES = ['active', 'paused', 'done', 'cancelled', 'expired'] as const;
@@ -105,7 +107,7 @@ export type AlertCreate = z.infer<typeof AlertCreateSchema>;
 export const AgentTaskSchema = z.strictObject({
   id: z.uuid(), threadId: z.uuid().nullable(), mode: z.enum(TASK_MODES), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
   runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
-  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), autoTrade: AutoTradeSchema.nullable(), desk: DeskTaskSchema.nullable(), expiresAt: z.string(), createdAt: z.string(),
+  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), runState: z.enum(TASK_RUN_STATES), autoTrade: AutoTradeSchema.nullable(), desk: DeskTaskSchema.nullable(), expiresAt: z.string(), createdAt: z.string(),
 });
 export type AgentTaskDto = z.infer<typeof AgentTaskSchema>;
 
@@ -122,3 +124,7 @@ export const AgentTradeSchema = z.strictObject({
 export type AgentTradeDto = z.infer<typeof AgentTradeSchema>;
 export const AgentTradesResponseSchema = z.strictObject({ items: z.array(AgentTradeSchema) });
 export const AutoTradeSetSchema = z.strictObject({ autoTrade: AutoTradeSchema.nullable() });
+
+/** The assistant run queue as the admin sees it. `failed24h` counts runs that exhausted their retries in the last day. */
+export const AgentQueueStatsSchema = z.strictObject({ depth: z.number().int().nonnegative(), running: z.number().int().nonnegative(), failed24h: z.number().int().nonnegative(), concurrency: z.number().int().positive() });
+export type AgentQueueStats = z.infer<typeof AgentQueueStatsSchema>;
