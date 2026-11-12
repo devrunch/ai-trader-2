@@ -12,7 +12,7 @@ import { useDrawingStore } from './drawing-store';
 import { IndicatorLayer } from './indicator-layer';
 import { OhlcLegend } from './ohlc-legend';
 import { ReplayControls, type ReplayTarget } from './replay-controls';
-import { IndicatorLegend, indicatorLabel, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
+import { IndicatorLegend, definitionOf, indicatorLabel, specOf, indicatorQueryKey, useChartIndicators, useIndicatorStore } from '../indicators';
 import { useQueryClient } from '@tanstack/react-query';
 import { createLwcChart } from './lwc-chart';
 
@@ -120,11 +120,11 @@ export function LiveChart({ symbol, interval }: { symbol: string; interval: Inte
   // Per-tick indicator values over the socket (FR-IN-5); a resubscribe brings the full series back through the query cache.
   useEffect(() => {
     const client = liveClient();
-    const stops = indicatorItems.map(item => client.watchIndicator(symbol, interval, item.key, { kind: 'builtin', id: item.id, inputs: item.inputs }, {
+    const stops = indicatorItems.map(item => client.watchIndicator(symbol, interval, item.key, specOf(item), {
       onUpdate: point => { layerRef.current?.update(item.key, point); },
       onReset: result => { queryClient.setQueryData(indicatorQueryKey(symbol, interval, item, indicatorItems), result); },
       onError: () => undefined, // the HTTP series and its error stay on screen; the legend shows that error
-    }, indicatorLabel(catalogRef.current?.find(d => d.id === item.id), item)));
+    }, indicatorLabel(definitionOf(item, catalogRef.current), item)));
     return () => { for (const stop of stops) stop(); };
   }, [symbol, interval, indicatorItems, queryClient]);
   useEffect(() => { drawingRef.current?.set(drawings); }, [drawings, loaded]);
