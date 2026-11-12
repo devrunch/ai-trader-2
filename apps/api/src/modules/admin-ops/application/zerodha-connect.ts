@@ -4,7 +4,8 @@ import { KiteSessionService } from '../../../shared/vendors/kite/kite-session.se
 export interface ZerodhaStatus {
   connected: boolean;
   expiresAt?: string;
-  autoLogin: { enabled: boolean; blockedUntil?: string; reason?: string; attemptsToday: number; cap: 6 };
+  autoLogin: { enabled: boolean; blockedUntil?: string; reason?: string; attemptsToday: number; cap: 6;
+    lastFailure?: { stage: string; message: string; httpStatus?: number; at: string } };
   loginUrl: string;
   redirectUrl: string | null;
 }
@@ -16,7 +17,9 @@ export class ZerodhaConnect {
     const status = await this.sessions.adminStatus();
     return { connected: status.connected, ...(status.expiresAt ? { expiresAt: status.expiresAt } : {}),
       autoLogin: { enabled: this.autoLoginEnabled, ...(status.blockedUntil ? { blockedUntil: status.blockedUntil } : {}),
-        ...(status.reason ? { reason: status.reason } : {}), attemptsToday: status.attemptsToday, cap: 6 },
+        ...(status.reason ? { reason: status.reason } : {}), attemptsToday: status.attemptsToday, cap: 6,
+        ...(status.lastFailure ? { lastFailure: { stage: status.lastFailure.stage, message: status.lastFailure.message,
+          ...(status.lastFailure.httpStatus === undefined ? {} : { httpStatus: status.lastFailure.httpStatus }), at: status.lastFailure.at.toISOString() } } : {}) },
       loginUrl: `https://kite.zerodha.com/connect/login?v=3&api_key=${encodeURIComponent(this.apiKey ?? '')}`,
       redirectUrl: this.redirectUrl ?? null };
   }

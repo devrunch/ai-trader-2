@@ -10,11 +10,12 @@ function setup(record: KiteSessionRecord | null = null, configured = true, share
   const repository: KiteSessionRepository = sharedRepository ?? { load: vi.fn(() => Promise.resolve(record)), save,
     autoLoginBlock: vi.fn(() => Promise.resolve({ blockedUntil: null, reason: null, attemptsToday: 0 })),
     blockAutoLogin: vi.fn(() => Promise.resolve()), clearAutoLoginBlock: vi.fn(() => Promise.resolve()), disconnect: vi.fn(() => Promise.resolve()),
+    recordLoginFailure: vi.fn(() => Promise.resolve()), lastLoginFailure: vi.fn(() => Promise.resolve(null)),
     reserveLoginAttempt: vi.fn(() => Promise.resolve({ allowed: true, retryAt: new Date('2026-11-09T18:30:00.000Z') })) };
   const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
   const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'minted', user_id: 'user' })), invalidateAccessToken: vi.fn(() => Promise.resolve(true)) };
   let time = Date.parse('2026-11-08T01:00:00Z');
-  const logger = { log: vi.fn() };
+  const logger = { log: vi.fn(), warn: vi.fn() };
   const service = new KiteSessionService(configured ? credentials : null, repository, login, exchange, () => time, logger, autoLoginEnabled);
   return { service, save, login, exchange, logger, repository, advance: (ms: number) => { time += ms; } };
 }
@@ -103,5 +104,46 @@ describe('Kite session', () => {
     await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'kite credentials not configured' } });
     await expect(service.status()).resolves.toEqual({ valid: false, reason: 'credentials not configured' });
     expect(login).not.toHaveBeenCalled();
+  });
+});
+
+describe('Kite last login failure', () => {
+  const failing = (error: unknown) => {
+    const ctx = setup();
+    const record = vi.spyOn(ctx.repository, 'recordLoginFailure');
+    ctx.login.mockRejectedValue(error);
+    return { ...ctx, record };
+  };
+  it('persists a sanitised failure with stage and status, and warns once', async () => {
+    const { service, record, logger } = failing(new KiteLoginError('twofa', 'twofa failed: HTTP 403 bad password for totp', false, 403));
+    await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'twofa failed' } });
+    expect(record).toHaveBeenCalledWith({ stage: 'twofa', message: 'twofa failed: HTTP 403 bad [redacted] for [redacted]', httpStatus: 403, at: new Date('2026-11-08T01:00:00.000Z') }, expect.any(AbortSignal));
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('failed at twofa (HTTP 403)'));
+  });
+  it('stores a non-login error as stage unknown without its message', async () => {
+    const { service, record } = failing(new Error('boom password=password'));
+    await expect(service.getAccessToken()).rejects.toBeInstanceOf(UnavailableError);
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ stage: 'unknown', message: 'mint failed: Error' }), expect.any(AbortSignal));
+  });
+  it('a failed token exchange is recorded at the session stage', async () => {
+    const { service, exchange } = setup();
+    const spy = vi.spyOn(service['repository'], 'recordLoginFailure');
+    exchange.generateSession.mockRejectedValue(new KiteLoginError('session', 'session failed: TokenException Invalid checksum', false, 403));
+    await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'session failed' } });
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({ stage: 'session', httpStatus: 403 }), expect.any(AbortSignal));
+  });
+  it('does not record gate refusals that made no attempt', async () => {
+    const { service, repository } = setup();
+    vi.spyOn(repository, 'reserveLoginAttempt').mockResolvedValue({ allowed: false, retryAt: new Date() });
+    const record = vi.spyOn(repository, 'recordLoginFailure');
+    await expect(service.getAccessToken()).rejects.toBeInstanceOf(UnavailableError);
+    expect(record).not.toHaveBeenCalled();
+  });
+  it('adminStatus exposes the stored failure', async () => {
+    const { service, repository } = setup();
+    const at = new Date('2026-11-08T00:45:00.000Z');
+    vi.spyOn(repository, 'lastLoginFailure').mockResolvedValue({ stage: 'login', message: 'login failed', at });
+    await expect(service.adminStatus()).resolves.toMatchObject({ lastFailure: { stage: 'login', message: 'login failed', at } });
   });
 });
