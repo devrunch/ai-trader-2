@@ -8,11 +8,13 @@ const source = (name: string, items: Array<Partial<{ title: string; url: string;
   name, fetch: () => Promise.resolve(items.map(i => ({ source: name, title: 'Nifty rises', url: 'https://x.test/a', summary: null, publishedAt: now - 60_000, ...i }))),
 });
 
+const assess = (text: string) => (/rate cut/i.test(text) ? { impact: 'high' as const, moves: ['NSE:NIFTY'], direction: 'up' as const } : { impact: 'low' as const, moves: [], direction: null });
+
 function setup(sources: NewsSource[]) {
   const stored: NewsItem[] = [];
   const store: NewsStore = { insert: vi.fn((items: NewsItem[]) => { stored.push(...items); return Promise.resolve(items.length); }), list: vi.fn(), prune: vi.fn() };
   const warn = vi.fn();
-  return { stored, warn, service: new NewsService(sources, store, tagger(), { now: () => now, id: url => `id:${url}`, warn }) };
+  return { stored, warn, service: new NewsService(sources, store, tagger(), assess, { now: () => now, id: url => `id:${url}`, warn }) };
 }
 
 describe('NewsService', () => {
@@ -26,6 +28,19 @@ describe('NewsService', () => {
     expect(await service.ingest(new AbortController().signal)).toEqual({ fetched: 2, stored: 2, failed: ['broken'] });
     expect(stored.map(s => [s.title, s.symbols])).toEqual([['Reliance shares jump', ['NSE:RELIANCE']], ['Gold slips', ['MCX:GOLD1!']]]);
     expect(warn).toHaveBeenCalledWith('News feed failed', { source: 'broken' });
+  });
+
+  it('stores the impact assessment with each headline', async () => {
+    const { service, stored } = setup([source('et', [{ title: 'RBI rate cut surprises', url: 'https://x.test/r' }, { title: 'Gold slips', url: 'https://x.test/g' }])]);
+    await service.ingest(new AbortController().signal);
+    expect(stored.map(s => [s.impact, s.moves, s.direction])).toEqual([['high', ['NSE:NIFTY'], 'up'], ['low', [], null]]);
+  });
+
+  it('passes the impact floor to the store', async () => {
+    const list = vi.fn().mockResolvedValue([]);
+    const service = new NewsService([], { insert: vi.fn(), list, prune: vi.fn() }, tagger(), assess, { now: () => now, id: u => u, warn: vi.fn() });
+    await service.list({ minImpact: 'medium', hours: 1, limit: 5 });
+    expect(list).toHaveBeenCalledWith({ symbol: undefined, minImpact: 'medium', since: now - 3_600_000, limit: 5 });
   });
 
   it('drops stale, future-dated and malformed items', async () => {

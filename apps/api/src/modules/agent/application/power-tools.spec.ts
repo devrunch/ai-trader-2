@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildCalcTool, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
+import { buildCalcTool, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
 const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
@@ -112,5 +112,16 @@ describe('watchlist tools', () => {
     expect(await byName(tools, 'addToWatchlist')?.call(ctx, { symbol: 'NASDAQ:AAPL' })).toMatchObject({ ok: true });
     expect(list.add).toHaveBeenCalledWith('u1', 'NASDAQ:AAPL');
     expect(await byName(tools, 'removeFromWatchlist')?.call(ctx, { symbol: 'aapl' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});
+
+describe('news tool', () => {
+  it('passes minImpact to the desk, rejects unknown levels and returns the desk output', async () => {
+    const item = { id: 'n1', title: 'RBI cuts repo rate', impact: 'high', moves: ['NSE:NIFTY'], direction: 'up' };
+    const news = { list: vi.fn().mockResolvedValue([item]) };
+    const tool = byName(buildNewsTools(news, deps), 'getNews');
+    expect(await tool?.call(ctx, { minImpact: 'high' })).toMatchObject({ ok: true, data: [item] });
+    expect(news.list).toHaveBeenCalledWith({ minImpact: 'high', hours: 24, limit: 15 });
+    expect(await tool?.call(ctx, { minImpact: 'huge' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
   });
 });
