@@ -17,7 +17,7 @@ Owner rule (2026-11-10): build everything that can be built now; anything that c
 | T9 | **2027 NSE/BSE/MCX holiday lists** | Exchange circulars, before 2027-01-01 | P3-7 |
 | T10 | **TradingView parity fixtures** for indicators (P4-7) | Captured TradingView values on real NSE bars | P4 |
 | T11 | **Two API instances plus a real network drop:** lease expiry, resubscribe, no gaps | Two machines or containers on a real network (staging) | P3-2 |
-| T12 | **Kite auto-login from a static IP** (CAPTCHA-free) | Done 2026-11-11: connected from the EC2 Elastic IP with no CAPTCHA | P2-10c |
+| T12 | **Kite auto-login from a static IP** (CAPTCHA-free) | Worked from the old EC2 Elastic IP (2026-11-11); fails from the Coolify server's IP. Until fixed, connect Zerodha manually from `/admin` each day. Needs a static IP Zerodha accepts, or a different login path | P2-10c |
 | T13 | **Closing-auction calendar change on 2026-12-07** (auction moves to 15:30–15:40) | That date; the 15:50 data report flags any drift | P3-7 |
 
 ## Known bugs (found in the UI review, 2026-11-10)
@@ -25,18 +25,29 @@ Owner rule (2026-11-10): build everything that can be built now; anything that c
 | # | Bug | Seen | Owner |
 |---|---|---|---|
 
-## Remaining build work (2026-11-11)
+## Done (as of 2026-11-12)
 
-Live at https://3.7.76.174.sslip.io (EC2, bare metal, see docs/DEPLOY.md). Out of scope until the owner asks: Telegram, ops (dashboards, alarms, diagram regeneration).
+Live on Coolify (Novam server) at https://ai-trader.app.outlfy.com; the EC2 box is terminated. See docs/DEPLOY.md and docs/DEPLOY-COOLIFY.md.
 
-| Area | Item | Status |
+- Paper trading in every currency (P5-9); watchlist (P9-3); price alerts (P9-4) and indicator alerts (P9-5)
+- Notifications and Resend email (P9-2); news ingest
+- Assistant working memory (P7-9); day-trader skills and risk gate (P8-1)
+- Economic calendar and Home with the pre-market brief (P9-6)
+- Compute on Lambda and the assistant's `runBacktest` (P6-7)
+- Bar replay (P11-1); second-based intervals 1S/5S/15S/30S (P11-2)
+- Indicators: P4-1..5, P4-6 Pine runtime, P4-8b Style and Visibility tabs, P4-9 indicator on indicator, P4-10 presets and templates, P4-13a/b (53 built-ins)
+- Deploy: bare-metal kit (P10-1/2) and Docker/Coolify kit (P10-5/6)
+
+## Pending build work
+
+| Area | Item | Notes |
 |---|---|---|
-| Phase 4 | Done: P4-1..5, P4-9 indicator on indicator, P4-13a/b (53 built-ins). In progress: P4-8b Style and Visibility tabs (worker). Remaining: P4-6 Pine runtime, P4-12 Pine editor, P4-10 presets and templates, indicator alerts in the Alerts widget (engine supports them), P4-7 parity fixtures (needs captured TradingView values) | most done |
-| Phase 5 | Paper trading in every currency (P5-9) done | done |
-| Phase 6 | P6-7 compute on Lambda, backtest tool for the assistant | not started |
-| Phase 7 | Agent working memory (watchlist, risk settings, recent topics) | remaining |
-| Phase 8 | P8-1 day-trader skills and risk gate done | done |
-| Phase 9 | Done: notifications and Resend email (P9-2), watchlist (P9-3), price alerts (P9-4), news ingest. Remaining: economic calendar, Home with pre-market brief, news impact tagging | half |
-| Phase 10 | P10-1 deploy kit and first deploy done | done |
-| Phase 11 | Bar replay, second-based intervals | not started |
-| UI | Phone-width pass | not started |
+| Phase 4 | P4-12 Pine editor | Branch `task/P4-12-pine-editor` on the worker remote, not merged |
+| Phase 4 | P4-7 TradingView parity fixtures | Needs captured TradingView values (T10) |
+| Zerodha | Auto-login fails from the Coolify server's IP | Manual daily connect until fixed (T12) |
+| Calendar | RBI and other Indian events missing from the feed | |
+| UI | Fuller phone layout pass | Phone toolbar done (UI-3) |
+| Performance | API search index memory (~200 MB) | A compact form cost 5x query time and saved no memory; revisit |
+| Phase 9 | News impact tagging | |
+
+Out of scope until the owner asks: Telegram, ops (dashboards, alarms, diagram regeneration).

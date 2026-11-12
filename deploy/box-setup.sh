@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-time (idempotent) setup of the EC2 box for ai-trader-2. Run on the box as ubuntu:
+# One-time (idempotent) setup of a Linux host (Ubuntu, arm64: it installs the arm64 Node build) for ai-trader-2. Run on the host as a sudo user:
 #   sudo bash box-setup.sh
-# Owner decision 2026-11-11: ai-trader-2 replaces the old product on this t4g.small (arm64, 1.8 GB). The old units are
+# Owner decision 2026-11-11: ai-trader-2 replaces the old product on this host (sized for 2 GB). The old units are
 # stopped and disabled, never deleted: their code stays in ~/ai-trader and their data in MongoDB Atlas.
 set -euo pipefail
 NODE_VERSION=26.13.0
