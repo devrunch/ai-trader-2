@@ -204,6 +204,13 @@
       "when": 1794300031000,
       "tag": "0031_trading_desk",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794300032000,
+      "tag": "0032_agent_run_queue",
+      "breakpoints": true
     }
   ]
 }

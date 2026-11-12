@@ -7,6 +7,8 @@ export interface AgentTask {
   runs: number; maxRuns: number; armed: boolean; lastRunAt: number | null; nextRunAt: number | null; lastError: string | null;
   /** What the task may trade by itself (paper money); null: it proposes cards instead. */ autoTrade: AutoTrade | null;
   /** Set: a fire runs the trading desk for this symbol instead of a single assistant turn. */ desk: DeskTask | null;
+  /** A fire waiting for, or in, a worker: queued -> running -> idle. `pendingFire` is what the worker runs, so a lost job can be queued again. */
+  runState: 'idle' | 'queued' | 'running'; runStateAt: number | null; pendingFire: { key: string; reason: string } | null;
   /** How the last run ended. */ lastOutcome: TaskOutcome | null;
   /** Headline and event ids a news or event watch has already reported, newest last. */ seen: string[];
   expiresAt: number; createdAt: number;
@@ -67,7 +69,8 @@ export function tickWatch(task: AgentTask & { trigger: WatchKind }, now: number,
 
 /** After a run: count it, finish when the run budget is spent. */
 export function afterRun(task: AgentTask, now: number, error: string | null, outcome: TaskOutcome = error ? 'error' : 'ran'): AgentTask {
+  const settled = { ...task, runState: 'idle' as const, runStateAt: now, pendingFire: null };
   // A run the daily cap refused does not use up the task's run budget.
   const runs = outcome === 'capped' ? task.runs : task.runs + 1;
-  return { ...task, runs, lastRunAt: now, lastError: error, lastOutcome: outcome, state: runs >= task.maxRuns ? 'done' : task.state, nextRunAt: runs >= task.maxRuns ? null : task.nextRunAt };
+  return { ...settled, runs, lastRunAt: now, lastError: error, lastOutcome: outcome, state: runs >= task.maxRuns ? 'done' : task.state, nextRunAt: runs >= task.maxRuns ? null : task.nextRunAt };
 }

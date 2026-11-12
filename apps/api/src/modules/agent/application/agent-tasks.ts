@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
@@ -22,6 +23,17 @@ export interface WatchReader {
 /** Runs the assistant for a fired task; `error` is set when the run failed, `outcome` says how it ended. */
 export interface FireResult { error: string | null; outcome: TaskOutcome }
 export type FireTask = (task: AgentTask, reason: string) => Promise<FireResult>;
+/**
+ * What happens to a task that is due. A task that runs the assistant or the desk is queued (a worker runs it, `queues` is true); a plain alert is cheap and runs inline.
+ * `enqueue` must be idempotent on (task id, key): the same fire twice is one job.
+ */
+export interface Dispatcher { queues(task: AgentTask): boolean; enqueue(task: AgentTask, key: string): Promise<void>; runInline: FireTask }
+
+/** A queued run nobody has picked up after this long is queued again (the job may have been lost with the queue). */
+const RECOVER_AFTER_MS = 10 * 60_000;
+/** Identifies one fire of a task so a repeat of it is a no-op in the queue: the run count and schedule slot before it, and what a watch has already reported. */
+const fireKey = (before: AgentTask, after: AgentTask): string =>
+  createHash('sha1').update(`${String(before.runs)}|${String(before.nextRunAt)}|${String(before.armed)}|${after.seen.slice(before.seen.length).join(',')}`).digest('hex').slice(0, 20);
 export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; autoTrade?: AutoTrade | null | undefined; desk?: DeskTask | null | undefined }
 
 const num = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 });
@@ -31,7 +43,7 @@ const MAX_FIRES_PER_TICK = 25;
 
 const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, mode: t.mode, title: t.title, instruction: t.instruction, trigger: t.trigger, state: t.state,
   runs: t.runs, maxRuns: t.maxRuns, lastRunAt: t.lastRunAt === null ? null : new Date(t.lastRunAt).toISOString(),
-  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome, autoTrade: t.autoTrade, desk: t.desk,
+  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome, autoTrade: t.autoTrade, desk: t.desk, runState: t.runState,
   expiresAt: new Date(t.expiresAt).toISOString(), createdAt: new Date(t.createdAt).toISOString() });
 
 /** Background work for the assistant: scheduled runs and wake-on-condition (owner request 2026-11-10). */
@@ -66,7 +78,7 @@ export class AgentTasks {
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
     const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
-      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, desk: input.desk ?? null, seen: [],
+      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, desk: input.desk ?? null, runState: 'idle', runStateAt: null, pendingFire: null, seen: [],
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);
     return { ...dto(task), conditionNow };
@@ -95,7 +107,7 @@ export class AgentTasks {
   }
 
   /** One pass over every active task: expire, evaluate, fire what is due. Reads each condition, the news and the calendar once per pass. */
-  async runDue(fire: FireTask, signal: AbortSignal): Promise<number> {
+  async runDue(dispatch: Dispatcher, signal: AbortSignal): Promise<number> {
     const now = this.env.now();
     const cache = new Map<string, Promise<number | undefined>>();
     const read = (trigger: Condition) => {
@@ -128,14 +140,28 @@ export class AgentTasks {
     let fired = 0;
     for (const task of await this.store.active()) {
       if (signal.aborted) break;
+      // One run in flight per task. A queued run that nobody has picked up for a long time is queued again.
+      if (task.runState !== 'idle') {
+        if (task.pendingFire && task.runStateAt !== null && now - task.runStateAt > RECOVER_AFTER_MS) {
+          await dispatch.enqueue(task, task.pendingFire.key).then(() => this.store.save({ ...task, runStateAt: now })).catch(() => undefined);
+        }
+        continue;
+      }
       const result = await evaluate(task);
       if (!result.fire || fired >= MAX_FIRES_PER_TICK) {
         if (result.task !== task && (!result.fire || result.task.seen === task.seen)) await this.store.save(result.task);
         continue;
       }
       fired++;
+      if (dispatch.queues(task)) {
+        // The pending run is saved before the job exists, so a worker that picks it up at once finds it; if queueing fails the task goes back to how it was and fires again next minute.
+        const key = fireKey(task, result.task);
+        await this.store.save({ ...result.task, runState: 'queued', runStateAt: now, pendingFire: { key, reason: result.reason } });
+        await dispatch.enqueue(result.task, key).catch(async () => { await this.store.save(task); });
+        continue;
+      }
       await this.store.save(result.task);
-      const { error, outcome } = await fire(result.task, result.reason).catch((e: unknown): FireResult => ({ error: e instanceof Error ? e.message : 'run failed', outcome: 'error' }));
+      const { error, outcome } = await dispatch.runInline(result.task, result.reason).catch((e: unknown): FireResult => ({ error: e instanceof Error ? e.message : 'run failed', outcome: 'error' }));
       await this.store.save(afterRun(result.task, this.env.now(), error, outcome));
     }
     return fired;

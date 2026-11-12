@@ -58,6 +58,9 @@ export const agentTasks = pgTable('agent_tasks', {
   seen: text('seen').array().notNull().default([]),
   autoTrade: jsonb('auto_trade'),
   desk: jsonb('desk'),
+  runState: text('run_state').notNull().default('idle'),
+  runStateAt: timestamp('run_state_at', { withTimezone: true, mode: 'string' }),
+  pendingFire: jsonb('pending_fire'),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
 });

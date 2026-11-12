@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
+import { AgentQueueStatsSchema, OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
 import { z } from 'zod';
 import { apiFetch } from '../../shared/api/http';
 
@@ -11,6 +11,7 @@ const adminKeys = {
   zerodha: ['admin', 'zerodha'] as const,
   feeds: ['admin', 'feeds'] as const,
   jobs: ['admin', 'jobs'] as const,
+  agentQueue: ['admin', 'agent-queue'] as const,
   instruments: ['admin', 'instruments'] as const,
 };
 
@@ -51,6 +52,11 @@ export function useFeeds() {
 
 export function useJobs() {
   return useQuery({ queryKey: adminKeys.jobs, queryFn: ({ signal }) => apiFetch('/v1/admin/ops/jobs', { schema: OpsJobsSchema, signal }) });
+}
+
+/** The assistant's background run queue. */
+export function useAgentQueue() {
+  return useQuery({ queryKey: adminKeys.agentQueue, queryFn: ({ signal }) => apiFetch('/v1/admin/ops/agent-queue', { schema: AgentQueueStatsSchema, signal }), refetchInterval: 10_000, refetchIntervalInBackground: false });
 }
 
 export function useRunJob() {
