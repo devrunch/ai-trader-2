@@ -7,7 +7,7 @@ import { AlertsPanel } from './index';
 
 const task = (patch: Record<string, unknown>) => ({ id: '00000000-0000-4000-8000-000000000001', threadId: null, mode: 'notify', title: 'NSE:INFY above 1,500',
   instruction: '', trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, state: 'active', runs: 0, maxRuns: 1, lastRunAt: null,
-  nextRunAt: null, lastError: null, expiresAt: '2026-12-11T00:00:00.000Z', createdAt: '2026-11-11T00:00:00.000Z', ...patch });
+  nextRunAt: null, lastError: null, lastOutcome: null, expiresAt: '2026-12-11T00:00:00.000Z', createdAt: '2026-11-11T00:00:00.000Z', ...patch });
 let tasks: Array<ReturnType<typeof task>> = [];
 const posted: unknown[] = [];
 const verbs: string[] = [];
@@ -74,4 +74,36 @@ it('sets an indicator alert on the chart interval, with the chosen plot, and all
   fireEvent.click(screen.getByRole('button', { name: 'Add' }));
   await waitFor(() => { expect(posted).toEqual([{ trigger: { kind: 'indicator', symbol: 'NSE:RELIANCE', interval: '5', indicatorId: 'macd', inputs: {}, plot: 'signal',
     op: 'below', value: -2.5 }, repeat: false }]); });
+});
+
+it('creates a news alert from market, keyword and impact', async () => {
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={vi.fn()} /></Providers>);
+  await screen.findByText('NSE:INFY above 1,500');
+  fireEvent.change(screen.getByLabelText('Alert type'), { target: { value: 'news' } });
+  fireEvent.change(screen.getByLabelText('Market'), { target: { value: 'india' } });
+  fireEvent.change(screen.getByLabelText('Keywords'), { target: { value: 'rbi' } });
+  fireEvent.change(screen.getByLabelText('Minimum impact'), { target: { value: 'high' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await waitFor(() => { expect(posted).toEqual([{ trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: ['rbi'], minImpact: 'high' }, repeat: true }]); });
+});
+
+it('creates an event alert from country codes, defaulting to High and 5 minutes', async () => {
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={vi.fn()} /></Providers>);
+  await screen.findByText('NSE:INFY above 1,500');
+  fireEvent.change(screen.getByLabelText('Alert type'), { target: { value: 'event' } });
+  fireEvent.change(screen.getByLabelText('Countries'), { target: { value: 'usd, eur' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+  await waitFor(() => { expect(posted).toEqual([{ trigger: { kind: 'event', countries: ['USD', 'EUR'], minImpact: 'High', afterMinutes: 5 }, repeat: true }]); });
+});
+
+it('disables Add for an invalid country code, and does not open a symbol for a news alert row', async () => {
+  const open = vi.fn();
+  tasks = [task({ title: 'India headlines', trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: [], minImpact: 'medium' }, lastOutcome: 'silent' })];
+  render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={open} /></Providers>);
+  fireEvent.click(await screen.findByRole('button', { name: 'India headlines' }));
+  expect(open).not.toHaveBeenCalled();
+  expect(screen.getByText(/last outcome: silent/)).toBeDefined();
+  fireEvent.change(screen.getByLabelText('Alert type'), { target: { value: 'event' } });
+  fireEvent.change(screen.getByLabelText('Countries'), { target: { value: 'us' } });
+  expect(screen.getByRole('button', { name: 'Add' }).hasAttribute('disabled')).toBe(true);
 });

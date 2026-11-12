@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
+import { NEWS_IMPACTS } from './news.js';
 import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
 
@@ -65,26 +66,35 @@ export type ActionCardDto = z.infer<typeof ActionCardSchema>;
 /** Apply with the fields as the user edited them; the kind cannot change. */
 export const ActionApplyRequestSchema = z.strictObject({ action: AgentActionSchema.optional() });
 
-/** When a background task wakes the assistant: on a schedule, or when a price or indicator condition becomes true. */
+export const WATCH_MARKETS = ['forex', 'india', 'us', 'commodities', 'all'] as const;
+/** When a background task wakes the assistant: on a schedule, when a price or indicator condition becomes true, on a matching headline, or after a calendar release. */
 export const TaskTriggerSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('schedule'), cron: z.string().min(9).max(60), tz: z.string().max(40).default('Asia/Kolkata') }),
   z.strictObject({ kind: z.literal('price'), symbol: SymbolId, op: z.enum(['above', 'below']), value: z.number().positive() }),
   z.strictObject({ kind: z.literal('indicator'), symbol: SymbolId, interval: z.enum(INTERVALS), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/),
     inputs: IndicatorInputValuesSchema.default({}), plot: z.string().max(40).optional(), op: z.enum(['above', 'below']), value: z.number() }),
+  /** Fires once per matching headline (each headline id at most once). Empty symbols and keywords match any headline in the markets. */
+  z.strictObject({ kind: z.literal('news'), markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(5).default(['all']), symbols: z.array(SymbolId).max(10).default([]),
+    keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(NEWS_IMPACTS).default('medium') }),
+  /** Fires once per matching calendar event, `afterMinutes` after its release so the market's reaction is visible. */
+  z.strictObject({ kind: z.literal('event'), countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
+    minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5) }),
 ]);
 export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
+export const TASK_OUTCOMES = ['ran', 'report', 'silent', 'notified', 'capped', 'error'] as const;
+export type TaskOutcome = (typeof TASK_OUTCOMES)[number];
 export const TASK_STATES = ['active', 'paused', 'done', 'cancelled', 'expired'] as const;
 /** agent: a fire runs the assistant in the task's thread. notify: a user alert; a fire only notifies. */
 export const TASK_MODES = ['agent', 'notify'] as const;
 /** A user alert: a price or indicator condition, once or on every crossing. */
 export const AlertCreateSchema = z.strictObject({
-  trigger: TaskTriggerSchema.refine(t => t.kind !== 'schedule', { message: 'alerts need a price or indicator condition' }),
+  trigger: TaskTriggerSchema.refine(t => t.kind !== 'schedule', { message: 'alerts need a condition, not a schedule' }),
   repeat: z.boolean().default(false), note: z.string().trim().max(200).optional(),
 });
 export type AlertCreate = z.infer<typeof AlertCreateSchema>;
 export const AgentTaskSchema = z.strictObject({
   id: z.uuid(), threadId: z.uuid().nullable(), mode: z.enum(TASK_MODES), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
   runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
-  lastError: z.string().nullable(), expiresAt: z.string(), createdAt: z.string(),
+  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), expiresAt: z.string(), createdAt: z.string(),
 });
 export type AgentTaskDto = z.infer<typeof AgentTaskSchema>;

@@ -125,3 +125,18 @@ describe('news tool', () => {
     expect(await tool?.call(ctx, { minImpact: 'huge' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
   });
 });
+
+describe('watch tools', () => {
+  it('watchNews and watchEvent create the matching trigger in the caller\'s thread, with plain titles', async () => {
+    const tasks = { create: vi.fn().mockResolvedValue({ id: 'x' }), createAlert: vi.fn(), list: vi.fn(), setState: vi.fn() };
+    const tools = buildTaskTools(tasks, deps);
+    expect(await byName(tools, 'watchNews')?.call(ctx, { markets: ['india'], keywords: ['rbi'], minImpact: 'high' })).toMatchObject({ ok: true });
+    expect(tasks.create).toHaveBeenLastCalledWith('u1', ctx.conversationId, expect.objectContaining({ title: 'News: india "rbi" (high+)', maxRuns: 10, expiresInDays: 7,
+      trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: ['rbi'], minImpact: 'high' } }));
+    expect(await byName(tools, 'watchEvent')?.call(ctx, { countries: ['INR'], title: 'policy' })).toMatchObject({ ok: true });
+    expect(tasks.create).toHaveBeenLastCalledWith('u1', ctx.conversationId, expect.objectContaining({ title: 'Event: policy (INR, high+, 5 min after)',
+      trigger: { kind: 'event', countries: ['INR'], title: 'policy', minImpact: 'High', afterMinutes: 5 } }));
+    expect(await byName(tools, 'watchNews')?.call(ctx, { minImpact: 'extreme' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+    expect(await byName(tools, 'watchEvent')?.call(ctx, { countries: ['usa'] })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});

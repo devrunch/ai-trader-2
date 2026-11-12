@@ -10,6 +10,8 @@ const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '
 const when = (task: AgentTaskDto): string => {
   const t = task.trigger;
   if (t.kind === 'schedule') return `on schedule ${t.cron} (${t.tz})`;
+  if (t.kind === 'news') return `on matching ${t.markets.join('/')} news`;
+  if (t.kind === 'event') return `${String(t.afterMinutes)} min after matching ${t.countries.join('/') || 'any'} events`;
   const what = t.kind === 'price' ? t.symbol : `${t.indicatorId.toUpperCase()} on ${t.symbol} ${t.interval}`;
   return `when ${what} goes ${t.op} ${String(t.value)}`;
 };

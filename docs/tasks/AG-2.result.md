@@ -1,0 +1,7 @@
+# AG-2 event and news watchers
+
+- New triggers `news` (markets, symbols, keywords, minImpact) and `event` (countries, title, minImpact, afterMinutes) in contracts; pure rules in `domain/watch.ts` + `tickWatch`. News fires once per headline id (published after the watch was made; `seen` ids kept, newest 200); events fire once at release + delay with forecast/previous and each canonical instrument's day change (`FeedWatchReader`).
+- Decide to report: a fired agent watch asks for a first line `REPORT:` or `SILENT:`; only REPORT notifies (in-app). Every run records `lastOutcome` (ran/report/silent/notified/capped/error) on the task; per-user daily cap `AGENT_WATCH_DAILY_RUNS` (default 40, Redis window limiter); a capped run does not use the task's run budget. Migration `0027_agent_watches`.
+- Tools `watchNews` and `watchEvent` (agent tasks in the chat thread, shown in the Tasks list); Alerts widget gains News and Event types (notify mode, no model). System prompt line added.
+- Tests: `watch.spec.ts`, `agent-tasks.spec.ts` (dedup, release+delay once, alert), `agent-task.job.spec.ts` (REPORT vs SILENT, cap), `power-tools.spec.ts`, `alerts.spec.tsx`. Gate passes (an unrelated load-sensitive test did not fail this time).
+- Deviations: no email — the app has no per-user email preference or user email channel (Resend is ops-only), so REPORT is in-app only; event "moves since release" is the quote's change on the previous close, not since the release minute; the Alerts widget lists notify alerts only, so agent watches appear in the chat Tasks list.

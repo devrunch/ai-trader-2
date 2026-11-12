@@ -47,6 +47,7 @@ import { buildReadTools } from './application/read-tools';
 import { Threads } from './application/threads';
 import { AgentTaskJob } from './infrastructure/agent-task.job';
 import { MarketConditionReader } from './infrastructure/condition-reader';
+import { FeedWatchReader } from './infrastructure/feed-watch-reader';
 import { DrizzleActionStore } from './infrastructure/drizzle-action.store';
 import { DrizzleTaskStore } from './infrastructure/drizzle-task.store';
 import { DrizzleThreadStore, DrizzleTurnStore } from './infrastructure/drizzle-chat.stores';
@@ -111,9 +112,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent), checkPine: source => checkPine(indicators, source),
           savePine: async (userId, name, source) => (await scripts.create(userId, { name, source })).id }, { now: Date.now, id: randomUUID });
       } },
-    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService],
-      useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService) =>
-        new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), { now: Date.now, id: randomUUID }) },
+    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar],
+      useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar) =>
+        new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote), { now: Date.now, id: randomUUID }) },
     { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BACKTEST, LIMITER],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
         cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, backtest: RunBacktest | null, limiter: WindowLimiter) =>
@@ -125,8 +126,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, chat, notifications) },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig) =>
+        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }) },
   ],
   exports: [PromptRegistry],
 })

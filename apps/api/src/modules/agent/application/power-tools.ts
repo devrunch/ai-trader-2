@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, type AlertCreate, type CalendarQuery, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type PaperPlaceOrderRequest, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { calculate, CalcError } from '../domain/calculator';
+import { describeWatch } from '../domain/watch';
 import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
 import { guardedTool, orJsonString, type GuardDeps, type GuardedTool, type ToolContext } from './guarded-tool';
 
@@ -130,6 +131,29 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         + 'Prefer this over scheduleTask when the user only wants to be told ("alert me when NIFTY goes above 24,500"). repeat: every crossing for 30 days.',
       input: z.strictObject({ trigger: orJsonString(AlertCreateSchema.shape.trigger), repeat: z.boolean().default(false), note: z.string().max(200).optional() }),
       run: (input, ctx) => tasks.createAlert(ctx.userId, input) }, deps),
+    guardedTool({ name: 'watchNews',
+      description: 'Watch the news in the background and wake yourself when a matching headline arrives, then decide whether it is worth telling the user. '
+        + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities or all; optional symbols and keywords; minImpact high, medium or low. '
+        + 'The instruction says what to look for and when to report; you will reply REPORT: or SILENT: on each wake-up.',
+      input: z.strictObject({ markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(5).default(['all']), symbols: z.array(SYMBOL).max(10).default([]),
+        keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(['high', 'medium', 'low']).default('medium'),
+        instruction: z.string().min(1).max(2000).default('Assess the headline: does it change anything for the user\'s watchlist, positions or open ideas?'),
+        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7) }),
+      run: ({ instruction, maxRuns, expiresInDays, ...rest }, ctx) => {
+        const trigger = { kind: 'news' as const, ...rest };
+        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays });
+      } }, deps),
+    guardedTool({ name: 'watchEvent',
+      description: 'Watch the economic calendar and wake yourself shortly after a release ("tell me when RBI policy comes out", "watch US CPI"), then decide whether it is worth telling the user. '
+        + 'countries are 3-letter codes (USD, INR, EUR); title is a word in the event name; afterMinutes (default 5) lets the market react first. The wake-up includes forecast, previous and how the instruments moved.',
+      input: z.strictObject({ countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
+        minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5),
+        instruction: z.string().min(1).max(2000).default('Compare the result with the forecast and previous figure and say what it means for the instruments that moved.'),
+        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14) }),
+      run: ({ instruction, maxRuns, expiresInDays, ...rest }, ctx) => {
+        const trigger = { kind: 'event' as const, ...rest };
+        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays });
+      } }, deps),
     guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),
     guardedTool({ name: 'cancelTask', description: 'Cancel one of the user\'s background tasks by id.',

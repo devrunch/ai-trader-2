@@ -54,6 +54,8 @@ export const agentTasks = pgTable('agent_tasks', {
   lastRunAt: timestamp('last_run_at', { withTimezone: true, mode: 'string' }),
   nextRunAt: timestamp('next_run_at', { withTimezone: true, mode: 'string' }),
   lastError: text('last_error'),
+  lastOutcome: text('last_outcome'),
+  seen: text('seen').array().notNull().default([]),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
 });

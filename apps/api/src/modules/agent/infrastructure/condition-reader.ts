@@ -1,7 +1,7 @@
 import type { IndicatorComputeRequest, IndicatorResult, TaskTrigger } from '@aitrader/contracts';
 import type { ConditionReader } from '../application/agent-tasks';
 
-type Condition = Exclude<TaskTrigger, { kind: 'schedule' }>;
+type Condition = Extract<TaskTrigger, { kind: 'price' | 'indicator' }>;
 
 /** Prices from the quote service; indicator values from the one indicator engine, newest non-empty value of the plot. */
 export class MarketConditionReader implements ConditionReader {
