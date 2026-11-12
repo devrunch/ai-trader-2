@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, type AgentAction, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, type AgentAction, type DeskTask, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { autoTradeBlocks } from '../domain/auto-trade';
 import { calculate, CalcError } from '../domain/calculator';
@@ -92,8 +92,17 @@ export function buildPaperTools(trader: AgentTrader, deps: GuardDeps, background
   ];
 }
 
+/** Run the trading desk on a match instead of a single assistant turn (the symbol defaults to the watch's first symbol). */
+const DeskOption = z.strictObject({ symbol: SYMBOL.optional(), rounds: z.number().int().min(1).max(2).default(1) }).optional();
+function deskFor(option: z.infer<typeof DeskOption>, fallback: string | undefined): DeskTask | null {
+  if (!option) return null;
+  const symbol = option.symbol ?? fallback;
+  if (!symbol) throw new ValidationError('runDesk needs a symbol: pass desk.symbol');
+  return { symbol, rounds: option.rounds };
+}
+
 export interface TaskDesk {
-  create(userId: string, threadId: string, input: { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined }): Promise<unknown>;
+  create(userId: string, threadId: string, input: { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; desk?: DeskTask | null | undefined }): Promise<unknown>;
   createAlert(userId: string, input: AlertCreate): Promise<unknown>;
   list(userId: string): Promise<unknown>;
   setState(userId: string, id: string, state: 'cancelled'): Promise<unknown>;
@@ -117,25 +126,25 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
     guardedTool({ name: 'watchNews',
       description: 'Watch the news in the background and wake yourself when a matching headline arrives, then decide whether it is worth telling the user. '
         + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities or all; optional symbols and keywords; minImpact high, medium or low. '
-        + 'The instruction says what to look for and when to report; you will reply REPORT: or SILENT: on each wake-up.',
+        + 'The instruction says what to look for and when to report; you will reply REPORT: or SILENT: on each wake-up. Set desk to run the multi-analyst trading desk (analysts, bull/bear debate, trader, risk manager) on a match instead; with auto-trade on the task, its BUY or SELL is placed on the paper account after the risk gate.',
       input: z.strictObject({ markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(5).default(['all']), symbols: z.array(SYMBOL).max(10).default([]),
         keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(['high', 'medium', 'low']).default('medium'),
         instruction: z.string().min(1).max(2000).default('Assess the headline: does it change anything for the user\'s watchlist, positions or open ideas?'),
-        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7) }),
-      run: ({ instruction, maxRuns, expiresInDays, ...rest }, ctx) => {
+        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7), desk: DeskOption }),
+      run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'news' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays });
+        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0]) });
       } }, deps),
     guardedTool({ name: 'watchEvent',
       description: 'Watch the economic calendar and wake yourself shortly after a release ("tell me when RBI policy comes out", "watch US CPI"), then decide whether it is worth telling the user. '
-        + 'countries are 3-letter codes (USD, INR, EUR); title is a word in the event name; afterMinutes (default 5) lets the market react first. The wake-up includes forecast, previous and how the instruments moved.',
+        + 'countries are 3-letter codes (USD, INR, EUR); title is a word in the event name; afterMinutes (default 5) lets the market react first. The wake-up includes forecast, previous and how the instruments moved. Set desk {symbol} to run the multi-analyst trading desk on the release instead of a single turn.',
       input: z.strictObject({ countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
         minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5),
         instruction: z.string().min(1).max(2000).default('Compare the result with the forecast and previous figure and say what it means for the instruments that moved.'),
-        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14) }),
-      run: ({ instruction, maxRuns, expiresInDays, ...rest }, ctx) => {
+        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14), desk: DeskOption }),
+      run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'event' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays });
+        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) });
       } }, deps),
     guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),

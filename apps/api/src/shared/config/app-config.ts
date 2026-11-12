@@ -49,6 +49,10 @@ export const AppConfigSchema = z.object({
   AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(120_000),
   // Real-broker execution is a development-only experiment (a stub today); production refuses it.
   EXECUTION_MODE: z.enum(['paper', 'broker']).default('paper'),
+  // The trading desk: a cheaper model for its many short calls (defaults to AGENT_MODEL), the token budget of one run and the runs per user per day.
+  DESK_MODEL: unsetIfBlank(modelSpec),
+  DESK_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(2_000_000)).default(60_000),
+  DESK_DAILY_RUNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(1000)).default(60),
   AGENT_WATCH_DAILY_RUNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(1000)).default(40),
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.

@@ -148,7 +148,7 @@ describe('watch tools', () => {
 });
 
 const task = (patch: Partial<AgentTask> = {}): AgentTask => ({ id: 'task-1', userId: 'u1', threadId: ctx.conversationId, mode: 'agent', title: 'RBI watch', instruction: 'trade it', trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: [], minImpact: 'high' },
-  state: 'active', runs: 0, maxRuns: 5, armed: true, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, seen: [], expiresAt: tenAm + 1e9, createdAt: tenAm - 1e6, ...patch });
+  state: 'active', runs: 0, maxRuns: 5, armed: true, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, seen: [], expiresAt: tenAm + 1e9, createdAt: tenAm - 1e6, ...patch });
 const auto = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 2, requireBacktest: false };
 const note = (patch: Partial<BacktestNote> = {}): BacktestNote => ({ symbol: 'NSE:INFY', interval: '5', profitFactor: 1.6, tradeCount: 42, summary: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 42 trades', ...patch });
 const entry = { symbol: 'NSE:INFY', side: 'buy' as const, type: 'market' as const, quantity: 10, stopLoss: 1480, target: 1560, rationale: 'RBI cut, banks and IT follow', skill: 'breakout-trading' };

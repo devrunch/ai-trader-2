@@ -9,6 +9,7 @@ function MainNav() {
     <Link to="/" className={link} activeProps={{ className: 'text-foreground' }} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={{ className: 'text-foreground' }}>Terminal</Link>
     <Link to="/strategies" className={link} activeProps={{ className: 'text-foreground' }}>Strategies</Link>
+    <Link to="/desk" search={{ symbol: 'NSE:NIFTY' }} className={link} activeProps={{ className: 'text-foreground' }}>Desk</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={{ className: 'text-foreground' }}>Admin</Link>
   </nav>;
 }

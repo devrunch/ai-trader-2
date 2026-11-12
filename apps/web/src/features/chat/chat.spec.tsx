@@ -152,7 +152,7 @@ it('renders the assistant reply as markdown and never as raw HTML', async () => 
 it('lists background tasks with what wakes them, and pauses one', async () => {
   const task = { id: '00000000-0000-4000-8000-0000000000t1'.replace('t1', 'a1'), threadId: '00000000-0000-4000-8000-0000000000b1', mode: 'agent', title: 'EURUSD vs EMA 20',
     instruction: 'check', trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' }, state: 'active', runs: 1, maxRuns: 2,
-    lastRunAt: '2026-11-11T18:45:00.000Z', nextRunAt: '2026-11-11T18:50:00.000Z', lastError: null, lastOutcome: null, autoTrade: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+    lastRunAt: '2026-11-11T18:45:00.000Z', nextRunAt: '2026-11-11T18:50:00.000Z', lastError: null, lastOutcome: null, autoTrade: null, desk: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
   const verbs: string[] = [];
   server.use(
     http.get('/api/v1/agent/tasks', () => HttpResponse.json([task])),
@@ -220,7 +220,7 @@ it('shows the error line for a Pine script that does not compile and offers no A
 it('turns on auto-trade for a task with the default limits (paper only)', async () => {
   const task = { id: '00000000-0000-4000-8000-0000000000a1', threadId: '00000000-0000-4000-8000-0000000000b1', mode: 'agent', title: 'Scan NIFTY',
     instruction: 'scan', trigger: { kind: 'schedule', cron: '*/5 * * * *', tz: 'Asia/Kolkata' }, state: 'active', runs: 0, maxRuns: 2,
-    lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+    lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
   const bodies: unknown[] = [];
   server.use(
     http.get('/api/v1/agent/tasks', () => HttpResponse.json([task])),

@@ -7,7 +7,7 @@ import { AlertsPanel } from './index';
 
 const task = (patch: Record<string, unknown>) => ({ id: '00000000-0000-4000-8000-000000000001', threadId: null, mode: 'notify', title: 'NSE:INFY above 1,500',
   instruction: '', trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, state: 'active', runs: 0, maxRuns: 1, lastRunAt: null,
-  nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, expiresAt: '2026-12-11T00:00:00.000Z', createdAt: '2026-11-11T00:00:00.000Z', ...patch });
+  nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, expiresAt: '2026-12-11T00:00:00.000Z', createdAt: '2026-11-11T00:00:00.000Z', ...patch });
 let tasks: Array<ReturnType<typeof task>> = [];
 const posted: unknown[] = [];
 const verbs: string[] = [];

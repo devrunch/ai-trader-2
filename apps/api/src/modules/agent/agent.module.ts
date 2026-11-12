@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Logger, Module } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import type { PineCheck } from '@aitrader/contracts';
-import { ValidationError } from '../../shared/errors';
+import { UnavailableError, ValidationError } from '../../shared/errors';
 import { APP_CONFIG, type AppConfig } from '../../shared/config';
 import { DB, type Database } from '../../shared/database';
 import { JobScheduler } from '../../shared/jobs';
@@ -51,6 +51,13 @@ import { EXECUTION_SETTINGS, TradesController, type ExecutionSettings } from './
 import { DrizzleExecutionPrefs } from './infrastructure/drizzle-execution-prefs';
 import { DrizzleTradeJournal } from './infrastructure/drizzle-trade-journal';
 import { PaperVenue } from './infrastructure/paper-venue';
+import { AsOfDeskData } from './application/desk-data';
+import { DeskBacktests } from './application/desk-backtest';
+import { DeskTaskRunner } from './application/desk-task';
+import { TradingDesk, type DeskModel } from './application/trading-desk';
+import { DeskController } from './api/desk.controller';
+import { AiDeskModel } from './infrastructure/ai-desk-model';
+import { DrizzleDeskBacktestStore, DrizzleDeskRunStore } from './infrastructure/drizzle-desk.stores';
 import { AgentTaskJob } from './infrastructure/agent-task.job';
 import { MarketConditionReader } from './infrastructure/condition-reader';
 import { FeedWatchReader } from './infrastructure/feed-watch-reader';
@@ -105,7 +112,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule],
-  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController],
+  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController, DeskController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -146,9 +153,26 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns],
-      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns) =>
-        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs) },
+    { provide: TradingDesk, inject: [DB, APP_CONFIG, MarketDataService, IndicatorService, NewsService, EconomicCalendar, PromptRegistry, VenueRouter],
+      useFactory: (db: Database, config: AppConfig, market: MarketDataService, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, prompts: PromptRegistry, venues: VenueRouter) => {
+        const spec = config.DESK_MODEL ?? config.AGENT_MODEL;
+        const model: DeskModel = spec ? new AiDeskModel(createLanguageModel(parseModelSpec(spec), config))
+          : { generate: () => Promise.reject(new UnavailableError('The trading desk is off: set DESK_MODEL or AGENT_MODEL')) };
+        const routed = venues.routed();
+        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar), model, new DrizzleDeskRunStore(db),
+          { maxTokens: config.DESK_MAX_TOKENS, dailyRuns: config.DESK_DAILY_RUNS, minRewardRisk: 1.5, maxRiskPct: 0.5, defaultCash: 1_000_000 },
+          { now: Date.now, id: randomUUID, skills: () => prompts.keys().filter(k => k.startsWith('skill-')).map(k => k.slice('skill-'.length)),
+            cash: async (userId, symbol) => (await routed.account(userId, symbol).catch(() => ({ initialCash: 1_000_000 }))).initialCash });
+      } },
+    { provide: DeskBacktests, inject: [DB, TradingDesk, MarketDataService],
+      useFactory: (db: Database, desk: TradingDesk, market: MarketDataService) => new DeskBacktests(desk,
+        { after: async (symbol, interval, from, limit) => (await market.bars(symbol, interval, { since: from }, limit)).bars.filter(b => b.time >= from).sort((a, b) => a.time - b.time).slice(0, limit) },
+        new DrizzleDeskBacktestStore(db), { now: Date.now, id: randomUUID }) },
+    { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications],
+      useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications) => new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }) },
+    { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns, DeskTaskRunner],
+      useFactory: (scheduler: JobScheduler, tasks: AgentTasks, chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns, desk: DeskTaskRunner) =>
+        new AgentTaskJob(scheduler, tasks, chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs, desk) },
   ],
   exports: [PromptRegistry],
 })

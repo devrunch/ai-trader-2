@@ -22,8 +22,9 @@ export class EconomicCalendar {
   }
 
   /** Upcoming (and the last 6 hours, so today's releases stay visible), soonest first. */
-  async list(query: CalendarQuery): Promise<EconomicEvent[]> {
-    const now = this.env.now();
+  /** `asOf` replays the calendar at an earlier moment: the same window around that time, and nothing the clock had not reached is treated as released. */
+  async list(query: CalendarQuery, asOf?: number): Promise<EconomicEvent[]> {
+    const now = asOf ?? this.env.now();
     const rows = await this.store.between(now - 6 * 3_600_000, now + query.days * 86_400_000);
     return rows.filter(e => RANK[e.impact] >= RANK[query.impact] && (!query.country || e.country === query.country))
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))

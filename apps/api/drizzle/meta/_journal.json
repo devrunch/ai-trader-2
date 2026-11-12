@@ -197,6 +197,13 @@
       "when": 1794300030000,
       "tag": "0030_agent_trade_skips",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794300031000,
+      "tag": "0031_trading_desk",
+      "breakpoints": true
     }
   ]
 }

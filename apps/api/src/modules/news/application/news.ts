@@ -6,7 +6,7 @@ export interface NewsSource { readonly name: string; fetch(signal: AbortSignal):
 export interface NewsStore {
   /** Inserts headlines not seen before (by id); returns how many were new. */
   insert(items: NewsItem[]): Promise<number>;
-  list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; since: number; limit: number }): Promise<NewsItem[]>;
+  list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; since: number; until?: number | undefined; limit: number }): Promise<NewsItem[]>;
   prune(before: number): Promise<number>;
 }
 
@@ -43,8 +43,10 @@ export class NewsService {
     return { fetched: items.length, stored: items.length ? await this.store.insert(items) : 0, failed };
   }
 
-  list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; hours: number; limit: number }): Promise<NewsItem[]> {
-    return this.store.list({ symbol: query.symbol, minImpact: query.minImpact, since: this.env.now() - query.hours * 3_600_000, limit: query.limit });
+  /** Headlines from the last `hours`; with `asOf`, only those published at or before that time (the time machine: nothing later is ever returned). */
+  list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; hours: number; limit: number; asOf?: number | undefined }): Promise<NewsItem[]> {
+    const end = query.asOf ?? this.env.now();
+    return this.store.list({ symbol: query.symbol, minImpact: query.minImpact, since: end - query.hours * 3_600_000, ...(query.asOf === undefined ? {} : { until: query.asOf }), limit: query.limit });
   }
 
   prune(): Promise<number> { return this.store.prune(this.env.now() - MAX_AGE_MS); }

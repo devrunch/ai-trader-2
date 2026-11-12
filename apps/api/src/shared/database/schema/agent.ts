@@ -57,6 +57,7 @@ export const agentTasks = pgTable('agent_tasks', {
   lastOutcome: text('last_outcome'),
   seen: text('seen').array().notNull().default([]),
   autoTrade: jsonb('auto_trade'),
+  desk: jsonb('desk'),
   expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'string' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
 });
@@ -97,3 +98,36 @@ export const executionPrefs = pgTable('execution_prefs', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   brokerOptIn: boolean('broker_opt_in').notNull().default(false),
 });
+
+/** One trading-desk decision with its full reasoning trail; `as_of` is the moment the desk's data was cut at. */
+export const deskRuns = pgTable('desk_runs', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  symbol: text('symbol').notNull(),
+  asOf: timestamp('as_of', { withTimezone: true, mode: 'string' }).notNull(),
+  live: boolean('live').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
+  status: text('status').notNull(),
+  decision: jsonb('decision').notNull(),
+  trail: jsonb('trail').notNull(),
+  tokens: integer('tokens').notNull(),
+  calls: integer('calls').notNull(),
+  error: text('error'),
+}, table => [index('desk_runs_user_created').on(table.userId, table.createdAt.desc()), index('desk_runs_user_symbol').on(table.userId, table.symbol, table.createdAt.desc())]);
+
+/** A desk backtest: the desk run over past dates and scored on what happened next. Progress and results are written as it goes. */
+export const deskBacktests = pgTable('desk_backtests', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  symbol: text('symbol').notNull(),
+  request: jsonb('request').notNull(),
+  status: text('status').notNull(),
+  done: integer('done').notNull(),
+  total: integer('total').notNull(),
+  items: jsonb('items').notNull(),
+  summary: jsonb('summary'),
+  tokens: integer('tokens').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'string' }),
+  error: text('error'),
+}, table => [index('desk_backtests_user_created').on(table.userId, table.createdAt.desc())]);

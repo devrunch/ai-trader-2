@@ -1,4 +1,4 @@
-import type { AgentTaskDto, AlertCreate, AutoTrade, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
 import { describeWatch, dueEvents, eventReason, freshNews, isWatch } from '../domain/watch';
@@ -22,7 +22,7 @@ export interface WatchReader {
 /** Runs the assistant for a fired task; `error` is set when the run failed, `outcome` says how it ended. */
 export interface FireResult { error: string | null; outcome: TaskOutcome }
 export type FireTask = (task: AgentTask, reason: string) => Promise<FireResult>;
-export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; autoTrade?: AutoTrade | null | undefined }
+export interface NewTask { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; autoTrade?: AutoTrade | null | undefined; desk?: DeskTask | null | undefined }
 
 const num = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 6 });
 
@@ -31,7 +31,7 @@ const MAX_FIRES_PER_TICK = 25;
 
 const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, mode: t.mode, title: t.title, instruction: t.instruction, trigger: t.trigger, state: t.state,
   runs: t.runs, maxRuns: t.maxRuns, lastRunAt: t.lastRunAt === null ? null : new Date(t.lastRunAt).toISOString(),
-  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome, autoTrade: t.autoTrade,
+  nextRunAt: t.nextRunAt === null ? null : new Date(t.nextRunAt).toISOString(), lastError: t.lastError, lastOutcome: t.lastOutcome, autoTrade: t.autoTrade, desk: t.desk,
   expiresAt: new Date(t.expiresAt).toISOString(), createdAt: new Date(t.createdAt).toISOString() });
 
 /** Background work for the assistant: scheduled runs and wake-on-condition (owner request 2026-11-10). */
@@ -66,7 +66,7 @@ export class AgentTasks {
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
     const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
-      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, seen: [],
+      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, desk: input.desk ?? null, seen: [],
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);
     return { ...dto(task), conditionNow };

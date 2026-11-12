@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
 import { NEWS_IMPACTS } from './news.js';
+import { DeskTaskSchema } from './desk.js';
 import { PAPER_PRODUCTS } from './paper.js';
 import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
@@ -104,7 +105,7 @@ export type AlertCreate = z.infer<typeof AlertCreateSchema>;
 export const AgentTaskSchema = z.strictObject({
   id: z.uuid(), threadId: z.uuid().nullable(), mode: z.enum(TASK_MODES), title: z.string(), instruction: z.string(), trigger: TaskTriggerSchema, state: z.enum(TASK_STATES),
   runs: z.number().int().nonnegative(), maxRuns: z.number().int().positive(), lastRunAt: z.string().nullable(), nextRunAt: z.string().nullable(),
-  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), autoTrade: AutoTradeSchema.nullable(), expiresAt: z.string(), createdAt: z.string(),
+  lastError: z.string().nullable(), lastOutcome: z.enum(TASK_OUTCOMES).nullable(), autoTrade: AutoTradeSchema.nullable(), desk: DeskTaskSchema.nullable(), expiresAt: z.string(), createdAt: z.string(),
 });
 export type AgentTaskDto = z.infer<typeof AgentTaskSchema>;
 
