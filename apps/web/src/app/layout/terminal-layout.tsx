@@ -1,23 +1,26 @@
 import { useState, type ReactNode } from 'react';
-import { Bell, ChevronDown, ChevronUp, List, MessageSquare, Newspaper, type LucideIcon } from 'lucide-react';
+import { Bell, ChevronDown, ChevronUp, List, Newspaper, Sparkles, type LucideIcon } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../shared/ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
 import { useIsDesktop } from './use-is-desktop';
 
 export type Widget = 'watchlist' | 'assistant' | 'alerts' | 'news';
-type Props = { toolbar: ReactNode; chart: ReactNode; bottom: ReactNode; widgets: Record<Widget, ReactNode> };
+type Props = { toolbar: ReactNode; chart: ReactNode; bottom: ReactNode; widgets: Record<Widget, ReactNode>; requestedWidget?: Widget | undefined };
 
 const WIDGETS: Array<{ id: Widget; label: string; icon: LucideIcon }> = [
   { id: 'watchlist', label: 'Watchlist', icon: List },
-  { id: 'assistant', label: 'Assistant', icon: MessageSquare },
+  { id: 'assistant', label: 'Assistant', icon: Sparkles },
   { id: 'alerts', label: 'Alerts', icon: Bell },
   { id: 'news', label: 'News', icon: Newspaper },
 ];
 
 /** Toolbar on top; chart over a collapsible trading panel; one widget panel beside an icon rail (docs/design/terminal-ui.md). */
-export function TerminalLayout({ toolbar, chart, bottom, widgets }: Props) {
+export function TerminalLayout({ toolbar, chart, bottom, widgets, requestedWidget }: Props) {
   const desktop = useIsDesktop();
-  const [widget, setWidget] = useState<Widget | null>('watchlist');
+  const [widget, setWidget] = useState<Widget | null>(requestedWidget ?? 'watchlist');
+  // A new request from the URL (e.g. "Ask AI") opens that widget; adjusting state while rendering avoids an effect.
+  const [lastRequest, setLastRequest] = useState(requestedWidget);
+  if (requestedWidget !== lastRequest) { setLastRequest(requestedWidget); if (requestedWidget) setWidget(requestedWidget); }
   const [bottomOpen, setBottomOpen] = useState(true);
   if (!desktop) return <PhoneLayout toolbar={toolbar} chart={chart} bottom={bottom} widgets={widgets} />;
   const active = WIDGETS.find(w => w.id === widget);
@@ -64,7 +67,9 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets }: Props) {
       <nav aria-label="Widgets" className="flex w-11 shrink-0 flex-col items-center gap-1 border-l bg-panel py-2">
         {WIDGETS.map(({ id, label, icon: Icon }) => <Tooltip key={id}><TooltipTrigger asChild>
           <button type="button" aria-label={label} aria-pressed={widget === id}
-            className={`grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            className={id === 'assistant'
+              ? `ai-button grid size-8 place-items-center rounded-full ${widget === id ? 'ring-2 ring-[color-mix(in_srgb,var(--ai-3)_45%,transparent)] ring-offset-2 ring-offset-panel' : ''}`
+              : `grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => { setWidget(current => (current === id ? null : id)); }}><Icon className="size-4" /></button>
         </TooltipTrigger><TooltipContent side="left">{label}</TooltipContent></Tooltip>)}
       </nav>

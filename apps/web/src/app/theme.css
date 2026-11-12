@@ -28,6 +28,12 @@
   --input: var(--border);
   /* Square corners, as in the original terminal. */
   --radius: 0rem;
+  /* The agent's colour: saffron, rose, violet. Used only on AI surfaces, so the agent is the one thing that glows. */
+  --ai-1: #ff9a3c;
+  --ai-2: #ff4f7b;
+  --ai-3: #7c5cff;
+  --ai-gradient: linear-gradient(105deg, var(--ai-1) 0%, var(--ai-2) 48%, var(--ai-3) 100%);
+  --font-display: 'Bricolage Grotesque Variable', 'IBM Plex Sans', system-ui, sans-serif;
   --ind-blue: #2962ff;
   --ind-orange: #ff6d00;
   --ind-violet: #7e57c2;
@@ -47,13 +53,13 @@
   --muted: #1a1e28;
   --muted-foreground: #8b8a9e;
   --border: #232733;
-  --accent: #6c5ce7;
+  --accent: #3e8bff;
   --accent-foreground: #ffffff;
-  --link: #8b7cf0;
+  --link: #6ea8ff;
   --up: #16c784;
   --down: #f0525d;
   --warning: #eac16c;
-  --ring: #6c5ce7;
+  --ring: #3e8bff;
   }
 }
 :root[data-theme="dark"] {
@@ -65,13 +71,13 @@
   --muted: #1a1e28;
   --muted-foreground: #8b8a9e;
   --border: #232733;
-  --accent: #6c5ce7;
+  --accent: #3e8bff;
   --accent-foreground: #ffffff;
-  --link: #8b7cf0;
+  --link: #6ea8ff;
   --up: #16c784;
   --down: #f0525d;
   --warning: #eac16c;
-  --ring: #6c5ce7;
+  --ring: #3e8bff;
 }
 @theme inline {
   --color-background: var(--background);
@@ -101,6 +107,18 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
+}
+@layer components {
+  .ai-gradient { background-image: var(--ai-gradient); color: #fff; }
+  .ai-text { background-image: var(--ai-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* A gradient hairline around an element, for AI-generated content. */
+  .ai-border { border: 1px solid transparent; background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--ai-gradient) border-box; }
+  .ai-button { position: relative; isolation: isolate; overflow: hidden; background-image: var(--ai-gradient); color: #fff; box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--ai-2) 70%, transparent); }
+  .ai-button::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%); transform: translateX(-100%); }
+  .ai-button:hover::after { transition: transform 700ms ease; transform: translateX(100%); }
+  .ai-button:hover { filter: saturate(1.15) brightness(1.05); }
+  .font-display { font-family: var(--font-display); font-optical-sizing: auto; }
+  @media (prefers-reduced-motion: reduce) { .ai-button::after { display: none; } }
 }
 @layer base {
   * { border-color: var(--border); }

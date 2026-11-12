@@ -42,6 +42,9 @@ const request = (o: OrderInput, clientOrderId: string): PaperPlaceOrderRequest =
 export class AgentTrader {
   constructor(private readonly desk: TradingDesk, private readonly journal: TradeJournal, private readonly env: { now: () => number; id: () => string }) {}
 
+  /** The paper account an order on this symbol would use (its capital and currency). */
+  account(userId: string, symbol: string): Promise<{ initialCash: number; currency: string }> { return this.desk.account(userId, symbol); }
+
   /** An order that only reduces an open position is an exit. */
   async isReducing(userId: string, o: OrderInput): Promise<boolean> {
     const open = (await this.desk.positions(userId)).find(p => p.instrumentId === o.symbol && p.product === o.product && p.quantity !== 0);

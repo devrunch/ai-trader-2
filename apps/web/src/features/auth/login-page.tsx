@@ -1,14 +1,15 @@
 import { useState, type SyntheticEvent } from 'react';
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiFetch } from '../../shared/api/http';
 import { Button } from '../../shared/ui/button';
+import { Wordmark } from '../../shared/ui/brand-mark';
 
 const responseSchema = z.object({ user: z.object({ id: z.uuid(), username: z.string(), role: z.enum(['admin', 'user']) }) });
 const LINE = 'M0,230 L60,210 L110,222 L170,170 L220,184 L280,128 L330,146 L390,96 L450,118 L510,70 L570,92 L640,40 L700,58 L760,22';
 const BARS = [30, 44, 26, 52, 38, 60, 34, 70, 48, 62, 40, 76, 54, 82];
-const field = 'h-11 w-full rounded border bg-background px-3 text-[15px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40';
+const field = 'h-11 w-full border bg-background px-3 text-[15px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40';
 
 /** Faint, live-looking market backdrop: grid, price line and volume bars, all SVG. */
 function Backdrop() {
@@ -40,11 +41,11 @@ export function LoginPage() {
     <Backdrop />
     <div className="relative w-full max-w-sm">
       <div className="mb-6">
-        <p className="text-[13px] font-semibold text-link">AI Trader</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Sign in</h1>
+        <Link to="/" aria-label="AI Trader home"><Wordmark /></Link>
+        <h1 className="font-display mt-6 text-[2.25rem] font-semibold leading-tight tracking-tight">Sign in</h1>
         <p className="mt-2 text-[15px] text-muted-foreground">Live charts, paper trading and an assistant that reads the market with you.</p>
       </div>
-      <form className="space-y-4 rounded border bg-panel p-5 shadow-lg shadow-black/10" onSubmit={event => { void submit(event); }}>
+      <form className="space-y-4 border bg-panel p-5 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.5)]" onSubmit={event => { void submit(event); }}>
         <label className="block space-y-1.5 text-[13px] font-medium">Username
           <input autoComplete="username" required minLength={3} maxLength={32} value={username} onChange={event => { setUsername(event.target.value); }} className={field} />
         </label>
