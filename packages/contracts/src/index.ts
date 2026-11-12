@@ -18,3 +18,7 @@ export * from './pine-script.js';
 export * from './pine-coverage.js';
 export * from './backtest.js';
 export * from './desk.js';
+export * from './depth.js';
+export * from './fundamentals.js';
+export * from './screener.js';
+export * from './sources.js';
