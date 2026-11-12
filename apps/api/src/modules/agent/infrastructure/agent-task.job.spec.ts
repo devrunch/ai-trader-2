@@ -4,7 +4,7 @@ import { BackgroundRuns } from '../application/agent-trader';
 import { AgentTaskJob } from './agent-task.job';
 
 const base: AgentTask = { id: 't', userId: 'u1', threadId: null, mode: 'notify', title: 'NSE:INFY above 1,500', instruction: '', state: 'active', runs: 0, maxRuns: 1,
-  armed: false, trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, seen: [], expiresAt: 0, createdAt: 0 };
+  armed: false, trigger: { kind: 'price', symbol: 'NSE:INFY', op: 'above', value: 1500 }, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, seen: [], expiresAt: 0, createdAt: 0 };
 const watchTask: AgentTask = { ...base, mode: 'agent', threadId: 'th1', title: 'News: india (high+)', instruction: 'Does it matter?',
   trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: [], minImpact: 'high' } };
 
@@ -16,7 +16,7 @@ async function fireWith(task: AgentTask, reply = 'Bought.', limits: { allow?: bo
   const chat = { runInBackground: vi.fn().mockResolvedValue({ error: null, reply }) };
   const notifications = { notify: vi.fn().mockResolvedValue(undefined) };
   const limiter = { take: vi.fn().mockResolvedValue(limits.allow ?? true) };
-  await new AgentTaskJob(scheduler as never, tasks as never, chat as never, notifications, { limiter, dailyRuns: 40, now: () => 86_400_000 * 5 }, new BackgroundRuns()).onModuleInit();
+  await new AgentTaskJob(scheduler as never, tasks as never, chat as never, notifications, { limiter, dailyRuns: 40, now: () => 86_400_000 * 5 }, new BackgroundRuns(), { fire: vi.fn() } as never).onModuleInit();
   await run?.(new AbortController().signal);
   return { chat, notifications, limiter, result };
 }

@@ -95,3 +95,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Trading desk pattern (AG-5)
+
+The multi-role trading desk (analysts, bull/bear debate, trader, risk manager) follows the pattern of TradingAgents. The pattern only: the code is written natively on this app's own services and prompts; none of the Python is vendored.
+
+- Paper: Xiao, Sun, Luo, Wang, "TradingAgents: Multi-Agents LLM Financial Trading Framework", arXiv:2412.20138 (2024).
+- Repository: https://github.com/TauricResearch/TradingAgents, Apache-2.0 (licence text in `docs/third-party/LICENSE-Apache-2.0.txt`), checked at commit 9fa1196 (2026-11-04).

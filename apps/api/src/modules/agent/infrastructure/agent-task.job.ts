@@ -2,6 +2,7 @@ import { Logger, type OnModuleInit } from '@nestjs/common';
 import type { JobScheduler } from '../../../shared/jobs';
 import type { AgentTasks, FireResult } from '../application/agent-tasks';
 import type { BackgroundRuns } from '../application/agent-trader';
+import type { DeskTaskRunner } from '../application/desk-task';
 import type { ChatService, WindowLimiter } from '../application/chat-service';
 import type { AgentTask } from '../domain/agent-task';
 import { isWatch, parseWatchReply, WATCH_REPLY_RULE } from '../domain/watch';
@@ -21,17 +22,18 @@ const symbolOf = (task: AgentTask): string | undefined => {
 /** Every minute: fire due background tasks. The scheduler runs it once per tick across instances. */
 export class AgentTaskJob implements OnModuleInit {
   constructor(private readonly scheduler: JobScheduler, private readonly tasks: AgentTasks, private readonly chat: ChatService, private readonly notifications: Notify,
-    private readonly watch: WatchLimits, private readonly runs: BackgroundRuns) {}
+    private readonly watch: WatchLimits, private readonly runs: BackgroundRuns, private readonly desk: DeskTaskRunner) {}
 
   async onModuleInit(): Promise<void> {
     await this.scheduler.register({ name: 'agent-tasks', cron: '* * * * *', tz: 'Asia/Kolkata', graceMs: 0, maxRuntimeMs: 55_000,
       run: async signal => {
-        const fired = await this.tasks.runDue((task, reason) => this.fire(task, reason), signal);
+        const fired = await this.tasks.runDue((task, reason) => this.fire(task, reason, signal), signal);
         if (fired > 0) logger.log({ message: 'agent tasks fired', fired });
       } });
   }
 
-  private async fire(task: AgentTask, reason: string): Promise<FireResult> {
+  private async fire(task: AgentTask, reason: string, signal: AbortSignal): Promise<FireResult> {
+    if (task.desk) return this.desk.fire(task, reason, signal);
     if (task.mode === 'notify' || task.threadId === null) {
       const symbol = symbolOf(task);
       await this.notifications.notify({ userId: task.userId, kind: 'alert', title: `Alert: ${task.title}`,

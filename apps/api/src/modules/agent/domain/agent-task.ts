@@ -1,11 +1,12 @@
 import { CronExpressionParser } from 'cron-parser';
-import type { AutoTrade, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AutoTrade, DeskTask, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 
 type TaskState = 'active' | 'paused' | 'done' | 'cancelled' | 'expired';
 export interface AgentTask {
   id: string; userId: string; threadId: string | null; mode: 'agent' | 'notify'; title: string; instruction: string; trigger: TaskTrigger; state: TaskState;
   runs: number; maxRuns: number; armed: boolean; lastRunAt: number | null; nextRunAt: number | null; lastError: string | null;
   /** What the task may trade by itself (paper money); null: it proposes cards instead. */ autoTrade: AutoTrade | null;
+  /** Set: a fire runs the trading desk for this symbol instead of a single assistant turn. */ desk: DeskTask | null;
   /** How the last run ended. */ lastOutcome: TaskOutcome | null;
   /** Headline and event ids a news or event watch has already reported, newest last. */ seen: string[];
   expiresAt: number; createdAt: number;

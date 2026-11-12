@@ -17,3 +17,4 @@ export * from './indicator-library.js';
 export * from './pine-script.js';
 export * from './pine-coverage.js';
 export * from './backtest.js';
+export * from './desk.js';

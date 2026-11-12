@@ -1,4 +1,4 @@
-import { and, arrayContains, desc, gte, inArray, lt } from 'drizzle-orm';
+import { and, arrayContains, desc, gte, inArray, lt, lte } from 'drizzle-orm';
 import { NEWS_IMPACTS, type NewsImpact, type NewsItem } from '@aitrader/contracts';
 import { withTimeout } from '@aitrader/resilience';
 import type { Database } from '../../../shared/database';
@@ -14,9 +14,9 @@ export class DrizzleNewsStore implements NewsStore {
     return rows.length;
   }
 
-  async list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; since: number; limit: number }): Promise<NewsItem[]> {
+  async list(query: { symbol?: string | undefined; minImpact?: NewsImpact | undefined; since: number; until?: number | undefined; limit: number }): Promise<NewsItem[]> {
     const since = gte(newsItems.publishedAt, new Date(query.since).toISOString());
-    const filters = [since, query.symbol ? arrayContains(newsItems.symbols, [query.symbol]) : undefined,
+    const filters = [since, query.until === undefined ? undefined : lte(newsItems.publishedAt, new Date(query.until).toISOString()), query.symbol ? arrayContains(newsItems.symbols, [query.symbol]) : undefined,
       query.minImpact ? inArray(newsItems.impact, NEWS_IMPACTS.slice(0, NEWS_IMPACTS.indexOf(query.minImpact) + 1)) : undefined];
     const rows = await withTimeout(() => this.db.select().from(newsItems)
       .where(and(...filters))
