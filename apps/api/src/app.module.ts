@@ -22,6 +22,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { WatchlistsModule } from './modules/watchlists/watchlists.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { PineScriptsModule } from './modules/pine-scripts/pine-scripts.module';
+import { StrategiesModule } from './modules/strategies/strategies.module';
 
 @Module({})
 export class AppModule {
@@ -30,7 +31,7 @@ export class AppModule {
       module: AppModule,
       providers: [GlobalExceptionFilter],
       imports: [AppConfigModule.forRoot(config), ObservabilityModule, HealthModule, DatabaseModule, RedisModule, JobSchedulerModule, KiteModule,
-        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule, NotifyModule, AlertsModule, IndicatorsModule, PaperTradingModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, PineScriptsModule, AgentModule],
+        InstrumentsApiModule, MarketDataApiModule, AuthModule, AdminOpsModule, LiveModule, NotifyModule, AlertsModule, IndicatorsModule, PaperTradingModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, PineScriptsModule, StrategiesModule, AgentModule],
     };
   }
 }

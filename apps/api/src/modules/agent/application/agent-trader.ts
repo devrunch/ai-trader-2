@@ -1,6 +1,7 @@
 import type { AgentTradeDto, PaperPlaceOrderRequest } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import type { AgentTask } from '../domain/agent-task';
+import type { BacktestNote } from '../domain/auto-trade';
 import { checkEntry, defaultLimits, type TodayEntry } from '../domain/risk-gate';
 import type { ExecutionVenue } from './execution-venue';
 
@@ -16,6 +17,7 @@ export interface OrderInput {
   symbol: string; side: 'buy' | 'sell'; type: 'market' | 'limit'; product: PaperPlaceOrderRequest['product'];
   quantity: number; limitPrice?: number | undefined; stopLoss?: number | undefined; target?: number | undefined;
 }
+export interface EntryPolicy { blocks: string[]; backtestSkip: string | null }
 export interface TradeMeta { taskId: string | null; trigger: string; skill: string | null; rationale: string; backtest: string | null; clientOrderId: string }
 export interface CheckedEntry { entry: number; riskAmount: number | null; initialCash: number; currency: string }
 
@@ -66,19 +68,27 @@ export class AgentTrader {
   tradesToday(taskId: string): Promise<number> { return this.journal.countSince(taskId, istMidnight(this.env.now())); }
 
   /** Entry: risk gate, then `extraBlocks` (e.g. a task's auto-trade limits), then the venue, then the journal row. */
-  async enter(userId: string, o: OrderInput, meta: TradeMeta, extraBlocks?: (checked: CheckedEntry) => Promise<string[]>): Promise<unknown> {
+  async enter(userId: string, o: OrderInput, meta: TradeMeta, policy?: (checked: CheckedEntry) => Promise<EntryPolicy>): Promise<unknown> {
     const checked = await this.checkEntry(userId, o);
-    const blocks = await extraBlocks?.(checked) ?? [];
-    if (blocks.length > 0) throw new ValidationError(`Auto-trade BLOCK: ${blocks.join('; ')}`);
+    const verdict = await policy?.(checked) ?? { blocks: [], backtestSkip: null };
+    if (verdict.blocks.length > 0) {
+      // A setup that was backtested and failed is a decision worth keeping: it goes in the journal as a trade not taken.
+      if (verdict.backtestSkip) await this.record(userId, o, meta, checked, verdict.backtestSkip);
+      throw new ValidationError(`Auto-trade BLOCK: ${verdict.blocks.join('; ')}`);
+    }
     const placed = await this.desk.place(userId, request(o, meta.clientOrderId));
-    await this.journal.add({ id: this.env.id(), userId, createdAt: new Date(this.env.now()).toISOString(), venue: 'paper', taskId: meta.taskId, trigger: meta.trigger.slice(0, 300),
-      skill: meta.skill, rationale: meta.rationale.slice(0, 500), symbol: o.symbol, side: o.side, quantity: o.quantity, entry: checked.entry, stopLoss: o.stopLoss ?? null,
-      target: o.target ?? null, riskAmount: checked.riskAmount, currency: checked.currency, backtest: meta.backtest, clientOrderId: meta.clientOrderId });
+    await this.record(userId, o, meta, checked, null);
     return placed;
+  }
+
+  private record(userId: string, o: OrderInput, meta: TradeMeta, checked: CheckedEntry, skipped: string | null): Promise<void> {
+    return this.journal.add({ id: this.env.id(), userId, createdAt: new Date(this.env.now()).toISOString(), venue: 'paper', taskId: meta.taskId, trigger: meta.trigger.slice(0, 300),
+      skill: meta.skill, rationale: meta.rationale.slice(0, 500), symbol: o.symbol, side: o.side, quantity: o.quantity, entry: checked.entry, stopLoss: o.stopLoss ?? null,
+      target: o.target ?? null, riskAmount: checked.riskAmount, currency: checked.currency, backtest: meta.backtest, clientOrderId: meta.clientOrderId, skipped });
   }
 }
 
-export interface BackgroundRun { task: AgentTask; reason: string; backtest: string | null }
+export interface BackgroundRun { task: AgentTask; reason: string; backtest: BacktestNote | null }
 
 /** The task whose wake-up is running in a conversation, so the order tool can tell a background entry from a chat request. */
 export class BackgroundRuns {
@@ -91,9 +101,9 @@ export class BackgroundRuns {
 
   get(conversationId: string): BackgroundRun | undefined { return this.runs.get(conversationId); }
 
-  noteBacktest(conversationId: string, summary: string): void {
+  noteBacktest(conversationId: string, note: BacktestNote): void {
     const run = this.runs.get(conversationId);
-    if (run) this.runs.set(conversationId, { ...run, backtest: summary });
+    if (run) this.runs.set(conversationId, { ...run, backtest: note });
   }
 }
 
@@ -112,7 +122,7 @@ export class TradeLog {
       const realised = fills.filter(f => ids.has(f.orderId)).reduce((sum, f) => sum + f.realisedPnl, 0);
       const open = positions.find(p => p.instrumentId === trade.symbol && p.quantity !== 0)?.unrealisedPnl ?? 0;
       const pnl = entry?.status === 'filled' || realised !== 0 ? Math.round((realised + open) * 100) / 100 : null;
-      return { ...trade, status: entry?.status ?? null, pnl };
+      return { ...trade, status: trade.skipped ? 'skipped' : entry?.status ?? null, pnl: trade.skipped ? null : pnl };
     });
   }
 }

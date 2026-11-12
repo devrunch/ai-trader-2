@@ -115,6 +115,8 @@ export const AgentTradeSchema = z.strictObject({
   riskAmount: z.number().nullable(), currency: z.string(), backtest: z.string().nullable(), clientOrderId: z.string(),
   /** Later: the entry order's status and the profit or loss so far (realised exits plus the open position, marked to the last price). */
   status: z.string().nullable(), pnl: z.number().nullable(),
+  /** Set when the assistant decided not to trade (for example the backtest failed its threshold); no order was placed. */
+  skipped: z.string().nullable(),
 });
 export type AgentTradeDto = z.infer<typeof AgentTradeSchema>;
 export const AgentTradesResponseSchema = z.strictObject({ items: z.array(AgentTradeSchema) });

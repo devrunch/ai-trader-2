@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AgentTrader, BackgroundRuns, type TradeRow } from './agent-trader';
 import type { AgentTask } from '../domain/agent-task';
+import type { BacktestNote } from '../domain/auto-trade';
 import { buildCalcTool, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
@@ -149,6 +150,7 @@ describe('watch tools', () => {
 const task = (patch: Partial<AgentTask> = {}): AgentTask => ({ id: 'task-1', userId: 'u1', threadId: ctx.conversationId, mode: 'agent', title: 'RBI watch', instruction: 'trade it', trigger: { kind: 'news', markets: ['india'], symbols: [], keywords: [], minImpact: 'high' },
   state: 'active', runs: 0, maxRuns: 5, armed: true, lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, seen: [], expiresAt: tenAm + 1e9, createdAt: tenAm - 1e6, ...patch });
 const auto = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 2, requireBacktest: false };
+const note = (patch: Partial<BacktestNote> = {}): BacktestNote => ({ symbol: 'NSE:INFY', interval: '5', profitFactor: 1.6, tradeCount: 42, summary: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 42 trades', ...patch });
 const entry = { symbol: 'NSE:INFY', side: 'buy' as const, type: 'market' as const, quantity: 10, stopLoss: 1480, target: 1560, rationale: 'RBI cut, banks and IT follow', skill: 'breakout-trading' };
 
 describe('agent orders and the trade journal', () => {
@@ -158,7 +160,7 @@ describe('agent orders and the trade journal', () => {
     const runs = new BackgroundRuns();
     const propose = vi.fn().mockResolvedValue({ id: 'card-1', state: 'pending' });
     const place = byName(buildPaperTools(trader(d, j), deps, { runs, propose }), 'placePaperOrder');
-    const run = (input: Record<string, unknown>, backtest: string | null = null) => runs.during(ctx.conversationId, { task: t, reason: '1 new headline', backtest }, () => place?.call(ctx, input) ?? Promise.resolve(null));
+    const run = (input: Record<string, unknown>, backtest: BacktestNote | null = null) => runs.during(ctx.conversationId, { task: t, reason: '1 new headline', backtest }, () => place?.call(ctx, input) ?? Promise.resolve(null));
     return { d, j, propose, run };
   }
 
@@ -183,10 +185,10 @@ describe('agent orders and the trade journal', () => {
 
   it('a background task with auto-trade on places the entry itself, journaled with the trigger', async () => {
     const { d, j, propose, run } = background(task({ autoTrade: auto }));
-    expect(await run(entry, 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 40 trades')).toMatchObject({ ok: true });
+    expect(await run(entry, note())).toMatchObject({ ok: true });
     expect(d.place).toHaveBeenCalledTimes(1);
     expect(propose).not.toHaveBeenCalled();
-    expect(j.rows).toMatchObject([{ taskId: 'task-1', trigger: 'RBI watch: 1 new headline', backtest: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 40 trades' }]);
+    expect(j.rows).toMatchObject([{ taskId: 'task-1', trigger: 'RBI watch: 1 new headline', backtest: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 42 trades' }]);
   });
 
   it('auto-trade refuses a risk over the task limit, a missing backtest and a full day, and the risk gate still applies', async () => {
@@ -194,7 +196,7 @@ describe('agent orders and the trade journal', () => {
     expect(await tight.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('over this task') as unknown });
     const needs = background(task({ autoTrade: { ...auto, requireBacktest: true } }));
     expect(await needs.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('runBacktest') as unknown });
-    expect(await needs.run(entry, 'some backtest')).toMatchObject({ ok: true });
+    expect(await needs.run(entry, note())).toMatchObject({ ok: true });
     const capped = background(task({ autoTrade: { ...auto, maxTradesPerDay: 1 } }));
     expect(await capped.run(entry)).toMatchObject({ ok: true });
     expect(await capped.run(entry)).toMatchObject({ ok: false, detail: expect.stringContaining('already 1 trades today') as unknown });
@@ -219,5 +221,47 @@ describe('agent orders and the trade journal', () => {
     const { propose, run } = background(task());
     expect(await run({ ...entry, stopLoss: undefined })).toMatchObject({ ok: false });
     expect(propose).not.toHaveBeenCalled();
+  });
+});
+
+describe('auto-trade backtest gate', () => {
+  async function gated(backtest: BacktestNote | null) {
+    const d = desk();
+    const j = journal();
+    const runs = new BackgroundRuns();
+    const place = byName(buildPaperTools(trader(d, j), deps, { runs, propose: vi.fn() }), 'placePaperOrder');
+    const result = await runs.during(ctx.conversationId, { task: task({ autoTrade: { ...auto, requireBacktest: true } }), reason: 'x', backtest }, () => place?.call(ctx, entry) ?? Promise.resolve(null));
+    return { d, j, result };
+  }
+
+  it('enters when the backtest of this instrument had enough trades and a good profit factor', async () => {
+    const { d, j, result } = await gated(note({ profitFactor: 1.1, tradeCount: 20 }));
+    expect(result).toMatchObject({ ok: true });
+    expect(d.place).toHaveBeenCalledTimes(1);
+    expect(j.rows).toMatchObject([{ skipped: null, backtest: expect.stringContaining('42 trades') as unknown }]);
+  });
+
+  it('a profit factor under 1.1 means no trade, with the reason in the journal', async () => {
+    const { d, j, result } = await gated(note({ profitFactor: 1.09 }));
+    expect(result).toMatchObject({ ok: false, detail: expect.stringContaining('profit factor 1.09, below 1.1') as unknown });
+    expect(d.place).not.toHaveBeenCalled();
+    expect(j.rows).toMatchObject([{ skipped: expect.stringContaining('profit factor 1.09, below 1.1') as unknown, symbol: 'NSE:INFY', quantity: 10 }]);
+  });
+
+  it('fewer than 20 trades means no trade, with the reason in the journal', async () => {
+    const { d, j } = await gated(note({ tradeCount: 19 }));
+    expect(d.place).not.toHaveBeenCalled();
+    expect(j.rows[0]?.skipped).toContain('19 trades; at least 20 are needed');
+  });
+
+  it('a backtest with no losing trade (no profit factor) passes; no backtest, or one of another instrument, blocks without a journal row', async () => {
+    expect((await gated(note({ profitFactor: null }))).result).toMatchObject({ ok: true });
+    const none = await gated(null);
+    expect(none.result).toMatchObject({ ok: false, detail: expect.stringContaining('call runBacktest') as unknown });
+    const other = await gated(note({ symbol: 'NSE:TCS' }));
+    expect(other.result).toMatchObject({ ok: false, detail: expect.stringContaining('not NSE:INFY') as unknown });
+    expect(none.j.rows).toEqual([]);
+    expect(other.j.rows).toEqual([]);
+    expect(none.d.place).not.toHaveBeenCalled();
   });
 });

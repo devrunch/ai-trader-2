@@ -19,8 +19,8 @@ import { MarketDataModule } from '../market-data/market-data.module';
 import { NewsService } from '../news/application/index';
 import { NewsModule } from '../news/news.module';
 import { EconomicCalendar } from '../calendar/application/index';
-import { BACKTEST, ComputeModule } from '../compute/compute.module';
-import type { RunBacktest } from '../compute/application/index';
+import { BacktestRunner, Strategies } from '../strategies/application/index';
+import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { CalendarModule } from '../calendar/calendar.module';
 import { Watchlists } from '../watchlists/application/index';
@@ -71,7 +71,7 @@ const toolLimit = (key: string): [number, number] => (key.startsWith('agent:conv
 
 interface ToolServices {
   quote: GetQuote; market: MarketDataService; search: SearchInstruments; portfolio: ReadPortfolio; indicators: IndicatorService; cards: ActionCards;
-  trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; backtest: RunBacktest | null;
+  trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies;
 }
 
 /** No AGENT_MODEL: the assistant is off and says so. A bad model setting fails at boot, naming the .env key. */
@@ -87,8 +87,8 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
   };
   const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
     ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
-    ...buildBacktestTools({ market: services.market, compute: request => services.indicators.compute(request), backtest: services.backtest }, deps,
-      (ctx, summary) => { services.runs.noteBacktest(ctx.conversationId, summary); })];
+    ...buildBacktestTools({ runner: services.runner, strategies: services.strategies }, deps,
+      (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); })];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
   return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools });
 }
@@ -104,7 +104,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, ComputeModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
@@ -135,10 +135,10 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
     { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar],
       useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar) =>
         new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote), { now: Date.now, id: randomUUID }) },
-    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BACKTEST, LIMITER, AgentTrader, BackgroundRuns],
+    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
-        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, backtest: RunBacktest | null, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns) =>
-        createRunner(config, { quote, market, search, portfolio, indicators, cards, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, backtest }, limiter) },
+        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns) =>
+        createRunner(config, { quote, market, search, portfolio, indicators, cards, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, runner, strategies }, limiter) },
     { provide: AgentMemory, inject: [DB], useFactory: (db: Database) => new AgentMemory(new DrizzleMemoryStore(db), { id: randomUUID }) },
     { provide: ChatService, inject: [RUNNER, PromptRegistry, DB, LIMITER, APP_CONFIG, AgentMemory],
       useFactory: (runner: AgentRunner | null, prompts: PromptRegistry, db: Database, limiter: WindowLimiter, config: AppConfig, memory: AgentMemory) =>

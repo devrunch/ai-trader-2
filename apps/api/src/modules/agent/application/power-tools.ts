@@ -67,7 +67,7 @@ export function buildPaperTools(trader: AgentTrader, deps: GuardDeps, background
         if (await trader.isReducing(ctx.userId, o)) return trader.exit(ctx.userId, o, clientOrderId);
         const run = background?.runs.get(ctx.conversationId);
         const meta = { taskId: run?.task.id ?? null, trigger: run ? `${run.task.title}: ${run.reason}` : 'chat request', skill: o.skill ?? null, rationale: o.rationale ?? '',
-          backtest: run?.backtest ?? null, clientOrderId };
+          backtest: run?.backtest?.summary ?? null, clientOrderId };
         if (run && !run.task.autoTrade?.enabled) {
           await trader.checkEntry(ctx.userId, o);
           if (o.stopLoss === undefined || !background) throw new ValidationError('A proposed order needs a stop loss');
@@ -77,7 +77,7 @@ export function buildPaperTools(trader: AgentTrader, deps: GuardDeps, background
         }
         const limits = run?.task.autoTrade;
         return trader.enter(ctx.userId, o, meta, limits?.enabled && run
-          ? async checked => autoTradeBlocks(limits, { riskAmount: checked.riskAmount, initialCash: checked.initialCash, tradesToday: await trader.tradesToday(run.task.id), backtest: run.backtest })
+          ? async checked => autoTradeBlocks(limits, { symbol: o.symbol, riskAmount: checked.riskAmount, initialCash: checked.initialCash, tradesToday: await trader.tradesToday(run.task.id), backtest: run.backtest })
           : undefined);
       } }, deps),
     guardedTool({ name: 'cancelPaperOrder', description: 'Cancel one of the user\'s working PAPER orders by id (ids are in getPortfolio).',

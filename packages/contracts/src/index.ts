@@ -16,3 +16,4 @@ export * from './calendar.js';
 export * from './indicator-library.js';
 export * from './pine-script.js';
 export * from './pine-coverage.js';
+export * from './backtest.js';

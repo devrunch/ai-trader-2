@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TradeLog, type TradeRow } from './agent-trader';
 
 const row = (patch: Partial<TradeRow> = {}): Omit<TradeRow, 'userId'> => ({ id: 'j1', createdAt: '2026-11-12T04:00:00.000Z', venue: 'paper', taskId: null, trigger: 'chat request', skill: null,
-  rationale: 'why', symbol: 'NSE:INFY', side: 'buy', quantity: 10, entry: 1500, stopLoss: 1480, target: 1560, riskAmount: 200, currency: 'INR', backtest: null, clientOrderId: 'agent-a', ...patch });
+  rationale: 'why', symbol: 'NSE:INFY', side: 'buy', quantity: 10, entry: 1500, stopLoss: 1480, target: 1560, riskAmount: 200, currency: 'INR', backtest: null, clientOrderId: 'agent-a', skipped: null, ...patch });
 const order = (id: string, clientOrderId: string, status: string) => ({ id, instrumentId: 'NSE:INFY', currency: 'INR', side: 'buy' as const, quantity: 10, clientOrderId, status, placedAt: 0,
   limitPrice: null, fillPrice: 1500, stopLoss: 1480 });
 
@@ -21,5 +21,13 @@ describe('TradeLog', () => {
     journal.list.mockResolvedValue([]);
     expect(await new TradeLog(journal, desk as never).list('u1', 10)).toEqual([]);
     expect(desk.orders).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TradeLog skipped trades', () => {
+  it('shows a trade the assistant decided not to take, with its reason and no order status or profit', async () => {
+    const desk = { orders: vi.fn().mockResolvedValue([]), fills: vi.fn().mockResolvedValue([]), positions: vi.fn().mockResolvedValue([]) };
+    const journal = { list: vi.fn().mockResolvedValue([row({ skipped: 'backtest has 12 trades; at least 20 are needed' })]), add: vi.fn(), countSince: vi.fn() };
+    expect((await new TradeLog(journal, desk as never).list('u1', 10))[0]).toMatchObject({ status: 'skipped', pnl: null, skipped: 'backtest has 12 trades; at least 20 are needed' });
   });
 });

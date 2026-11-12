@@ -8,6 +8,7 @@ function MainNav() {
   return <nav aria-label="Main navigation" className="flex items-center gap-1 text-[13px] md:text-[12px]">
     <Link to="/" className={link} activeProps={{ className: 'text-foreground' }} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={{ className: 'text-foreground' }}>Terminal</Link>
+    <Link to="/strategies" className={link} activeProps={{ className: 'text-foreground' }}>Strategies</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={{ className: 'text-foreground' }}>Admin</Link>
   </nav>;
 }

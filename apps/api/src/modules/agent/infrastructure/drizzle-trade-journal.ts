@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import { withTimeout } from '@aitrader/resilience';
 import { z } from 'zod';
 import type { Database } from '../../../shared/database';
@@ -17,7 +17,7 @@ export class DrizzleTradeJournal implements TradeJournal {
 
   async countSince(taskId: string, since: number): Promise<number> {
     const [row] = await withTimeout(() => this.db.select({ n: sql<number>`count(*)::int` }).from(agentTrades)
-      .where(and(eq(agentTrades.taskId, taskId), gte(agentTrades.createdAt, new Date(since).toISOString()))), 5000);
+      .where(and(eq(agentTrades.taskId, taskId), isNull(agentTrades.skipped), gte(agentTrades.createdAt, new Date(since).toISOString()))), 5000);
     return row?.n ?? 0;
   }
 
@@ -25,6 +25,6 @@ export class DrizzleTradeJournal implements TradeJournal {
     const rows = await withTimeout(() => this.db.select().from(agentTrades).where(eq(agentTrades.userId, userId)).orderBy(desc(agentTrades.createdAt)).limit(limit), 5000);
     return rows.map(r => ({ id: r.id, createdAt: new Date(r.createdAt).toISOString(), venue: Venue.parse(r.venue), taskId: r.taskId, trigger: r.trigger, skill: r.skill, rationale: r.rationale,
       symbol: r.symbol, side: Side.parse(r.side), quantity: r.quantity, entry: r.entry, stopLoss: r.stopLoss, target: r.target, riskAmount: r.riskAmount, currency: r.currency,
-      backtest: r.backtest, clientOrderId: r.clientOrderId }));
+      backtest: r.backtest, clientOrderId: r.clientOrderId, skipped: r.skipped }));
   }
 }

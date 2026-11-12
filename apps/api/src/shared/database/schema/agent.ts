@@ -88,6 +88,7 @@ export const agentTrades = pgTable('agent_trades', {
   currency: text('currency').notNull(),
   backtest: text('backtest'),
   clientOrderId: text('client_order_id').notNull(),
+  skipped: text('skipped'),
 }, table => [uniqueIndex('agent_trades_client_order').on(table.userId, table.clientOrderId), index('agent_trades_user_created').on(table.userId, table.createdAt.desc()),
   index('agent_trades_task_created').on(table.taskId, table.createdAt)]);
 

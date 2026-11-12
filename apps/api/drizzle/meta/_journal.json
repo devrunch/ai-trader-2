@@ -183,6 +183,20 @@
       "when": 1794300028000,
       "tag": "0028_agent_trades",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794300029000,
+      "tag": "0029_strategies",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794300030000,
+      "tag": "0030_agent_trade_skips",
+      "breakpoints": true
     }
   ]
 }

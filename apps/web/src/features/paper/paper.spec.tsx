@@ -95,7 +95,7 @@ it('cancels a working order', async () => {
 
 const trade = { id: '00000000-0000-4000-8000-0000000000d1', createdAt: '2026-11-11T05:00:00.000Z', venue: 'paper', taskId: null, trigger: 'RSI crossed 30', skill: 'day-trader',
   rationale: 'Bounce off support with rising volume', symbol: 'NSE:INFY', side: 'buy', quantity: 10, entry: 1490, stopLoss: 1480, target: 1520, riskAmount: 100, currency: 'INR',
-  backtest: null, clientOrderId: 'agent-1', status: 'filled', pnl: 150 };
+  backtest: null, clientOrderId: 'agent-1', status: 'filled', pnl: 150, skipped: null };
 
 it('lists the assistant trades in the journal with P&L, rationale and PAPER label', async () => {
   server.use(http.get('/api/v1/agent/trades', () => HttpResponse.json({ items: [trade] })));
@@ -115,4 +115,14 @@ it('says why the journal is empty', async () => {
   render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
   fireEvent.click(screen.getByRole('tab', { name: 'Trade journal' }));
   expect(await screen.findByText('The assistant has not traded for you yet.')).toBeDefined();
+});
+
+it('shows "Skipped: <reason>" instead of fills and P&L for a trade the assistant declined', async () => {
+  server.use(http.get('/api/v1/agent/trades', () => HttpResponse.json({ items: [{ ...trade, skipped: 'Backtest out-of-sample return was negative', status: null, pnl: null, entry: null }] })));
+  render(<Providers><TradingPanel symbol="NSE:INFY" onTrade={vi.fn()} /></Providers>);
+  fireEvent.click(screen.getByRole('tab', { name: 'Trade journal' }));
+  const row = await screen.findByRole('listitem');
+  expect(row.textContent).toContain('Skipped: Backtest out-of-sample return was negative');
+  expect(row.textContent).not.toContain('entry');
+  expect(row.textContent).not.toContain('pending');
 });

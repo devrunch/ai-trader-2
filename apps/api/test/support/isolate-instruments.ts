@@ -11,6 +11,7 @@ import { AgentModule } from '../../src/modules/agent/agent.module';
 import { NewsModule } from '../../src/modules/news/news.module';
 import { WatchlistsModule } from '../../src/modules/watchlists/watchlists.module';
 import { CalendarModule } from '../../src/modules/calendar/calendar.module';
+import { StrategiesModule } from '../../src/modules/strategies/strategies.module';
 
 @Module({})
 class NoInstrumentsModule {}
@@ -26,6 +27,7 @@ export function isolateInstruments(builder: TestingModuleBuilder): TestingModule
     .overrideModule(IndicatorsModule).useModule(NoInstrumentsModule)
     .overrideModule(PaperTradingModule).useModule(NoInstrumentsModule)
     .overrideModule(AgentModule).useModule(NoInstrumentsModule)
+    .overrideModule(StrategiesModule).useModule(NoInstrumentsModule)
     .overrideModule(NewsModule).useModule(NoInstrumentsModule)
     .overrideModule(WatchlistsModule).useModule(NoInstrumentsModule)
     .overrideModule(CalendarModule).useModule(NoInstrumentsModule);
