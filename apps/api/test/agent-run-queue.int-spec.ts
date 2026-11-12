@@ -1,15 +1,18 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { Redis } from 'ioredis';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AgentRunQueue } from '../src/modules/agent/infrastructure/agent-run-queue';
 import type { RunJob } from '../src/modules/agent/application/run-processor';
 import { startRedis } from './support/containers';
 
-// AG-6: the assistant run queue against real Redis and BullMQ.
+// AG-6: the assistant run queue against real Redis and BullMQ. Each test gets its own workers and an empty Redis, so no worker takes another test's jobs.
 describe('agent run queue', () => {
   let container: Awaited<ReturnType<typeof startRedis>>;
-  const queues: AgentRunQueue[] = [];
-  beforeAll(async () => { container = await startRedis(); });
-  afterAll(async () => { for (const q of queues) await q.onModuleDestroy(); await container.stop(); });
+  let redis: Redis;
+  let queues: AgentRunQueue[] = [];
+  beforeAll(async () => { container = await startRedis(); redis = new Redis(container.url); });
+  afterEach(async () => { for (const q of queues) await q.onModuleDestroy(); queues = []; await redis.flushall(); });
+  afterAll(async () => { redis.disconnect(); await container.stop(); });
 
   function build(process: (job: RunJob) => Promise<void>, concurrency = 2) {
     const queue = new AgentRunQueue(container.url, { process } as never, concurrency);
@@ -42,8 +45,9 @@ describe('agent run queue', () => {
   it('runs at most `concurrency` jobs at the same time and reports depth, running and failed', async () => {
     let running = 0;
     let peak = 0;
+    let done = 0;
     const release: Array<() => void> = [];
-    const queue = build(() => new Promise<void>(resolve => { running++; peak = Math.max(peak, running); release.push(() => { running--; resolve(); }); }), 2);
+    const queue = build(() => new Promise<void>(resolve => { running++; peak = Math.max(peak, running); release.push(() => { running--; done++; resolve(); }); }), 2);
     for (const key of ['a', 'b', 'c', 'd']) await queue.enqueue({ taskId: 'conc', userId: 'u1', key });
     await until(() => running === 2);
     await delay(200);
@@ -51,7 +55,10 @@ describe('agent run queue', () => {
     const stats = await queue.stats();
     expect(stats).toMatchObject({ running: 2, concurrency: 2 });
     expect(stats.depth).toBeGreaterThanOrEqual(2);
-    while (release.length > 0) { release.shift()?.(); await delay(50); }
+    const end = Date.now() + 15_000;
+    while (done < 4 && Date.now() < end) { release.shift()?.(); await delay(50); }
+    expect(done).toBe(4);
+    expect(peak).toBe(2);
   });
 
   it('a graceful shutdown waits for the running job to finish', async () => {
@@ -59,6 +66,7 @@ describe('agent run queue', () => {
     let started = false;
     const queue = new AgentRunQueue(container.url, { process: async () => { started = true; await delay(500); finished(); } } as never, 1);
     queue.onModuleInit();
+    queues.push(queue);
     await queue.enqueue({ taskId: 'drain', userId: 'u1', key: 'k1' });
     await until(() => started);
     await queue.onModuleDestroy();
