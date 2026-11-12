@@ -12,7 +12,7 @@ const field = 'h-11 w-full rounded border bg-background px-3 text-[15px] outline
 
 /** Faint, live-looking market backdrop: grid, price line and volume bars, all SVG. */
 function Backdrop() {
-  return <svg aria-hidden="true" focusable="false" className="pointer-events-none absolute inset-0 size-full text-link opacity-[0.16]" viewBox="0 0 760 300" preserveAspectRatio="xMidYMax slice">
+  return <svg aria-hidden="true" focusable="false" className="pointer-events-none absolute inset-0 size-full text-link opacity-[0.16] [mask-image:radial-gradient(ellipse_45%_55%_at_50%_45%,transparent_35%,black_100%)]" viewBox="0 0 760 300" preserveAspectRatio="xMidYMax slice">
     <defs>
       <pattern id="login-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="currentColor" strokeWidth="0.5" opacity="0.5" /></pattern>
       <linearGradient id="login-fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity="0.35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient>
