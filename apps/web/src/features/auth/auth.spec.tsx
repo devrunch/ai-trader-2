@@ -23,6 +23,20 @@ it('login page submits and redirects', async () => {
   } finally { server.close(); }
 });
 
+it('login page shows an error for bad credentials', async () => {
+  const server = setupServer(http.post('/api/v1/auth/login', () => HttpResponse.json({ error: 'unauthorized' }, { status: 401 })));
+  server.listen();
+  try {
+    const route = createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage });
+    const router = createRouter({ routeTree: rootRoute.addChildren([route]), history: createMemoryHistory({ initialEntries: ['/login'] }) });
+    await router.load(); render(<Providers><RouterProvider router={router} /></Providers>);
+    fireEvent.change(await screen.findByLabelText('Username'), { target: { value: 'admin' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Invalid username or password');
+  } finally { server.close(); }
+});
+
 it('RequireRole redirects anonymous users to /login', async () => {
   const server = setupServer(http.get('/api/v1/auth/me', () => HttpResponse.json({ code: 'UNAUTHORIZED', message: 'Authentication required', requestId: 'test' }, { status: 401 })));
   server.listen();

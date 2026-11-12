@@ -4,8 +4,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
 
 function MainNav() {
-  const link = 'rounded px-2 py-1 text-muted-foreground hover:bg-muted hover:text-foreground';
-  return <nav aria-label="Main navigation" className="flex items-center gap-1 text-[12px]">
+  const link = 'inline-flex min-h-10 items-center rounded px-3 text-muted-foreground md:min-h-8 md:px-2 hover:bg-muted hover:text-foreground';
+  return <nav aria-label="Main navigation" className="flex items-center gap-1 text-[13px] md:text-[12px]">
     <Link to="/" className={link} activeProps={{ className: 'text-foreground' }} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={{ className: 'text-foreground' }}>Terminal</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={{ className: 'text-foreground' }}>Admin</Link>
@@ -29,7 +29,7 @@ export function Brand() {
 export function AppShell() {
   const terminal = useRouterState({ select: state => state.location.pathname.startsWith('/terminal') });
   return <div className="flex h-dvh flex-col">
-    {!terminal && <header className="flex h-10 shrink-0 items-center gap-3 border-b bg-panel px-2">
+    {!terminal && <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-panel px-2 md:h-10 md:gap-3">
       <Brand /><MainNav /><span className="ml-auto"><ThemeToggle /></span>
     </header>}
     <main className="flex min-h-0 flex-1 flex-col"><Outlet /></main>

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { LineChart, MessageSquare } from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
@@ -8,6 +9,7 @@ import { ApiError } from '../../shared/api/api-error';
 import { Button } from '../../shared/ui/button';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { ChatMarkdown } from '../chat';
+import { marketStatus } from './market-status';
 import { formatPct, formatPrice, useQuotes } from '../terminal';
 
 const BriefSchema = z.strictObject({ threadId: z.string(), text: z.string(), error: z.string().nullable() });
@@ -22,30 +24,57 @@ const IMPACT_TONE: Record<EconomicEvent['impact'], string> = { High: 'bg-down', 
 export function HomePage() {
   const navigate = useNavigate();
   const open = (symbol: string) => { void navigate({ to: '/terminal', search: { symbol, interval: '5' } }); };
-  return <div className="mx-auto grid max-w-7xl gap-3 p-3 lg:grid-cols-3">
-    <div className="space-y-3 lg:col-span-2">
-      <Brief />
-      <Calendar />
-      <Headlines />
+  return <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-7xl min-w-0 space-y-3 p-3 lg:p-4">
+    <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} />
+    <div className="grid min-w-0 gap-3 lg:grid-cols-12">
+      <div className="min-w-0 space-y-3 lg:col-span-8">
+        <Brief />
+        <Calendar />
+        <Headlines />
+      </div>
+      <div className="min-w-0 space-y-3 lg:col-span-4">
+        <Markets onOpen={open} />
+        <Paper />
+        <Alerts />
+      </div>
     </div>
-    <div className="space-y-3">
-      <Markets onOpen={open} />
-      <Paper />
-      <Alerts />
+  </div></div>;
+}
+
+function StatusPill({ open, label }: { open: boolean; label: string }) {
+  return <span className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-background px-2.5 text-[12px] font-medium">
+    <span aria-hidden="true" className={`size-2 rounded-full ${open ? 'bg-up' : 'bg-muted-foreground'}`} />{label}</span>;
+}
+
+/** Greeting, IST market status and the two quick actions. */
+function HomeHeader({ onOpenTerminal }: { onOpenTerminal: () => void }) {
+  const [status, setStatus] = useState(() => marketStatus());
+  useEffect(() => { const id = setInterval(() => { setStatus(marketStatus()); }, 30_000); return () => { clearInterval(id); }; }, []);
+  return <header className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded border bg-panel px-4 py-3">
+    <div className="min-w-0 flex-1 basis-56">
+      <h1 className="text-xl font-semibold tracking-tight">{status.greeting}</h1>
+      <p className="num text-[13px] text-muted-foreground">{status.clock}</p>
     </div>
-  </div>;
+    <div role="status" aria-label="Market status" className="flex flex-wrap items-center gap-2">
+      <StatusPill open={status.nse.open} label={status.nse.label} /><StatusPill open={status.us.open} label={status.us.label} />
+    </div>
+    <div className="flex w-full gap-2 sm:w-auto">
+      <Button className="h-10 flex-1 sm:flex-none" onClick={onOpenTerminal}><LineChart />Open terminal</Button>
+      <Button variant="outline" className="h-10 flex-1 sm:flex-none" onClick={onOpenTerminal}><MessageSquare />Ask the assistant</Button>
+    </div>
+  </header>;
 }
 
 function Card({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return <section aria-label={title} className="rounded border bg-panel">
-    <header className="flex items-center justify-between border-b px-3 py-2"><h2 className="text-[13px] font-semibold">{title}</h2>{action}</header>
-    <div className="p-3 text-[13px]">{children}</div>
+  return <section aria-label={title} className="min-w-0 rounded border bg-panel">
+    <header className="flex min-h-11 items-center justify-between gap-2 border-b px-3 py-1.5"><h2 className="text-[14px] font-semibold">{title}</h2>{action}</header>
+    <div className="p-3 text-[13px] leading-relaxed">{children}</div>
   </section>;
 }
 
 function Brief() {
   const brief = useMutation({ retry: 0, mutationFn: () => apiFetch('v1/agent/brief', { method: 'POST', schema: BriefSchema }) });
-  return <Card title="Pre-market brief" action={<Button size="xs" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
+  return <Card title="Pre-market brief" action={<Button size="sm" className="h-9" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
     {brief.isPending ? 'Writing…' : brief.data ? 'Refresh' : 'Write today’s brief'}</Button>}>
     {brief.isPending ? <div role="status" aria-label="Writing the brief" className="space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-4 w-3/5" /></div>
       : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief failed'}</p>
@@ -61,7 +90,7 @@ function Calendar() {
   return <Card title="Economic calendar (IST)">
     {events.isPending ? <Skeleton className="h-24" /> : events.isError ? <p role="alert" className="text-down">Calendar unavailable.</p>
       : events.data.events.length === 0 ? <p className="text-muted-foreground">No medium or high impact releases in the next three days.</p>
-      : <ul aria-label="Upcoming releases" className="divide-y">{events.data.events.slice(0, 14).map(e => <li key={e.id} className="grid grid-cols-[7.5rem_3rem_minmax(0,1fr)] items-start gap-2 py-1.5">
+      : <ul aria-label="Upcoming releases" className="divide-y">{events.data.events.slice(0, 14).map(e => <li key={e.id} className="grid grid-cols-[5.5rem_2.75rem_minmax(0,1fr)] items-start gap-2 py-2 sm:grid-cols-[7.5rem_3rem_minmax(0,1fr)]">
         <span className="num text-muted-foreground">{ist.format(Date.parse(e.at))}</span>
         <span className="flex items-center gap-1 font-semibold"><span aria-label={`${e.impact} impact`} className={`inline-block size-2 rounded-full ${IMPACT_TONE[e.impact]}`} />{e.country}</span>
         <span className="min-w-0"><span className="font-medium">{e.title}</span>
@@ -76,7 +105,7 @@ function Headlines() {
     queryFn: ({ signal }) => apiFetch('v1/news?hours=24&limit=10', { schema: NewsResponseSchema, signal }) });
   return <Card title="Headlines">
     {news.isPending ? <Skeleton className="h-24" /> : news.isError ? <p role="alert" className="text-down">News unavailable.</p>
-      : <ul className="divide-y">{news.data.items.map(n => <li key={n.id} className="py-1.5">
+      : <ul className="divide-y">{news.data.items.map(n => <li key={n.id} className="py-2">
         <a href={n.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{n.title}</a>
         <span className="block text-[11px] text-muted-foreground">{n.source} · {ago(n.publishedAt)}{n.symbols.length ? ` · ${n.symbols.slice(0, 4).join(', ')}` : ''}</span>
       </li>)}</ul>}
@@ -92,10 +121,12 @@ function Markets({ onOpen }: { onOpen: (symbol: string) => void }) {
       : <ul className="divide-y">{ids.map(id => {
         const q = quotes.data?.get(id);
         const tone = q?.changePct == null ? 'text-muted-foreground' : q.changePct >= 0 ? 'text-up' : 'text-down';
-        return <li key={id}><button type="button" onClick={() => { onOpen(id); }} className="grid w-full grid-cols-[minmax(0,1fr)_auto_4rem] gap-2 py-1 text-left hover:bg-muted">
+        const width = q?.changePct == null ? 0 : Math.min(100, (Math.abs(q.changePct) / 3) * 100);
+        return <li key={id}><button type="button" onClick={() => { onOpen(id); }} className="grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto_4.5rem] items-center gap-x-2 px-1 py-1 text-left hover:bg-muted">
           <span className="truncate font-semibold">{id.slice(id.indexOf(':') + 1)}</span>
           <span className="num">{q ? formatPrice(q.price) : '—'}</span>
           <span className={`num text-right ${tone}`}>{q?.changePct == null ? '' : formatPct(q.changePct)}</span>
+          <span aria-hidden="true" className="col-span-3 mt-1 h-0.5 rounded bg-muted"><span className={`block h-full rounded ${q?.changePct != null && q.changePct < 0 ? 'bg-down' : 'bg-up'}`} style={{ width: `${String(width)}%` }} /></span>
         </button></li>;
       })}</ul>}
   </Card>;
