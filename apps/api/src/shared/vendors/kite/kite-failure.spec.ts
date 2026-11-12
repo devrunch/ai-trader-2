@@ -13,3 +13,10 @@ describe('sanitizeFailureMessage', () => {
     expect(out).not.toMatch(/\n/);
   });
 });
+
+describe('sanitizeFailureMessage headers and keys', () => {
+  it('redacts cookies, authorization headers and api keys', () => {
+    const out = sanitizeFailureMessage('Set-Cookie: kf_session=abc; public_token=def api_key=mykey1 Authorization: token k:v', []);
+    expect(out).not.toMatch(/abc|def|mykey1|k:v/);
+  });
+});

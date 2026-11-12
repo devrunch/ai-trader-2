@@ -31,3 +31,25 @@ describe('indicator store presentation', () => {
     expect(useIndicatorStore.getState().presentation).toEqual({});
   });
 });
+
+describe('indicator store pine items', () => {
+  const pine = { ...definition, ref: 'pine:aaaaaaaaaaaa@1', id: 'aaaaaaaaaaaa',
+    inputs: [{ id: 'length', title: 'Length', type: 'int' as const, default: 5 }, { id: 'mult', title: 'Mult', type: 'float' as const, default: 2 }] };
+
+  it('adds a Pine item whose id is the definition ref', () => {
+    useIndicatorStore.getState().addPine('src', pine, { length: 3 });
+    expect(useIndicatorStore.getState().items[0]).toMatchObject({ id: 'pine:aaaaaaaaaaaa@1', inputs: { length: 3 }, pine: { source: 'src', definition: pine } });
+  });
+
+  it('replaces the script keeping key and presentation, dropping inputs the new script lacks', () => {
+    const { addPine, replacePine, setPresentation } = useIndicatorStore.getState();
+    addPine('v1', pine, { length: 3, mult: 4 });
+    const key = useIndicatorStore.getState().items[0]?.key ?? '';
+    setPresentation(key, defaultPresentation(pine));
+    const next = { ...pine, ref: 'pine:bbbbbbbbbbbb@1', id: 'bbbbbbbbbbbb', inputs: pine.inputs.filter(input => input.id === 'length') };
+    replacePine(key, 'v2', next);
+    const [item] = useIndicatorStore.getState().items;
+    expect(item).toMatchObject({ key, id: 'pine:bbbbbbbbbbbb@1', inputs: { length: 3 }, pine: { source: 'v2' } });
+    expect(useIndicatorStore.getState().presentation[key]).toBeDefined();
+  });
+});

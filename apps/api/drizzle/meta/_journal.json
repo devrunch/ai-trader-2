@@ -150,6 +150,13 @@
       "breakpoints": true
     },
     {
+      "idx": 21,
+      "version": "7",
+      "when": 1794300014000,
+      "tag": "0024_pine_scripts",
+      "breakpoints": true
+    },
+    {
       "idx": 22,
       "version": "7",
       "when": 1794300025000,

@@ -8,7 +8,8 @@ export function sanitizeFailureMessage(text: string, secrets: readonly string[] 
   for (const secret of secrets) if (secret.length >= 4) out = out.split(secret).join('[redacted]');
   out = out
     .replace(/https?:\/\/[^\s"']+/gi, url => { try { const parsed = new URL(url); return parsed.origin + parsed.pathname; } catch { return '[url]'; } })
-    .replace(/\b(?:request_token|access_token|enctoken|checksum|password|secret|totp\w*)\s*[=:]\s*\S+/gi, '[redacted]')
+    .replace(/\b(?:authorization|set-cookie|cookie)\s*[=:].*/gi, '[redacted]')
+    .replace(/\b(?:request_token|access_token|enctoken|checksum|password|secret|api_key|apikey|kf_session|public_token|totp\w*)\s*[=:]\s*\S+/gi, '[redacted]')
     .replace(/[A-Za-z0-9_-]{24,}/g, '[redacted]')
     .replace(/\b\d{6}\b/g, '[redacted]')
     .replace(/\s+/g, ' ').trim();
