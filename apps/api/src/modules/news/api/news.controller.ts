@@ -11,7 +11,7 @@ export class NewsController {
 
   @Get()
   async list(@Query() raw: unknown) {
-    const { symbol, hours, limit } = NewsQuerySchema.parse(raw);
-    return { items: await this.news.list({ symbol, hours, limit }) };
+    const { symbol, hours, limit, minImpact } = NewsQuerySchema.parse(raw);
+    return { items: await this.news.list({ symbol, minImpact, hours, limit }) };
   }
 }
