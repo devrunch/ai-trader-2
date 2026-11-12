@@ -51,7 +51,7 @@ describe('Kite login', () => {
   });
   it('stops after 10 redirect hops without a token', async () => {
     const http = script([...authenticated(), ...Array.from({ length: 10 }, () => response(302, {}, '/next'))]);
-    await expect(loginToKite(creds, http, signal, now)).rejects.toMatchObject({ stage: 'redirect', message: 'no request_token' });
+    await expect(loginToKite(creds, http, signal, now)).rejects.toMatchObject({ stage: 'redirect', message: expect.stringContaining('no request_token') as string });
     expect(http.request).toHaveBeenCalledTimes(12);
   });
 });
@@ -86,5 +86,27 @@ describe('Kite HTTP adapter', () => {
     await vi.advanceTimersByTimeAsync(15000);
     await rejected;
     expect(requestSignal?.aborted).toBe(true);
+  });
+});
+
+describe('Kite login failure detail', () => {
+  it('reports status and Kite message on a login rejection, with no password', async () => {
+    const error = await loginToKite(creds, script([response(403, { status: 'error', message: 'Blocked request' })]), signal, now).catch((e: unknown) => e);
+    expect(error).toMatchObject({ stage: 'login', httpStatus: 403, message: 'login failed: HTTP 403 Blocked request' });
+  });
+  it('reports a non-JSON login body (bot-check page) with its status', async () => {
+    const http = { request: vi.fn<KiteHttp['request']>().mockResolvedValue({ ...response(403), json: () => Promise.reject(new SyntaxError('x')) }) };
+    await expect(loginToKite(creds, http, signal, now)).rejects.toMatchObject({ stage: 'login', httpStatus: 403, message: 'login failed: non-JSON body (HTTP 403)' });
+  });
+  it('reports the twofa status and message', async () => {
+    const http = script([response(200, { data: { request_id: 'r' } }), response(403, { message: 'Invalid TOTP' })]);
+    await expect(loginToKite(creds, http, signal, now)).rejects.toMatchObject({ stage: 'twofa', httpStatus: 403, message: 'twofa failed: HTTP 403 Invalid TOTP' });
+  });
+  it('reports a transport error code and where the redirect chain ended', async () => {
+    const reset = Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('x'), { code: 'ECONNRESET' }) });
+    const http = { request: vi.fn<KiteHttp['request']>().mockRejectedValue(reset) };
+    await expect(loginToKite(creds, http, signal, now)).rejects.toMatchObject({ stage: 'login', message: 'login failed: ECONNRESET' });
+    const stuck = script([...authenticated(), response(200, {}, undefined, 'https://kite.zerodha.com/connect/authorize')]);
+    await expect(loginToKite(creds, stuck, signal, now)).rejects.toMatchObject({ stage: 'redirect', message: 'no request_token, last HTTP 200 at /connect/authorize' });
   });
 });

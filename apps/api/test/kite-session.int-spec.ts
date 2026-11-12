@@ -27,7 +27,7 @@ describe('Kite durable session', () => {
     let now = Date.parse('2026-11-09T01:00:00Z');
     const login = vi.fn(() => Promise.reject(new Error('simulated vendor rejection')));
     const makeService = () => new KiteSessionService(credentials, repository, login,
-      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn() }, true);
+      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn(), warn: vi.fn() }, true);
     const first = makeService();
     for (let i = 0; i < 3; i++) await expect(first.getAccessToken()).rejects.toMatchObject({ code: 'UNAVAILABLE' });
     await expect(first.getAccessToken()).rejects.toMatchObject({ details: { reason: 'login attempts exhausted', retryAt: '2026-11-09T01:15:00.000Z' } });
@@ -47,7 +47,7 @@ describe('Kite durable session', () => {
     const login = vi.fn(() => Promise.resolve({ requestToken: 'request' }));
     const exchange = { generateSession: vi.fn(() => Promise.resolve({ access_token: 'persisted', user_id: 'user' })) };
     const now = () => Date.parse('2026-11-08T01:00:00Z');
-    const logger = { log: vi.fn() };
+    const logger = { log: vi.fn(), warn: vi.fn() };
     const first = new KiteSessionService(credentials, repository, login, exchange, now, logger, true);
     await expect(first.getAccessToken()).resolves.toBe('persisted');
     const second = new KiteSessionService(credentials, repository, login, exchange, now, logger, true);
@@ -62,9 +62,20 @@ describe('Kite durable session', () => {
     await repository.blockAutoLogin(new Date(now + 86400000), 'CAPTCHA_REQUIRED', AbortSignal.timeout(3000));
     const login = vi.fn(() => Promise.resolve({ requestToken: 'should-not-run' }));
     const service = new KiteSessionService(credentials, repository, login,
-      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn() }, true);
+      { generateSession: vi.fn(() => Promise.resolve({ access_token: 'unused', user_id: 'user' })) }, () => now, { log: vi.fn(), warn: vi.fn() }, true);
     await expect(service.getAccessToken()).rejects.toMatchObject({ details: { reason: 'CAPTCHA_REQUIRED', action: 'connect_zerodha' } });
     expect(login).not.toHaveBeenCalled();
+  });
+  it('round-trips the last login failure and clears it on a successful save', async () => {
+    await pool.query("delete from vendor_sessions where vendor = 'kite'");
+    const repository = new DrizzleKiteSessionRepository(pool);
+    const signal = new AbortController().signal;
+    await expect(repository.lastLoginFailure(signal)).resolves.toBeNull();
+    const failure = { stage: 'twofa' as const, message: 'twofa failed: HTTP 403', httpStatus: 403, at: new Date('2026-11-12T03:15:00.000Z') };
+    await repository.recordLoginFailure(failure, signal);
+    await expect(repository.lastLoginFailure(signal)).resolves.toEqual(failure);
+    await repository.save({ accessToken: 't', mintedAt: new Date('2026-11-12T03:20:00.000Z'), expiresAt: new Date('2026-11-13T00:30:00.000Z') }, signal);
+    await expect(repository.lastLoginFailure(signal)).resolves.toBeNull();
   });
   it('registers the refresh job only when credentials exist', async () => {
     const scheduler = { register: vi.fn(() => Promise.resolve()) };

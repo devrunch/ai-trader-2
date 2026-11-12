@@ -1,4 +1,4 @@
-import { date, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { date, jsonb, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 
 export const vendorSessions = pgTable('vendor_sessions', {
   vendor: text('vendor').primaryKey(),
@@ -10,4 +10,5 @@ export const vendorSessions = pgTable('vendor_sessions', {
   loginAttemptsWindow: timestamp('login_attempts_window', { withTimezone: true, mode: 'date' }).array().notNull().default([]),
   autoLoginBlockedUntil: timestamp('auto_login_blocked_until', { withTimezone: true }),
   autoLoginBlockReason: text('auto_login_block_reason'),
+  lastLoginFailure: jsonb('last_login_failure'),
 });

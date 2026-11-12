@@ -146,3 +146,10 @@ it('prompts tab edits like commits: save with a message, diff a version, revert'
   fireEvent.click(screen.getByRole('button', { name: 'Revert to v1' }));
   await vi.waitFor(() => { expect(posts[1]).toEqual({ path: 'revert', body: { version: 1 } }); });
 });
+
+it('zerodha card shows the last auto-login failure under the attempts count', async () => {
+  zerodhaBody = zerodha({ autoLogin: { enabled: true, attemptsToday: 6, cap: 6,
+    lastFailure: { stage: 'twofa', message: 'twofa failed: HTTP 403 Invalid TOTP', httpStatus: 403, at: '2026-11-12T03:15:00.000Z' } } });
+  await renderAt('/admin');
+  expect(await screen.findByText(/Last auto-login failed at twofa · .*08:45 IST: twofa failed: HTTP 403 Invalid TOTP/, {}, { timeout: 5000 })).toBeDefined();
+});

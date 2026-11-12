@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Build on this machine, ship to the EC2 box, migrate, switch, health-check, roll back on failure.
+# Build on this machine, ship to the Linux host (DEPLOY_HOST, DEPLOY_KEY, APP_DOMAIN), migrate, switch, health-check, roll back on failure.
 #   deploy/release.sh              # deploys main's HEAD
-# Nothing is built on the box (1.8 GB): it only installs production dependencies, which pulls the arm64 builds.
+# Nothing is built on the box (small hosts): it only installs production dependencies, which pulls the arm64 builds.
 set -euo pipefail
-HOST=${DEPLOY_HOST:-ubuntu@3.7.76.174}
-KEY=${DEPLOY_KEY:-$HOME/.ssh/ai-trader-admin.pem}
+HOST=${DEPLOY_HOST:?set DEPLOY_HOST, e.g. ubuntu@host}
+KEY=${DEPLOY_KEY:?set DEPLOY_KEY to the ssh private key path}
+DOMAIN=${APP_DOMAIN:?set APP_DOMAIN, the public hostname}
 ROOT=/srv/aitrader2
 cd "$(git rev-parse --show-toplevel)"
 source scripts/lib/node-env.sh
@@ -35,7 +36,10 @@ tar -czf "$STAGE.tgz" -C "$STAGE" .
 ssh_box() { ssh -i "$KEY" -o ConnectTimeout=15 "$HOST" "$@"; }
 echo "== upload =="
 scp -q -i "$KEY" "$STAGE.tgz" "$HOST:/tmp/aitrader2-$SHA.tgz"
-scp -q -i "$KEY" deploy/Caddyfile deploy/systemd/*.service "$HOST:/tmp/"
+sed "s/__APP_DOMAIN__/$DOMAIN/" deploy/Caddyfile > "$STAGE.Caddyfile"
+scp -q -i "$KEY" "$STAGE.Caddyfile" "$HOST:/tmp/Caddyfile"
+scp -q -i "$KEY" deploy/systemd/*.service "$HOST:/tmp/"
+rm -f "$STAGE.Caddyfile"
 rm -f "$STAGE.tgz"
 
 echo "== install, migrate, switch =="
@@ -77,4 +81,4 @@ ls -1dt "$ROOT"/releases/* | tail -n +4 | xargs -r rm -rf
 echo "live: $SHA"
 REMOTE
 echo "== https check =="
-curl -fsS -m 10 "https://3.7.76.174.sslip.io/health" && echo
+curl -fsS -m 10 "https://$DOMAIN/health" && echo

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# One-time: removes the old ai-trader product and leftovers from the EC2 box. ai-trader-2 keeps running.
+# One-time: removes the old ai-trader product and leftovers from the host. ai-trader-2 keeps running.
 # Removes: ~/ai-trader (code is on GitHub; .env backed up to D:\adizx\ai-trader\deploy\box-backup-2026-11-11),
 # the old systemd units, Docker leftovers, Node 20 (ai-trader-2 uses /opt/node), the stopped Postgres 16 cluster,
 # the old product's Redis DB 0, caches and old journals. Keeps snapd (the SSM agent runs as a snap).
 #   bash deploy/clean-old-box.sh
 set -euo pipefail
-HOST=${DEPLOY_HOST:-ubuntu@3.7.76.174}
-KEY=${DEPLOY_KEY:-$HOME/.ssh/ai-trader-admin.pem}
+HOST=${DEPLOY_HOST:?set DEPLOY_HOST, e.g. ubuntu@host}
+KEY=${DEPLOY_KEY:?set DEPLOY_KEY to the ssh private key path}
 
 ssh -i "$KEY" -o ConnectTimeout=15 "$HOST" 'sudo bash -s' <<'REMOTE'
 set -uo pipefail

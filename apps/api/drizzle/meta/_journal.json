@@ -155,6 +155,20 @@
       "when": 1794300014000,
       "tag": "0024_pine_scripts",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794300025000,
+      "tag": "0025_kite_login_failure",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794300026000,
+      "tag": "0026_news_impact",
+      "breakpoints": true
     }
   ]
 }

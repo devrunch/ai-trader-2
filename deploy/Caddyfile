@@ -1,6 +1,6 @@
 # ai-trader-2 behind one hostname: the SPA as static files, /api (REST and the live socket) to the API.
-# The Elastic IP is fixed; sslip.io gives it a name Let's Encrypt will issue for (it refuses *.compute.amazonaws.com).
-3.7.76.174.sslip.io {
+# release.sh replaces __APP_DOMAIN__ with $APP_DOMAIN. Caddy gets a Let's Encrypt certificate for it; DNS must point at this host.
+__APP_DOMAIN__ {
 	encode zstd gzip
 
 	handle /api/* {

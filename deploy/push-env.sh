@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Sends the API's secrets to the box as /srv/aitrader2/shared/api.env: the keys from apps/api/.env plus production values.
+# Sends the API's secrets to the host (DEPLOY_HOST, DEPLOY_KEY, APP_DOMAIN) as /srv/aitrader2/shared/api.env: the keys from apps/api/.env plus production values.
 # Nothing is printed; the file is mode 600, owned by the service user. Run after box-setup.sh and whenever a key changes.
 set -euo pipefail
-HOST=${DEPLOY_HOST:-ubuntu@3.7.76.174}
-KEY=${DEPLOY_KEY:-$HOME/.ssh/ai-trader-admin.pem}
-URL=https://3.7.76.174.sslip.io
+HOST=${DEPLOY_HOST:?set DEPLOY_HOST, e.g. ubuntu@host}
+KEY=${DEPLOY_KEY:?set DEPLOY_KEY to the ssh private key path}
+URL=https://${APP_DOMAIN:?set APP_DOMAIN, the public hostname}
 cd "$(git rev-parse --show-toplevel)"
 SRC=apps/api/.env
 [ -f "$SRC" ] || { echo "no $SRC" >&2; exit 1; }

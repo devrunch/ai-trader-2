@@ -14,7 +14,7 @@ const server = setupServer(
   http.get('/api/v1/calendar', () => HttpResponse.json({ events: [{ id: 'e1', title: 'CPI m/m', country: 'USD', at: '2026-11-12T13:30:00.000Z', impact: 'High',
     forecast: '0.3%', previous: '0.4%', moves: ['US stocks', 'Gold', 'USD/INR'] }] })),
   http.get('/api/v1/news', () => HttpResponse.json({ items: [{ id: 'n1', source: 'Reuters', title: 'Oil climbs on supply cuts', url: 'https://example.com/a',
-    summary: null, publishedAt: new Date().toISOString(), symbols: ['MCX:CRUDEOIL1!'] }] })),
+    summary: null, publishedAt: new Date().toISOString(), symbols: ['MCX:CRUDEOIL1!'], impact: 'low', moves: [], direction: null }] })),
   http.get('/api/v1/paper/accounts', () => HttpResponse.json({ accounts: [
     { id: 'a', currency: 'INR', initialCash: 1e6, cash: 1e6, usedMargin: 0, available: 998_663, realisedPnl: -52, charges: 3 }] })),
   http.get('/api/v1/agent/tasks', () => HttpResponse.json([])),
@@ -52,4 +52,13 @@ it('writes the pre-market brief on request', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Write today’s brief' }));
   expect(await screen.findByText(/NIFTY held 25,200/)).toBeDefined();
   expect(briefs).toBe(1);
+});
+
+it('shows the greeting, IST market status and quick actions', async () => {
+  await renderHome();
+  const status = screen.getByRole('status', { name: 'Market status' });
+  expect(status.textContent).toMatch(/NSE (open|closed)/);
+  expect(status.textContent).toMatch(/US (open|closed|extended hours)/);
+  expect(screen.getByRole('button', { name: 'Open terminal' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'Ask the assistant' })).toBeDefined();
 });

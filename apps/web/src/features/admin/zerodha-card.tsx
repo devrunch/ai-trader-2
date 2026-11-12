@@ -20,7 +20,7 @@ function ZerodhaDetails({ status }: { status: ZerodhaStatus }) {
   const [dialog, setDialog] = useState<'paste' | 'disconnect' | null>(null);
   const autoLogin = useAutoLogin();
   const disconnect = useDisconnectZerodha();
-  const { enabled, attemptsToday, cap, blockedUntil, reason } = status.autoLogin;
+  const { enabled, attemptsToday, cap, blockedUntil, reason, lastFailure } = status.autoLogin;
   const blockedText = blockedUntil ? `Blocked until ${formatIst(blockedUntil)} — ${reason ? (blockReasons[reason] ?? reason) : 'blocked'}` : undefined;
   const autoDisabledWhy = !enabled ? 'Auto-login is disabled (KITE_AUTO_LOGIN=false).' : blockedText;
 
@@ -35,6 +35,7 @@ function ZerodhaDetails({ status }: { status: ZerodhaStatus }) {
         <Badge tone={enabled ? 'muted' : 'warning'}>{enabled ? 'Enabled' : 'Disabled'}</Badge>
         <span>{`${String(attemptsToday)} / ${String(cap)} today`}</span>
         {blockedText && <p className="mt-1 text-down">{blockedText}</p>}
+        {lastFailure && <p className="mt-1 text-down">{`Last auto-login failed at ${lastFailure.stage} · ${formatIst(lastFailure.at)}: ${lastFailure.message}`}</p>}
       </dd>
     </dl>
     {status.redirectUrl === null && <p className="text-muted-foreground">Set your Kite app redirect URL to <code>http://localhost:5173/admin/zerodha/callback</code>, or paste the request_token instead.</p>}
