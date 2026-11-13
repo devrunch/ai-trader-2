@@ -13,7 +13,7 @@ import { DeskRunningPill } from '../../features/desk';
 function MainNav() {
   const link = 'relative inline-flex min-h-10 items-center px-3 text-muted-foreground transition-colors md:min-h-12 md:px-2.5 hover:text-foreground';
   const active = { className: 'text-foreground after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:bg-link' };
-  return <nav aria-label="Main navigation" className="flex items-center gap-0.5 overflow-x-auto text-[13px] [scrollbar-width:none]">
+  return <nav aria-label="Main navigation" className="order-last flex w-full items-center gap-0.5 overflow-x-auto border-t text-[13px] [scrollbar-width:none] md:order-none md:w-auto md:border-t-0">
     <Link to="/" className={link} activeProps={active} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Terminal</Link>
     <Link to="/strategies" className={link} activeProps={active}>Strategies</Link>
@@ -60,10 +60,10 @@ export function AppShell() {
     return () => { window.removeEventListener(SESSION_EXPIRED, expired); };
   }, [client, navigate, path]);
   return <div className="flex h-dvh flex-col">
-    {!ownChrome && <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-panel px-3 md:gap-4">
+    {!ownChrome && <header className="flex shrink-0 flex-wrap items-center gap-x-2 border-b bg-panel px-3 md:h-12 md:flex-nowrap md:gap-x-4">
       <Link to="/" aria-label="AI Trader home" className="shrink-0"><Brand /></Link>
       <MainNav />
-      <span className="ml-auto flex shrink-0 items-center gap-2">
+      <span className="ml-auto flex h-12 shrink-0 items-center gap-2">
         <DeskRunningPill enabled={signedIn} />
         <AiButton size="sm" onClick={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }}>Ask AI</AiButton>
         <ThemeToggle />

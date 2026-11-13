@@ -58,7 +58,7 @@ it('posts the preset spec and renders matches, header, matched values and the st
   fireEvent.change(screen.getByLabelText('Preset'), { target: { value: 'oversold-rsi' } });
   expect(screen.getByText('RSI(14) below 30 on a volume spike.')).toBeDefined();
   run();
-  expect(await screen.findByText('1 matched of 50 scanned on 1D bars as of 11 Nov 15:30 IST')).toBeDefined();
+  expect(await screen.findByText('1 matched of 50 scanned on 1D bars as of 11 Nov close')).toBeDefined();
   expect(scans[0]).toEqual({ spec: { universe: 'nifty50', interval: '1D', preset: 'oversold-rsi', indicators: [], fundamentals: [], limit: 50 } });
   expect(screen.getByText('cached')).toBeDefined();
   expect(screen.getByText('rsi 24.1 volumeRatio 3.2')).toBeDefined();

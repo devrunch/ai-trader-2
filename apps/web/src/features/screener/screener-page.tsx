@@ -49,7 +49,7 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string, interval: Sc
           <Button size="xs" variant="outline" className="mt-1" onClick={() => { setDraft({ form: emptyForm(), advanced: null }); scan.reset(); }}>Start a new screen</Button></div>}
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4 text-[12px]">
         <Button className="h-9 rounded-none px-5" disabled={scan.isPending} onClick={() => { withSpec(spec => { scan.mutate(spec); }); }}>{scan.isPending ? 'Scanning…' : 'Run'}</Button>
-        <input aria-label="Screen name" className={`${fieldClass} w-48`} value={name} onChange={e => { setName(e.target.value); }} />
+        <input aria-label="Screen name" className={`${fieldClass} !w-48`} value={name} onChange={e => { setName(e.target.value); }} />
         <Button variant="outline" className="h-9 rounded-none" disabled={actions.create.isPending} onClick={() => { withSpec(spec => { actions.create.mutate({ name, spec }); }); }}>Save this screen</Button>
       </div>
       </Panel>
