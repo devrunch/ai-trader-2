@@ -51,7 +51,7 @@ it('loads a template into the rules', async () => {
   items = [];
   render(<Providers><StrategiesPage /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: /RSI dip buy/ }));
-  expect((screen.getByDisplayValue('RSI dip buy') as HTMLInputElement).value).toBe('RSI dip buy');
+  expect(screen.getByDisplayValue<HTMLInputElement>('RSI dip buy').value).toBe('RSI dip buy');
 });
 
 it('runs a saved strategy with its id and shows metrics, the overfit note, a missing out-of-sample and 100 newest trades', async () => {
