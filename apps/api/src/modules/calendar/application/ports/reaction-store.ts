@@ -4,7 +4,6 @@ export interface PastRelease {
   id: string; title: string; country: string; at: string; forecast: string | null; previous: string | null;
   actual: string | null; actualAt: string | null; surprise: number | null; surpriseZ: number | null;
 }
-export interface ReactionRow extends Omit<EventReaction, 'refPrice'> { refPrice: number | null }
 export interface DueEvent { id: string; title: string; country: string; at: string }
 
 export interface ReactionStore {

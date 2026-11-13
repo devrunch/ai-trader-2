@@ -3,7 +3,7 @@ import type { AgentTask, Fresh } from './agent-task';
 
 export type MoveWatch = Extract<TaskTrigger, { kind: 'move' }>;
 /** Instruments one move watch looks at; more than this costs too much per tick. */
-export const MAX_MOVE_SYMBOLS = 200;
+const MAX_MOVE_SYMBOLS = 200;
 const MAX_LISTED = 8;
 
 /** The instruments a move watch looks at: its own symbols, then the members of its universe, without repeats. */

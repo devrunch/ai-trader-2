@@ -24,10 +24,7 @@ import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { buildDepthTools } from './application/depth-tools';
 import { buildEventScorecardTools } from './application/event-tools';
-import { buildEventScorecardTools } from './application/event-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
-import { EventScorecards } from '../calendar/application/index';
-import { MinuteBars } from '../market-data/application/index';
 import { EventScorecards } from '../calendar/application/index';
 import { MinuteBars } from '../market-data/application/index';
 import { buildScreenerTools } from './application/screener-tools';
@@ -194,13 +191,13 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
-    { provide: TradingDesk, inject: [DB, APP_CONFIG, MarketDataService, IndicatorService, NewsService, EconomicCalendar, PromptRegistry, VenueRouter, FundamentalsService],
-      useFactory: (db: Database, config: AppConfig, market: MarketDataService, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, prompts: PromptRegistry, venues: VenueRouter, fundamentals: FundamentalsService) => {
+    { provide: TradingDesk, inject: [DB, APP_CONFIG, MarketDataService, IndicatorService, NewsService, EconomicCalendar, PromptRegistry, VenueRouter, FundamentalsService, EventScorecards],
+      useFactory: (db: Database, config: AppConfig, market: MarketDataService, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, prompts: PromptRegistry, venues: VenueRouter, fundamentals: FundamentalsService, scorecards: EventScorecards) => {
         const spec = config.DESK_MODEL ?? config.AGENT_MODEL;
         const model: DeskModel = spec ? new AiDeskModel(createLanguageModel(parseModelSpec(spec), config))
           : { generate: () => Promise.reject(new UnavailableError('The trading desk is off: set DESK_MODEL or AGENT_MODEL')) };
         const routed = venues.routed();
-        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }), model, new DrizzleDeskRunStore(db),
+        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }, { forEvents: (events, limit, asOf) => scorecards.forEvents(events, limit, asOf) }), model, new DrizzleDeskRunStore(db),
           { maxTokens: config.DESK_MAX_TOKENS, dailyRuns: config.DESK_DAILY_RUNS, minRewardRisk: 1.5, maxRiskPct: 0.5, defaultCash: 1_000_000 },
           { now: Date.now, id: randomUUID, skills: () => prompts.keys().filter(k => k.startsWith('skill-')).map(k => k.slice('skill-'.length)),
             cash: async (userId, symbol) => (await routed.account(userId, symbol).catch(() => ({ initialCash: 1_000_000 }))).initialCash });
