@@ -26,3 +26,17 @@ it('shows the unread count, marks all read on open, and opens a fill\'s chart', 
   fireEvent.click(screen.getByText('Stop hit: sold 5 NSE:RELIANCE at 1,323.00'));
   expect(onOpenSymbol).toHaveBeenCalledWith('NSE:RELIANCE');
 });
+
+it('lets the user opt in to emailed reports and saves the choice', async () => {
+  let saved: unknown = null;
+  server.use(
+    http.get('/api/v1/notifications/email', () => HttpResponse.json({ reports: saved !== null, address: 'me@example.com', available: true })),
+    http.put('/api/v1/notifications/email', async ({ request }) => { saved = await request.json(); return HttpResponse.json({ reports: true, address: 'me@example.com', available: true }); }),
+  );
+  render(<Providers><NotificationBell onOpenSymbol={vi.fn()} /></Providers>);
+  fireEvent.click(await screen.findByRole('button', { name: /Notifications/ }));
+  const box = await screen.findByRole('checkbox', { name: 'Email me watch reports' });
+  expect(screen.getByText(/Sent to me@example.com/)).toBeDefined();
+  fireEvent.click(box);
+  await vi.waitFor(() => { expect(saved).toEqual({ reports: true }); });
+});

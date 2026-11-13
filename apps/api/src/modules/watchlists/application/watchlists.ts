@@ -5,6 +5,8 @@ export interface WatchlistStore {
   /** null until the user first edits their list. */
   get(userId: string): Promise<string[] | null>;
   save(userId: string, items: string[]): Promise<void>;
+  /** Every symbol on any user's list, for feeds that follow what people watch. */
+  allSymbols(): Promise<string[]>;
 }
 
 export interface WatchlistDeps {
@@ -17,6 +19,8 @@ export interface WatchlistDeps {
 /** One ordered list per user; the defaults stand in until the first edit, which starts from them. */
 export class Watchlists {
   constructor(private readonly store: WatchlistStore, private readonly deps: WatchlistDeps) {}
+
+  allSymbols(): Promise<string[]> { return this.store.allSymbols(); }
 
   async get(userId: string): Promise<Watchlist> {
     const saved = await this.store.get(userId);

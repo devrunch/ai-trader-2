@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { NEWSAPI_DESCRIPTOR, NewsApiSource } from './newsapi.source';
-import { clientReturning } from './source-test-client.spec-helper';
+import { clientReturning } from '../../../../shared/sources/source-test-client.spec-helper';
 
 const fixture = readFileSync(join(__dirname, '__fixtures__', 'newsapi', 'everything.json'), 'utf8');
 const signal = (): AbortSignal => new AbortController().signal;

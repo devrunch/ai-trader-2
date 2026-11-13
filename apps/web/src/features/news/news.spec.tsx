@@ -58,3 +58,20 @@ it('requests minImpact=high when High only is pressed', async () => {
   expect(impactAsked).toContain('high');
   expect(screen.getByRole('button', { name: 'High only' }).getAttribute('aria-pressed')).toBe('true');
 });
+
+it('shows a story once with its source count and sentiment, and labels the crowd tab (FR-HM-2, FR-HM-3)', async () => {
+  server.use(http.get('/api/v1/news', ({ request }) => {
+    const params = new URL(request.url).searchParams;
+    if (params.get('crowd') === 'true') return HttpResponse.json({ items: [{ ...item('r', 'NVDA to the moon', []), source: 'r/wallstreetbets', crowd: true }] });
+    const lead = { ...item('a', 'RBI keeps repo rate unchanged', []), sentiment: { label: 'bullish', score: 0.4, by: 'llm' } };
+    return HttpResponse.json({ items: [], clusters: [{ id: 'a', lead, sourceCount: 3, sources: ['ET', 'Mint', 'BS'], items: ['a', 'b', 'c'], symbols: [], markets: ['india'], sentiment: lead.sentiment, firstSeen: lead.publishedAt, lastSeen: lead.publishedAt }] });
+  }));
+  render(<Providers><NewsPanel symbol="NSE:RELIANCE" onOpenSymbol={vi.fn()} /></Providers>);
+  await screen.findByRole('link', { name: 'RBI keeps repo rate unchanged' });
+  expect(screen.getByText('3 sources')).toBeDefined();
+  expect(screen.getByText('Bullish +0.40')).toBeDefined();
+  fireEvent.click(screen.getByRole('tab', { name: 'Crowd' }));
+  await screen.findByRole('link', { name: 'NVDA to the moon' });
+  expect(screen.getByText(/opinion from traders, not reporting/)).toBeDefined();
+  expect(screen.getAllByText('Crowd').length).toBeGreaterThan(1);
+});

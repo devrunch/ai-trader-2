@@ -1,7 +1,10 @@
 import type { NotificationDto } from '@aitrader/contracts';
 
 type NotificationKind = NotificationDto['kind'];
-export interface NewNotification { userId: string; kind: NotificationKind; title: string; body?: string | null; link?: { threadId?: string; symbol?: string } | null }
+export interface NewNotification { userId: string; kind: NotificationKind; title: string; body?: string | null; link?: { threadId?: string; symbol?: string } | null;
+  /** A REPORT the user should also get by email when they opted in. */ email?: boolean }
+/** Delivers a report by email; never throws. */
+export interface ReportDelivery { deliver(userId: string, title: string, body: string | null): Promise<unknown> }
 export interface NotificationStore {
   insert(row: NewNotification & { id: string }): Promise<void>;
   list(userId: string, limit: number): Promise<NotificationDto[]>;
@@ -14,11 +17,12 @@ export interface NotificationStore {
  * a failed notification must not break the fill or the task that raised it.
  */
 export class Notifications {
-  constructor(private readonly store: NotificationStore, private readonly env: { id: () => string; warn: (message: string) => void }) {}
+  constructor(private readonly store: NotificationStore, private readonly env: { id: () => string; warn: (message: string) => void }, private readonly email: ReportDelivery | null = null) {}
 
-  notify(n: NewNotification): Promise<void> {
-    return this.store.insert({ ...n, title: n.title.slice(0, 200), body: n.body?.slice(0, 2000) ?? null, id: this.env.id() })
+  async notify(n: NewNotification): Promise<void> {
+    await this.store.insert({ userId: n.userId, kind: n.kind, ...(n.link === undefined ? {} : { link: n.link }), title: n.title.slice(0, 200), body: n.body?.slice(0, 2000) ?? null, id: this.env.id() })
       .catch((error: unknown) => { this.env.warn(`notification not saved (${error instanceof Error ? error.name : 'unknown'}): ${n.title}`); });
+    if (n.email && this.email) await this.email.deliver(n.userId, n.title.slice(0, 200), n.body?.slice(0, 2000) ?? null).catch((error: unknown) => { this.env.warn(`report email failed (${error instanceof Error ? error.name : 'unknown'}): ${n.title}`); });
   }
 
   async list(userId: string, limit = 50): Promise<{ items: NotificationDto[]; unread: number }> {

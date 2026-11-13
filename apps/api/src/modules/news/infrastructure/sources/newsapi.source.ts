@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { SourceClient, SourceDescriptor } from '../../../../shared/sources';
+import type { SourceDescriptor } from '../../../../shared/sources';
+import { KeyedThrottledSource } from './min-interval';
 import type { NewsSource, RawHeadline } from '../../application/news';
 
 export const NEWSAPI_DESCRIPTOR: SourceDescriptor = {
@@ -19,14 +20,12 @@ const FINANCE_DOMAINS = ['reuters.com', 'bloomberg.com', 'cnbc.com', 'ft.com', '
   'fxstreet.com', 'kitco.com', 'oilprice.com', 'economictimes.indiatimes.com', 'livemint.com', 'business-standard.com', 'financialexpress.com'].join(',');
 
 /** newsapi.org global macro headlines; only with NEWS_API_KEY. The free plan allows 100 requests a day, so the job calls it at most hourly. */
-export class NewsApiSource implements NewsSource {
+export class NewsApiSource extends KeyedThrottledSource implements NewsSource {
   readonly name = 'NewsAPI';
-  private lastCall = 0;
-  constructor(private readonly key: string, private readonly client: SourceClient, private readonly clock: () => number = Date.now) {}
+  protected readonly everyMs = 3_600_000;
 
   async fetch(signal: AbortSignal): Promise<RawHeadline[]> {
-    if (this.clock() - this.lastCall < 3_600_000) return [];
-    this.lastCall = this.clock();
+    if (!this.due()) return [];
     const url = `https://newsapi.org/v2/everything?language=en&sortBy=publishedAt&pageSize=50&searchIn=title&domains=${FINANCE_DOMAINS}&q=${encodeURIComponent(MACRO_QUERY)}`;
     const { text } = await this.client.get(NEWSAPI_DESCRIPTOR.id, url, { headers: { 'x-api-key': this.key }, signal });
     const articles = NewsApiResponse.parse(JSON.parse(text)).articles;

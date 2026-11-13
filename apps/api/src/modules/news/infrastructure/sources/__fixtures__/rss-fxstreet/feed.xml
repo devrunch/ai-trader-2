@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+  <channel>
+    <title>FXStreet</title>
+    <link>https://example.test/rss-fxstreet</link>
+    <item>
+      <title>FXStreet headline 1: markets react to the day's news</title>
+      <link>https://example.test/rss-fxstreet/1</link>
+      <pubDate>Thu, 12 Nov 2026 01:30:00 GMT</pubDate>
+      <description>&lt;p&gt;Summary 1 from FXStreet.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>FXStreet headline 2: markets react to the day's news</title>
+      <link>https://example.test/rss-fxstreet/2</link>
+      <pubDate>Thu, 12 Nov 2026 02:30:00 GMT</pubDate>
+      <description>&lt;p&gt;Summary 2 from FXStreet.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>FXStreet headline 3: markets react to the day's news</title>
+      <link>https://example.test/rss-fxstreet/3</link>
+      <pubDate>Thu, 12 Nov 2026 03:30:00 GMT</pubDate>
+      <description>&lt;p&gt;Summary 3 from FXStreet.&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>

@@ -6,7 +6,7 @@ import type { BackgroundRuns } from './agent-trader';
 import type { ChatService, WindowLimiter } from './chat-service';
 import type { DeskTaskRunner } from './desk-task';
 
-interface Notify { notify(n: { userId: string; kind: 'task'; title: string; body?: string | null; link?: { threadId?: string; symbol?: string } }): Promise<void> }
+interface Notify { notify(n: { userId: string; kind: 'task'; title: string; body?: string | null; link?: { threadId?: string; symbol?: string }; email?: boolean }): Promise<void> }
 export interface WatchLimits { limiter: WindowLimiter; dailyRuns: number; now: () => number }
 
 const logger = new Logger('TaskFirer');
@@ -39,7 +39,7 @@ export class TaskFirer {
     if (watching && !error) {
       const verdict = parseWatchReply(reply);
       if (!verdict.report) return { error: null, outcome: 'silent' };
-      await this.notifications.notify({ userId: task.userId, kind: 'task', title: `Watch: ${task.title}`, body: verdict.text.slice(0, 600), link: { threadId } });
+      await this.notifications.notify({ userId: task.userId, kind: 'task', title: `Watch: ${task.title}`, body: verdict.text.slice(0, 600), link: { threadId }, email: true });
       return { error: null, outcome: 'report' };
     }
     // The last lines are the summary the prompt asks for; the full reply is in the task's thread.

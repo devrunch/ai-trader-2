@@ -246,6 +246,13 @@
       "when": 1794300037000,
       "tag": "0037_event_reactions",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794300038000,
+      "tag": "0038_news_sentiment",
+      "breakpoints": true
     }
   ]
 }

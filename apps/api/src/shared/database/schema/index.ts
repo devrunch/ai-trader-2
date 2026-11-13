@@ -5,7 +5,7 @@ export { users } from './users';
 export { paperAccounts, paperOrders, paperFills, paperPositions } from './paper';
 export { promptVersions } from './prompts';
 export { agentThreads, agentMessages, agentTurns, agentActions, agentTasks, agentMemory, agentTrades, executionPrefs, deskRuns, deskBacktests } from './agent';
-export { newsItems } from './news';
+export { newsItems, userEmailPrefs } from './news';
 export { notifications } from './notifications';
 export { watchlists } from './watchlists';
 export { economicEvents } from './calendar';

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { RSS_DESCRIPTORS, RSS_FEEDS, RssSource } from './rss.source';
-import { clientReturning } from './source-test-client.spec-helper';
+import { clientReturning } from '../../../../shared/sources/source-test-client.spec-helper';
 
 const fixture = (id: string): string => readFileSync(join(__dirname, '__fixtures__', id, 'feed.xml'), 'utf8');
 const signal = (): AbortSignal => new AbortController().signal;
@@ -37,6 +37,6 @@ describe.each(RSS_FEEDS)('$id (FR-NW-1)', feed => {
   });
 });
 
-it('lists the seven live feeds by id', () => {
-  expect(RSS_DESCRIPTORS.map(d => d.id)).toEqual(['rss-et', 'rss-mint', 'rss-bs', 'rss-cnbctv18', 'rss-businessline', 'rss-investing', 'rss-yahoo-index']);
+it('lists the live feeds by id', () => {
+  expect(RSS_DESCRIPTORS.map(d => d.id)).toEqual(['rss-et', 'rss-mint', 'rss-bs', 'rss-cnbctv18', 'rss-businessline', 'rss-investing', 'rss-yahoo-index', 'rss-investing-forex', 'rss-investing-commodities', 'rss-fxstreet', 'rss-oilprice', 'rss-coindesk', 'rss-cointelegraph', 'rss-cnbc-markets', 'rss-marketwatch']);
 });

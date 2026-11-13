@@ -1,0 +1,1 @@
+{"query":"RBI policy","results":[{"title":"RBI holds repo rate","url":"https://example.test/rbi","content":"The Reserve Bank   kept the rate.\nUnchanged at 6.5%.","score":0.9},{"title":"Bad link","url":"javascript:alert(1)","content":"x","score":0.5}]}

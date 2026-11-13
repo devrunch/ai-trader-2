@@ -6,6 +6,7 @@ class MemoryStore implements WatchlistStore {
   rows = new Map<string, string[]>();
   get(userId: string) { return Promise.resolve(this.rows.get(userId) ?? null); }
   save(userId: string, items: string[]) { this.rows.set(userId, [...items]); return Promise.resolve(); }
+  allSymbols() { return Promise.resolve([...new Set([...this.rows.values()].flat())]); }
 }
 
 const known = new Map([['NSE:INFY', 'NSE:INFY'], ['nasdaq:aapl', 'NASDAQ:AAPL'], ['NASDAQ:AAPL', 'NASDAQ:AAPL'], ['MCX:GOLD1!', 'MCX:GOLD1!']]);
@@ -34,6 +35,11 @@ describe('watchlists', () => {
     expect((await lists.replace('u1', ['MCX:GOLD1!', 'NSE:RELIANCE', 'MCX:GOLD1!'])).items).toEqual(['MCX:GOLD1!', 'NSE:RELIANCE']);
     await expect(lists.replace('u1', ['NSE:NOPE'])).rejects.toBeInstanceOf(NotFoundError);
     expect((await lists.get('u1')).items).toEqual(['MCX:GOLD1!', 'NSE:RELIANCE']);
+  });
+
+  it('lists every watched symbol once across users', async () => {
+    await lists.replace('u1', ['NSE:INFY']); await lists.replace('u2', ['NSE:INFY', 'NASDAQ:AAPL']);
+    expect((await lists.allSymbols()).sort()).toEqual(['NASDAQ:AAPL', 'NSE:INFY']);
   });
 
   it('caps the list at 100', async () => {

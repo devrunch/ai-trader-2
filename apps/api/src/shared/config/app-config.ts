@@ -59,6 +59,15 @@ export const AppConfigSchema = z.object({
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.
   NEWS_API_KEY: unsetIfBlank(secret),
+  NEWSDATA_API_KEY: unsetIfBlank(secret),
+  ALPHAVANTAGE_API_KEY: unsetIfBlank(secret),
+  // Sentiment: the cheap model scores at most NEWS_LLM_DAILY headlines a day; past that FinBERT (Hugging Face) scores, then word rules.
+  HF_API_TOKEN: unsetIfBlank(secret),
+  FINBERT_MODEL: unsetIfBlank(z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'a Hugging Face model like ProsusAI/finbert')),
+  NEWS_LLM_DAILY: z.preprocess(value => (value === '' ? undefined : value), z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(100_000)).default(3000)),
+  // Web search for the assistant (Tavily); off when blank. Calls per day across all users.
+  TAVILY_API_KEY: unsetIfBlank(secret),
+  AGENT_WEB_SEARCH_DAILY: z.preprocess(value => (value === '' ? undefined : value), z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(10_000)).default(100)),
   // Events: FRED (US actuals and history) and Twelve Data (US earnings dates, 8 requests/min) are off when blank.
   FRED_API_KEY: unsetIfBlank(secret),
   TWELVE_DATA_API_KEY: unsetIfBlank(secret),

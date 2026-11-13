@@ -1,4 +1,4 @@
-import type { EconomicEvent, EventScorecard, NewsItem, ScanResult, ScreenSpec } from '@aitrader/contracts';
+import type { EconomicEvent, EventScorecard, NewsItemFull, ScanResult, ScreenSpec } from '@aitrader/contracts';
 import type { WatchReader } from '../application/agent-tasks';
 import type { HeldPosition } from '../domain/event-brief';
 
@@ -15,7 +15,7 @@ export interface WatchExtras {
 
 /** Headlines and calendar events for the watches; a move is the quote's change against the previous close. */
 export class FeedWatchReader implements WatchReader {
-  constructor(private readonly news$: { list(query: { hours: number; limit: number }): Promise<NewsItem[]> },
+  constructor(private readonly news$: { leads(query: { hours: number; limit: number }): Promise<NewsItemFull[]> },
     private readonly calendar: { list(query: { days: number; impact: 'Low' }): Promise<EconomicEvent[]> },
     private readonly quote: { execute(id: string): Promise<{ changePct: number | null }> },
     private readonly scanner?: (spec: ScreenSpec, userId: string) => Promise<ScanResult>,
@@ -38,7 +38,7 @@ export class FeedWatchReader implements WatchReader {
     return scanner(spec, userId);
   }
 
-  news(): Promise<NewsItem[]> { return this.news$.list({ hours: 48, limit: 200 }); }
+  news(): Promise<NewsItemFull[]> { return this.news$.leads({ hours: 48, limit: 200 }); }
 
   events(): Promise<EconomicEvent[]> { return this.calendar.list({ days: 1, impact: 'Low' }); }
 

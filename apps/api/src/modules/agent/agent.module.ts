@@ -18,12 +18,15 @@ import { GetQuote, MarketDataService } from '../market-data/application/index';
 import { MarketDataModule } from '../market-data/market-data.module';
 import { NewsService } from '../news/application/index';
 import { NewsModule } from '../news/news.module';
+import { ResearchService } from '../research/application/index';
+import { ResearchModule } from '../research/research.module';
 import { EconomicCalendar } from '../calendar/application/index';
 import { BacktestRunner, Strategies } from '../strategies/application/index';
 import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { buildDepthTools } from './application/depth-tools';
 import { buildEventScorecardTools } from './application/event-tools';
+import { buildResearchTools } from './application/research-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
 import { EventScorecards } from '../calendar/application/index';
 import { MinuteBars } from '../market-data/application/index';
@@ -88,7 +91,7 @@ import { DrizzleThreadStore, DrizzleTurnStore } from './infrastructure/drizzle-c
 import { DrizzlePromptStore } from './infrastructure/drizzle-prompt.store';
 import { FilePromptDefaults } from './infrastructure/file-prompt.defaults';
 import { MastraRunner } from './infrastructure/mastra-runner';
-import { createLanguageModel, parseModelSpec } from './infrastructure/models/model-factory';
+import { createLanguageModel, parseModelSpec } from '../../shared/llm/model-factory';
 import { RedisWindowLimiter } from './infrastructure/redis-window-limiter';
 
 const logger = new Logger('Agent');
@@ -135,7 +138,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
@@ -173,8 +176,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
         }), { now: Date.now, id: randomUUID }) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards): DataTools => deps => [
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService): DataTools => deps => [
+        ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
