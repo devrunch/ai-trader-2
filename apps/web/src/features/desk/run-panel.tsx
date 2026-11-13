@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../shared/ui/button';
 import { AiButton } from '../../shared/ui/ai-button';
 import { Field, Panel, fieldClass } from '../../shared/ui/page';
@@ -21,6 +22,10 @@ export function RunPanel({ symbol, runId, onSymbol, onOpenRun }:
   const runs = useDeskRuns(symbol);
   const opened = useDeskRun(runId);
   const shown = opened.data ?? null;
+  const client = useQueryClient();
+  const finished = shown !== null && shown.status !== 'running';
+  // When the open run finishes, refresh the run lists and the header pill at once.
+  useEffect(() => { if (finished) void client.invalidateQueries({ queryKey: ['desk', 'runs'] }); }, [finished, client]);
   const run = useRunDesk();
   const start = (iso: string | undefined) => { setProblem(null); run.mutate({ symbol, rounds, ...(iso ? { asOf: iso } : {}) }, { onSuccess: started => { onOpenRun(started.id, started.symbol); } }); };
   const onAsOf = () => {

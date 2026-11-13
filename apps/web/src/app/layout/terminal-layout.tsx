@@ -94,7 +94,7 @@ function PhoneLayout({ toolbar, chart, bottom, widgets }: Props) {
     <section aria-label={PHONE_TABS.find(t => t.id === tab)?.label} className={`min-h-0 flex-1 ${tab === 'chart' ? '' : 'overflow-auto bg-panel'}`}>{content}</section>
     <div role="tablist" aria-label="Sections" className="grid shrink-0 grid-cols-7 border-t bg-panel">
       {PHONE_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
-        className={`h-11 min-w-0 truncate text-[11px] ${tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
+        className={`h-11 min-w-0 truncate text-[11px] ${t.id === 'assistant' ? `ai-text font-semibold ${tab === t.id ? 'underline underline-offset-4' : ''}` : tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
     </div>
   </div>;
 }

@@ -25,6 +25,9 @@ export function apiUrl(path: string): string {
 /** Headers every mutating request carries (CSRF guard). */
 export const API_HEADERS = { 'X-Requested-With': 'aitrader' } as const;
 
+/** Fired when a request is refused for a missing or expired session, so the shell can send the user to sign in. */
+export const SESSION_EXPIRED = 'aitrader:session-expired';
+
 export async function apiFetch<T>(path: string, opts: Options<T>): Promise<T> {
   const timeout = AbortSignal.timeout(15_000);
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
@@ -40,6 +43,7 @@ export async function apiFetch<T>(path: string, opts: Options<T>): Promise<T> {
     throw error;
   }
   const body = await readBody(response);
+  if (response.status === 401 && !path.includes('/auth/')) window.dispatchEvent(new Event(SESSION_EXPIRED));
   if (!response.ok) {
     const parsed = ErrorBodySchema.safeParse(body);
     if (parsed.success) {

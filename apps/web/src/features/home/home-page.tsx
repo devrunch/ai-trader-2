@@ -74,8 +74,8 @@ function Card({ title, action, children }: { title: string; action?: ReactNode; 
 
 function Brief() {
   const brief = useMutation({ retry: 0, mutationFn: () => apiFetch('v1/agent/brief', { method: 'POST', schema: BriefSchema }) });
-  return <Card title="Pre-market brief" action={<Button size="sm" className="h-9" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
-    {brief.isPending ? 'Writing…' : brief.data ? 'Refresh' : 'Write today’s brief'}</Button>}>
+  return <Card title="Pre-market brief" action={<AiButton size="sm" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
+    {brief.isPending ? 'Writing…' : brief.data ? 'Refresh' : 'Write today’s brief'}</AiButton>}>
     {brief.isPending ? <div role="status" aria-label="Writing the brief" className="space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-4 w-3/5" /></div>
       : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief could not be written. Try again in a minute.'}</p>
       : brief.data ? <div className="space-y-2">{brief.data.error && <p role="alert" className="text-down">{brief.data.error}</p>}<ChatMarkdown text={brief.data.text} />

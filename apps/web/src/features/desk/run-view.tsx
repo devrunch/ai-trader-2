@@ -53,15 +53,15 @@ export function RunView({ run }: { run: DeskRunDto }) {
     {run.status === 'budget' && <p role="alert" className="text-down">This run was stopped by the token budget, so the answer below may be incomplete.</p>}
     {run.status === 'error' && <p role="alert" className="text-down">The run failed: {run.error ?? 'unknown error'}</p>}
     {running ? <Progress run={run} /> : <Decision run={run} />}
-    <RoleCards reports={trail.reports} />
-    <section aria-label="Debate" className="border bg-panel p-4"><h4 className="mb-2 font-semibold">Bull vs bear debate</h4><Debate debate={trail.debate} /></section>
+    <RoleCards reports={trail.reports} running={running} />
+    <section aria-label="Debate" className="border bg-panel p-4"><h4 className="mb-2 font-semibold">Bull vs bear debate</h4><Debate debate={trail.debate} running={running} /></section>
     <section aria-label="Trader and risk" className="space-y-1.5 border bg-panel p-4">
       <h4 className="font-semibold">Trader proposal</h4>
       {trail.proposal ? <p>{trail.proposal.action} at {price(trail.proposal.entry)}, stop {price(trail.proposal.stopLoss)}, target {price(trail.proposal.target)}: {trail.proposal.rationale}</p>
-        : <p className="text-muted-foreground">No proposal: the run stopped before the trader.</p>}
+        : <p className="text-muted-foreground">{running ? 'Waiting for the debate…' : 'No proposal: the run stopped before the trader.'}</p>}
       <h4 className="font-semibold">Risk review</h4>
       {trail.riskReview ? <p>{trail.riskReview.approve ? 'Approved' : 'Rejected'}{trail.riskReview.reasons.length > 0 && `: ${trail.riskReview.reasons.join('; ')}`}</p>
-        : <p className="text-muted-foreground">No risk review.</p>}
+        : <p className="text-muted-foreground">{running ? 'Waiting for the trader…' : 'No risk review.'}</p>}
       <p>Code gate: <span className={trail.gate.pass ? 'text-up' : 'text-down'}>{trail.gate.pass ? 'pass' : 'blocked'}</span>{trail.gate.blocks.length > 0 && ` (${trail.gate.blocks.join('; ')})`}</p>
     </section>
   </div>;
