@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai';
-import { ActionCardSchema } from '@aitrader/contracts';
+import { ActionCardSchema, TradePlanSchema } from '@aitrader/contracts';
 import { ActionCard } from './action-card';
+import { TradePlanCard } from './trade-plan-card';
 import { ChatMarkdown } from './markdown';
 
 type Part = UIMessage['parts'][number];
@@ -16,12 +17,23 @@ export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role:
     if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
     if (isTool(part) && part.type === 'tool-useSkill') return <SkillChip key={i} part={part} />;
+    if (isTool(part) && part.type === 'tool-presentTradePlan') {
+      const plan = okData(part.output, TradePlanSchema);
+      if (plan) return <TradePlanCard key={i} plan={plan} />;
+    }
     if (isTool(part)) {
       const proposed = part.type === 'tool-proposeChartAction' || part.type === 'tool-proposeDrawing' ? proposal(part.output) : null;
       return proposed ? <ActionCard key={i} proposed={proposed} /> : <ToolCard key={i} part={part} />;
     }
     return null;
   })}</div>;
+}
+
+/** The data of a successful tool result, when it has the expected shape. */
+function okData<T>(output: unknown, schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false } }): T | null {
+  if (typeof output !== 'object' || output === null || !('ok' in output) || output.ok !== true || !('data' in output)) return null;
+  const parsed = schema.safeParse(output.data);
+  return parsed.success ? parsed.data : null;
 }
 
 /** A successful proposeChartAction result carries the card; anything else shows as a plain tool card. */

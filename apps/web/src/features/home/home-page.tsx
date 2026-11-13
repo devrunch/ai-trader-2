@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { LineChart, MessageSquare } from 'lucide-react';
+import { LineChart } from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
@@ -7,6 +7,7 @@ import { AgentTaskSchema, CalendarResponseSchema, NewsResponseSchema, PaperAccou
 import { apiFetch } from '../../shared/api';
 import { ApiError } from '../../shared/api/api-error';
 import { Button } from '../../shared/ui/button';
+import { AiButton } from '../../shared/ui/ai-button';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { ChatMarkdown } from '../chat';
 import { marketStatus } from './market-status';
@@ -24,8 +25,8 @@ const IMPACT_TONE: Record<EconomicEvent['impact'], string> = { High: 'bg-down', 
 export function HomePage() {
   const navigate = useNavigate();
   const open = (symbol: string) => { void navigate({ to: '/terminal', search: { symbol, interval: '5' } }); };
-  return <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-7xl min-w-0 space-y-3 p-3 lg:p-4">
-    <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} />
+  return <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-7xl min-w-0 space-y-4 px-3 py-5 md:px-6 md:py-7">
+    <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} onOpenAssistant={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }} />
     <div className="grid min-w-0 gap-3 lg:grid-cols-12">
       <div className="min-w-0 space-y-3 lg:col-span-8">
         <Brief />
@@ -42,33 +43,33 @@ export function HomePage() {
 }
 
 function StatusPill({ open, label }: { open: boolean; label: string }) {
-  return <span className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-background px-2.5 text-[12px] font-medium">
+  return <span className="inline-flex h-7 items-center gap-1.5 border bg-panel px-2.5 text-[12px] font-medium">
     <span aria-hidden="true" className={`size-2 rounded-full ${open ? 'bg-up' : 'bg-muted-foreground'}`} />{label}</span>;
 }
 
 /** Greeting, IST market status and the two quick actions. */
-function HomeHeader({ onOpenTerminal }: { onOpenTerminal: () => void }) {
+function HomeHeader({ onOpenTerminal, onOpenAssistant }: { onOpenTerminal: () => void; onOpenAssistant: () => void }) {
   const [status, setStatus] = useState(() => marketStatus());
   useEffect(() => { const id = setInterval(() => { setStatus(marketStatus()); }, 30_000); return () => { clearInterval(id); }; }, []);
-  return <header className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded border bg-panel px-4 py-3">
+  return <header className="flex flex-wrap items-end gap-x-6 gap-y-3 pb-1">
     <div className="min-w-0 flex-1 basis-56">
-      <h1 className="text-xl font-semibold tracking-tight">{status.greeting}</h1>
+      <h1 className="font-display text-[1.75rem] font-semibold leading-tight tracking-tight">{status.greeting}</h1>
       <p className="num text-[13px] text-muted-foreground">{status.clock}</p>
     </div>
     <div role="status" aria-label="Market status" className="flex flex-wrap items-center gap-2">
       <StatusPill open={status.nse.open} label={status.nse.label} /><StatusPill open={status.us.open} label={status.us.label} />
     </div>
     <div className="flex w-full gap-2 sm:w-auto">
-      <Button className="h-10 flex-1 sm:flex-none" onClick={onOpenTerminal}><LineChart />Open terminal</Button>
-      <Button variant="outline" className="h-10 flex-1 sm:flex-none" onClick={onOpenTerminal}><MessageSquare />Ask the assistant</Button>
+      <Button variant="outline" className="h-9 flex-1 rounded-none sm:flex-none" onClick={onOpenTerminal}><LineChart />Open terminal</Button>
+      <AiButton className="flex-1 sm:flex-none" onClick={onOpenAssistant}>Ask the assistant</AiButton>
     </div>
   </header>;
 }
 
 function Card({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
-  return <section aria-label={title} className="min-w-0 rounded border bg-panel">
-    <header className="flex min-h-11 items-center justify-between gap-2 border-b px-3 py-1.5"><h2 className="text-[14px] font-semibold">{title}</h2>{action}</header>
-    <div className="p-3 text-[13px] leading-relaxed">{children}</div>
+  return <section aria-label={title} className="min-w-0 border bg-panel">
+    <header className="flex min-h-11 items-center justify-between gap-2 border-b px-4 py-1.5"><h2 className="text-[14px] font-semibold">{title}</h2>{action}</header>
+    <div className="p-4 text-[13px] leading-relaxed">{children}</div>
   </section>;
 }
 

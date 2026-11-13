@@ -51,6 +51,7 @@ import { buildCalcTool, buildCalendarTools, buildMemoryTools, buildNewsTools, bu
 import { AgentMemory } from './application/agent-memory';
 import { DrizzleMemoryStore } from './infrastructure/drizzle-memory.store';
 import { MemoryController } from './api/memory.controller';
+import { buildTradePlanTools } from './application/trade-plan-tools';
 import { buildActionTools, buildIndicatorTools } from './application/action-tools';
 import { ChatService, type AgentRunner, type WindowLimiter } from './application/chat-service';
 import { DrawingService } from './application/drawing-service';
@@ -113,7 +114,7 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
     },
   };
   const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
-    ...buildCalcTool(deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
+    ...buildCalcTool(deps), ...buildTradePlanTools({ account: (userId, symbol) => services.trader.account(userId, symbol), propose: (userId, action) => services.cards.propose(userId, action), id: () => randomUUID() }, deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
     ...services.dataTools(deps), ...buildBacktestTools({ runner: services.runner, strategies: services.strategies }, deps,
       (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); })];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);

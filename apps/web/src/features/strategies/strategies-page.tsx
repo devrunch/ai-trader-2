@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { StrategyDto } from '@aitrader/contracts';
+import { FlaskIcon } from '@phosphor-icons/react';
 import { Button } from '../../shared/ui/button';
+import { Page, PageHeader, Panel } from '../../shared/ui/page';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { BacktestResults } from './backtest-results';
 import { emptyForm, fromSpec } from './strategy-builder';
@@ -32,10 +34,14 @@ export function StrategiesPage() {
   };
   const onDelete = (id: string) => { remove.mutate(id, { onSuccess: () => { if (draft.id === id) setDraft(blank()); } }); };
 
-  return <div className="grid min-h-0 flex-1 grid-cols-1 overflow-auto md:grid-cols-[18rem_minmax(0,1fr)]">
-    <aside aria-label="Saved strategies" className="border-b p-3 text-[12px] md:border-b-0 md:border-r">
-      <div className="mb-2 flex items-center justify-between"><h2 className="font-semibold">Strategies</h2>
+  return <Page>
+    <PageHeader icon={FlaskIcon} title="Strategies"
+      description="Write entry and exit rules, backtest them on real bars with costs, and compare in-sample with out-of-sample results. Every changed run counts as a variant: the more you try, the more likely a good result is luck." />
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
+    <aside aria-label="Saved strategies" className="self-start border bg-panel text-[12px]">
+      <div className="flex min-h-11 items-center justify-between border-b px-4"><h2 className="text-[14px] font-semibold">Saved</h2>
         <Button size="xs" variant="outline" onClick={() => { setDraft(blank()); setProblem(null); run.reset(); }}>New</Button></div>
+      <div className="p-3">
       {list.isPending ? <div className="space-y-1"><Skeleton className="h-8" /><Skeleton className="h-8" /></div>
         : list.isError ? <p role="alert" className="text-down">Strategies are unavailable right now. {list.error.message}</p>
         : items.length === 0 ? <p className="text-muted-foreground">No strategies yet: build one on the right.</p>
@@ -46,12 +52,16 @@ export function StrategiesPage() {
           <Button size="xs" variant="ghost" aria-label={`Delete ${s.name}`} disabled={remove.isPending} onClick={() => { onDelete(s.id); }}>×</Button>
         </li>)}</ul>}
       {remove.isError && <p role="alert" className="mt-1 text-down">{remove.error.message}</p>}
+      </div>
     </aside>
-    <section className="min-w-0 space-y-4 p-3">
+    <section className="min-w-0 space-y-4">
+      <Panel title="Rules">
       <StrategyEditor draft={draft} onChange={setDraft} onSave={onSave} onRun={onRun} busy={run.isPending || save.isPending}
         error={problem ?? message(save.error) ?? message(run.error)} />
+      </Panel>
       {run.isPending && <Skeleton className="h-40" />}
-      {run.data && <BacktestResults result={run.data.result} variants={run.data.variants} />}
+      {run.data && <Panel title="Backtest result"><BacktestResults result={run.data.result} variants={run.data.variants} /></Panel>}
     </section>
-  </div>;
+    </div>
+  </Page>;
 }

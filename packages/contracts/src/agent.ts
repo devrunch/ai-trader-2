@@ -70,6 +70,22 @@ export const ActionCardSchema = z.strictObject({
   drawing: DrawingSchema.nullable(),
 });
 export type ActionCardDto = z.infer<typeof ActionCardSchema>;
+/** A trade idea the assistant presents as an interactive card: the model gives the levels, the server checks their order and computes risk, reward and size. */
+export const TradePlanInputSchema = z.strictObject({
+  symbol: SymbolId, interval: z.enum(INTERVALS).default('15'), side: z.enum(['buy', 'sell']),
+  entry: z.number().positive(), stopLoss: z.number().positive(), targets: z.array(z.number().positive()).min(1).max(3),
+  confidence: z.number().min(0).max(1), horizon: z.enum(['intraday', 'swing', 'positional']).default('intraday'),
+  rationale: z.string().trim().min(10).max(600), invalidation: z.string().trim().max(200).optional(), skill: z.string().trim().max(60).optional(),
+});
+export type TradePlanInput = z.infer<typeof TradePlanInputSchema>;
+export const TradePlanSchema = z.strictObject({
+  ...TradePlanInputSchema.shape, interval: z.enum(INTERVALS), horizon: z.enum(['intraday', 'swing', 'positional']),
+  id: z.uuid(), riskPerUnit: z.number().positive(), rewards: z.array(z.strictObject({ price: z.number().positive(), rewardRisk: z.number() })),
+  sizing: z.strictObject({ quantity: z.number().int().positive(), riskAmount: z.number().positive(), riskPct: z.number().positive(), currency: z.string() }).nullable(),
+  /** The paper order to place this plan, as a card the user confirms; null when no size fits the risk budget. */
+  orderCard: ActionCardSchema.nullable(),
+});
+export type TradePlanDto = z.infer<typeof TradePlanSchema>;
 /** Apply with the fields as the user edited them; the kind cannot change. */
 export const ActionApplyRequestSchema = z.strictObject({ action: AgentActionSchema.optional() });
 

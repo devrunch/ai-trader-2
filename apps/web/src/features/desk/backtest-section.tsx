@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { DeskBacktestDto, DeskBacktestRequest } from '@aitrader/contracts';
 import { Button } from '../../shared/ui/button';
+import { AiButton } from '../../shared/ui/ai-button';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { generateDates } from './desk-dates';
 import { price, time, tone } from './desk-format';
@@ -49,7 +50,6 @@ export function BacktestSection({ symbol }: { symbol: string }) {
   const est = estimate.data;
   const shownError = start !== '' && end !== '' ? generated.error : null;
   return <section aria-label="Desk backtest" className="space-y-2 text-[12px]">
-    <h3 className="text-[13px] font-semibold">Desk backtest for {symbol}</h3>
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1">Start date <input aria-label="Start date" type="date" className={box} value={start} onChange={e => { change(() => { setStart(e.target.value); }); }} /></label>
       <label className="flex items-center gap-1">End date <input aria-label="End date" type="date" className={box} value={end} onChange={e => { change(() => { setEnd(e.target.value); }); }} /></label>
@@ -61,7 +61,7 @@ export function BacktestSection({ symbol }: { symbol: string }) {
     {shownError && <p role="alert" className="text-down">{shownError}</p>}
     <div className="flex flex-wrap items-center gap-2">
       <Button size="xs" variant="outline" disabled={generated.error !== null || estimate.isPending} onClick={onEstimate}>Estimate cost</Button>
-      <Button size="xs" disabled={!est || launch.isPending} onClick={onStart}>Start backtest</Button>
+      <AiButton size="sm" disabled={!est || launch.isPending} onClick={onStart}>Start backtest</AiButton>
       {est && <span>{est.runs} runs, ~{est.calls} model calls, ~{est.tokensEstimate} tokens (daily runs left: {est.dailyRunsLeft})</span>}
     </div>
     {estimate.isError && <p role="alert" className="text-down">{estimate.error.message}</p>}

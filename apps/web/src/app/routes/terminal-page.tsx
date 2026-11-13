@@ -2,7 +2,9 @@ import { useCallback, useMemo, useState } from 'react';
 import type { Interval, PaperSide } from '@aitrader/contracts';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search';
-import { Brand, CompactNav } from '../layout/app-shell';
+import { CompactNav } from '../layout/app-shell';
+import { Wordmark } from '../../shared/ui/brand-mark';
+import { AiButton } from '../../shared/ui/ai-button';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
 import { IndicatorPicker, IndicatorTemplatesMenu } from '../../features/indicators';
@@ -19,7 +21,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 const Divider = () => <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />;
 
 export function TerminalPage() {
-  const { symbol, interval } = useSearch({ from: '/terminal' });
+  const { symbol, interval, panel } = useSearch({ from: '/terminal' });
   const navigate = useNavigate();
   const [initial, setInitial] = useState<string | null>(null);
   const open = useCallback((value: string) => { setInitial((current) => current ?? value); }, []);
@@ -33,15 +35,17 @@ export function TerminalPage() {
   const toolbar = <div className="flex w-full min-w-0 items-center gap-1 px-2">
     {/* On a phone the group scrolls sideways rather than squeezing the symbol and price over the interval buttons. */}
     <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,black_88%,transparent)]">
-      <span className="hidden shrink-0 items-center xl:flex"><Brand /><Divider /></span>
+      <span className="hidden shrink-0 items-center xl:flex"><Wordmark className="px-1" /><Divider /></span>
       <span className="shrink-0"><InstrumentBadge symbol={symbol} onSymbolClick={() => { open(''); }} /></span><Divider />
       <span className="shrink-0"><IntervalPicker /></span><Divider />
       <span className="shrink-0"><IndicatorPicker /></span><span className="shrink-0"><IndicatorTemplatesMenu /></span>
     </div>
-    <div className="flex shrink-0 items-center gap-1"><ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
+    <div className="flex shrink-0 items-center gap-1">
+      <AiButton size="sm" className="mr-1 hidden md:inline-flex" onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval, panel: 'assistant' } }); }}>Ask AI</AiButton>
+      <ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
   </div>;
   return <>
-    <TerminalLayout toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
+    <TerminalLayout requestedWidget={panel} toolbar={toolbar} chart={<LiveChart symbol={symbol} interval={interval} />} bottom={<TradingPanel symbol={symbol} onTrade={setTicket} />}
       widgets={{ watchlist: <Watchlist onAdd={() => { setAdding(true); }} />, depth: <DepthPanel symbol={symbol} />, assistant: <div className="h-full p-3"><ChatPanel actions={chatActions} /></div>, alerts: <AlertsPanel symbol={symbol} interval={interval} onOpenSymbol={chatActions.openSymbol} />, news: <NewsPanel symbol={symbol} onOpenSymbol={chatActions.openSymbol} /> }} />
     {ticket && <OrderDialog symbol={symbol} side={ticket} onClose={() => { setTicket(null); }} />}
     {adding && <SymbolSearchDialog initial="" onClose={() => { setAdding(false); }} onSelect={(id) => { watchlist.add.mutate(id); }} />}
