@@ -34,7 +34,7 @@ describe('FR-MD-2 RedisDepthStore', () => {
   });
   it('reports storage unavailable when Redis is stopped', async () => {
     const dead = new Redis(container.url, { maxRetriesPerRequest: 0, enableOfflineQueue: false, retryStrategy: () => null });
-    await dead.quit();
+    dead.disconnect();
     await expect(new RedisDepthStore(dead).get('NSE:TEST')).rejects.toMatchObject({ message: 'Depth storage unavailable' });
   });
 });
