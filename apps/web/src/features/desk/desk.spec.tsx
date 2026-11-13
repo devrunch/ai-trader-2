@@ -28,6 +28,7 @@ let pastBacktests: unknown[] = [];
 const posts: Array<Record<string, unknown>> = [];
 const server = setupServer(
   http.get('/api/v1/desk/runs', () => HttpResponse.json({ items: pastRuns })),
+  http.get('/api/v1/desk/runs/:id', () => HttpResponse.json(pastRuns[0] ?? runResponse.body)),
   http.post('/api/v1/desk/runs', async ({ request }) => { posts.push(await request.json() as Record<string, unknown>); return HttpResponse.json(runResponse.body, { status: runResponse.status }); }),
   http.get('/api/v1/desk/backtests', () => HttpResponse.json({ items: pastBacktests })),
   http.get('/api/v1/desk/backtests/:id', () => HttpResponse.json(doneBacktest)),
@@ -41,8 +42,19 @@ afterAll(() => { server.close(); });
 
 function Page() {
   const [symbol, setSymbol] = useState('NSE:NIFTY');
-  return <Providers><DeskPage symbol={symbol} onSymbol={setSymbol} /></Providers>;
+  const [runId, setRunId] = useState<string | undefined>(undefined);
+  return <Providers><DeskPage symbol={symbol} runId={runId} onSymbol={setSymbol} onOpenRun={setRunId} /></Providers>;
 }
+
+it('a run that is still working shows its progress and says the page can be left', async () => {
+  runResponse = { status: 200, body: makeRun({ status: 'running', trail: { ...makeRun().trail, debate: [], proposal: null, riskReview: null } }) };
+  render(<Page />);
+  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
+  const progress = await screen.findByRole('status', { name: 'Desk progress' });
+  expect(progress.textContent).toContain('You can leave this page');
+  expect(progress.textContent).toContain('Bull vs bear…');
+  expect(screen.queryByLabelText('Decision action')).toBeNull();
+});
 
 it('run now posts the symbol and rounds without asOf and shows the decision, roles and debate', async () => {
   render(<Page />);

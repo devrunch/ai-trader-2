@@ -8,6 +8,21 @@ export function useDeskRuns(symbol: string) {
   return useQuery({ queryKey: ['desk', 'runs', symbol], queryFn: ({ signal }) => apiFetch(`/v1/desk/runs?symbol=${encodeURIComponent(symbol)}&limit=20`, { schema: DeskRunListSchema, signal }) });
 }
 
+/** One run, refreshed every few seconds while the desk is still working on it. */
+export function useDeskRun(id: string | undefined) {
+  return useQuery({ queryKey: ['desk', 'run', id], enabled: id !== undefined,
+    queryFn: ({ signal }) => apiFetch(`/v1/desk/runs/${id ?? ''}`, { schema: DeskRunSchema, signal }),
+    refetchInterval: query => (query.state.data?.status === 'running' ? POLL_MS : false) });
+}
+
+/** The user's latest runs on any symbol, to show a run in progress from any page. */
+export function useRunningDesk(enabled: boolean) {
+  return useQuery({ queryKey: ['desk', 'runs', 'recent'], enabled,
+    queryFn: ({ signal }) => apiFetch('/v1/desk/runs?limit=5', { schema: DeskRunListSchema, signal }),
+    select: data => data.items.filter(r => r.status === 'running'),
+    refetchInterval: query => (query.state.data?.items.some(r => r.status === 'running') ? POLL_MS : 60_000) });
+}
+
 export function useRunDesk() {
   const client = useQueryClient();
   return useMutation({ retry: 0, onSettled: () => client.invalidateQueries({ queryKey: ['desk', 'runs'] }),

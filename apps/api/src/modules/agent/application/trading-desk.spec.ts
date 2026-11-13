@@ -74,16 +74,35 @@ function setup(options: { maxTokens?: number; tokensPerCall?: number; proposal?:
     return Promise.resolve({ data: call.schema.parse(byRole[call.role]), tokens: options.tokensPerCall ?? 1000 });
   } };
   const rows: DeskRunDto[] = [];
-  const store: DeskRunStore = { insert: (_u, r) => { rows.push(r); return Promise.resolve(); }, list: () => Promise.resolve(rows), get: () => Promise.resolve(null), countSince: () => Promise.resolve(rows.length) };
+  const updates: string[] = [];
+  const store: DeskRunStore = { insert: (_u, r) => { rows.push(structuredClone(r)); return Promise.resolve(); },
+    update: (_u, r) => { updates.push(r.status); const i = rows.findIndex(x => x.id === r.id); rows[i] = structuredClone(r); return Promise.resolve(); },
+    list: () => Promise.resolve(rows), get: (_u, id) => Promise.resolve(rows.find(r => r.id === id) ?? null), countSince: () => Promise.resolve(rows.length) };
   const config: DeskConfig = { maxTokens: options.maxTokens ?? 60_000, dailyRuns: 3, minRewardRisk: 1.5, maxRiskPct: 0.5, defaultCash: 1_000_000 };
   const data = { snapshot: vi.fn().mockResolvedValue(snapshot) };
   let n = 0;
   const desk = new TradingDesk(data, model, store, config, { now: () => asOf + 60_000, id: () => `00000000-0000-4000-8000-00000000000${String(++n)}`, skills: () => ['breakout-trading'], cash: () => Promise.resolve(1_000_000) });
-  return { desk, calls, rows, data };
+  return { desk, calls, rows, data, updates };
 }
 const signal = new AbortController().signal;
 
 describe('TradingDesk', () => {
+  it('start() returns the run marked running at once and saves each step until the decision', async () => {
+    const { desk, rows, updates } = setup();
+    const started = await desk.start('u1', { symbol: 'NSE:INFY', asOf, rounds: 1 });
+    expect(started.status).toBe('running');
+    expect(rows[0]?.status).toBe('running');
+    await vi.waitFor(() => { expect(rows[0]?.status).toBe('done'); });
+    expect(updates.length).toBeGreaterThanOrEqual(3);
+    expect((await desk.get('u1', started.id)).decision.action).toBe('BUY');
+  });
+
+  it('shows a run left running by a restart as interrupted', async () => {
+    const { desk, rows } = setup();
+    rows.push({ ...(await desk.run('u1', { symbol: 'NSE:INFY', asOf, rounds: 1 }, signal)), id: '00000000-0000-4000-8000-0000000000aa', status: 'running', createdAt: new Date(asOf - 10 * 60_000).toISOString() });
+    expect(await desk.get('u1', '00000000-0000-4000-8000-0000000000aa')).toMatchObject({ status: 'error', error: expect.stringContaining('interrupted') as string });
+  });
+
   it('runs analysts, one debate round, trader and risk manager, sizes by code, and stores the trail', async () => {
     const { desk, calls, rows, data } = setup();
     const run = await desk.run('u1', { symbol: 'NSE:INFY', asOf, rounds: 1 }, signal);
