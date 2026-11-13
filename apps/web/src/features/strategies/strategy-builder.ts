@@ -107,3 +107,18 @@ export function fromSpec(spec: BacktestSpec): StrategyForm | null {
     stopLoss: levelText(spec.strategy.stopLoss), takeProfit: levelText(spec.strategy.takeProfit),
     commissionPct: spec.costs.commissionPct, slippagePct: spec.costs.slippagePct };
 }
+
+/** Ready-made starting points: pick one, then change it. Each is a plain rule set, not a recommendation. */
+export const STARTERS: Array<{ name: string; summary: string; form: () => StrategyForm }> = [
+  { name: 'EMA 20/50 trend cross', summary: 'Buy when the 20 EMA crosses above the 50 EMA; exit on the cross back. 2% stop.',
+    form: () => ({ ...emptyForm(), interval: '15', indicators: [{ name: 'ema20', indicatorId: 'ema', inputsText: 'length=20', plot: '' }, { name: 'ema50', indicatorId: 'ema', inputsText: 'length=50', plot: '' }],
+      entry: [{ left: 'ema20', op: 'crossesAbove', right: 'ema50' }], exit: [{ left: 'ema20', op: 'crossesBelow', right: 'ema50' }], stopLoss: '2%' }) },
+  { name: 'RSI dip buy', summary: 'Buy when RSI(14) crosses up through 30; exit when it reaches 60. Stop 1.5 x ATR.',
+    form: () => ({ ...emptyForm(), interval: '15', indicators: [{ name: 'rsi14', indicatorId: 'rsi', inputsText: 'length=14', plot: '' }, { name: 'atr14', indicatorId: 'atr', inputsText: 'length=14', plot: '' }],
+      entry: [{ left: 'rsi14', op: 'crossesAbove', right: '30' }], exit: [{ left: 'rsi14', op: 'gte', right: '60' }], stopLoss: '1.5 x atr14' }) },
+  { name: 'Breakout above yesterday’s high', summary: 'Buy when price closes above the previous bar’s high with the trend up (above the 50 EMA). 1% stop, 2% target.',
+    form: () => ({ ...emptyForm(), interval: '1D', bars: 1000, indicators: [{ name: 'ema50', indicatorId: 'ema', inputsText: 'length=50', plot: '' }],
+      entry: [{ left: 'close', op: 'gt', right: 'high[1]' }, { left: 'close', op: 'gt', right: 'ema50' }], exit: [], stopLoss: '1%', takeProfit: '2%' }) },
+  { name: 'Short below the 20 EMA', summary: 'Sell short when price crosses below the 20 EMA; cover on the cross back. 1% stop.',
+    form: () => ({ ...emptyForm(), side: 'short', entry: [{ left: 'close', op: 'crossesBelow', right: 'ema20' }], exit: [{ left: 'close', op: 'crossesAbove', right: 'ema20' }], stopLoss: '1%' }) },
+];

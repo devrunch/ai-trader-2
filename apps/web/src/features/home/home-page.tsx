@@ -78,7 +78,7 @@ function Brief() {
   return <Card title="Pre-market brief" action={<Button size="sm" className="h-9" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
     {brief.isPending ? 'Writing…' : brief.data ? 'Refresh' : 'Write today’s brief'}</Button>}>
     {brief.isPending ? <div role="status" aria-label="Writing the brief" className="space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-4 w-3/5" /></div>
-      : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief failed'}</p>
+      : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief could not be written. Try again in a minute.'}</p>
       : brief.data ? <div className="space-y-2">{brief.data.error && <p role="alert" className="text-down">{brief.data.error}</p>}<ChatMarkdown text={brief.data.text} />
         <p className="text-[11px] text-muted-foreground">Saved as a thread in the assistant; ask follow-ups there.</p></div>
       : <p className="text-muted-foreground">Overnight markets, crude, gold, the dollar, today’s releases and the levels to watch, written by the assistant from live data (about a minute).</p>}
@@ -89,7 +89,7 @@ function Calendar() {
   const events = useQuery({ queryKey: ['calendar', 3], refetchInterval: 600_000,
     queryFn: ({ signal }) => apiFetch('v1/calendar?days=3&impact=Medium', { schema: CalendarResponseSchema, signal }) });
   return <Card title="Economic calendar (IST)">
-    {events.isPending ? <Skeleton className="h-24" /> : events.isError ? <p role="alert" className="text-down">Calendar unavailable.</p>
+    {events.isPending ? <Skeleton className="h-24" /> : events.isError ? <p role="alert" className="text-down">The calendar could not be loaded. It refreshes every few hours; reload the page to try again.</p>
       : events.data.events.length === 0 ? <p className="text-muted-foreground">No medium or high impact releases in the next three days.</p>
       : <ul aria-label="Upcoming releases" className="divide-y">{events.data.events.slice(0, 14).map(e => <li key={e.id} className="grid grid-cols-[5.5rem_2.75rem_minmax(0,1fr)] items-start gap-2 py-2 sm:grid-cols-[7.5rem_3rem_minmax(0,1fr)]">
         <span className="num text-muted-foreground">{ist.format(Date.parse(e.at))}</span>
@@ -105,7 +105,7 @@ function Headlines() {
   const news = useQuery({ queryKey: ['news', 'home'], refetchInterval: 300_000,
     queryFn: ({ signal }) => apiFetch('v1/news?hours=24&limit=10', { schema: NewsResponseSchema, signal }) });
   return <Card title="Headlines">
-    {news.isPending ? <Skeleton className="h-24" /> : news.isError ? <p role="alert" className="text-down">News unavailable.</p>
+    {news.isPending ? <Skeleton className="h-24" /> : news.isError ? <p role="alert" className="text-down">Headlines could not be loaded. They update every 5 minutes; reload the page to try again.</p>
       : <ul className="divide-y">{news.data.items.map(n => <li key={n.id} className="py-2">
         <a href={n.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{n.title}</a>
         <span className="block text-[11px] text-muted-foreground">{n.source} · {ago(n.publishedAt)}{n.symbols.length ? ` · ${n.symbols.slice(0, 4).join(', ')}` : ''}</span>
@@ -136,7 +136,7 @@ function Markets({ onOpen }: { onOpen: (symbol: string) => void }) {
 function Paper() {
   const accounts = useQuery({ queryKey: ['paper', 'accounts'], queryFn: ({ signal }) => apiFetch('v1/paper/accounts', { schema: PaperAccountsResponseSchema, signal }) });
   return <Card title="Paper accounts">
-    {accounts.isPending ? <Skeleton className="h-12" /> : accounts.isError ? <p role="alert" className="text-down">Paper accounts unavailable.</p>
+    {accounts.isPending ? <Skeleton className="h-12" /> : accounts.isError ? <p role="alert" className="text-down">Paper accounts could not be loaded. Reload the page; if it stays, open the terminal’s trading panel.</p>
       : <ul className="space-y-1">{accounts.data.accounts.map(a => {
         const money = new Intl.NumberFormat(a.currency === 'INR' ? 'en-IN' : 'en-US', { style: 'currency', currency: a.currency, currencyDisplay: 'narrowSymbol', maximumFractionDigits: 0 });
         return <li key={a.id} className="flex justify-between gap-2"><span className="font-semibold">{a.currency}</span>

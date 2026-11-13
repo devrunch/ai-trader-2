@@ -8,7 +8,8 @@ import { AutoTradeControl } from './auto-trade-control';
 const listSchema = z.array(AgentTaskSchema);
 const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 
-const when = (task: AgentTaskDto): string => {
+/** What wakes a task, in words. */
+export const describeTrigger = (task: AgentTaskDto): string => {
   const t = task.trigger;
   if (t.kind === 'schedule') return `on schedule ${t.cron} (${t.tz})`;
   if (t.kind === 'news') return `on matching ${t.markets.join('/')} news`;
@@ -37,7 +38,7 @@ export function TasksList({ onOpenThread }: { onOpenThread: (threadId: string) =
         <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" onClick={() => { onOpenThread(task.threadId); }}>{task.title}</button>
         <span className={task.state === 'active' ? 'text-up' : 'text-muted-foreground'}>{task.state}</span>
       </div>
-      <p className="text-[12px] text-muted-foreground">Runs {when(task)} · {task.runs}/{task.maxRuns} runs
+      <p className="text-[12px] text-muted-foreground">Runs {describeTrigger(task)} · {task.runs}/{task.maxRuns} runs
         {task.nextRunAt && task.state === 'active' ? ` · next ${time.format(Date.parse(task.nextRunAt))}` : ''}
         {task.lastRunAt ? ` · last ${time.format(Date.parse(task.lastRunAt))}` : ''}</p>
       {task.lastError && <p className="text-[12px] text-down">Last run failed: {task.lastError}</p>}

@@ -44,7 +44,14 @@ it('lists saved strategies with their variant count', async () => {
 it('says why the list is empty', async () => {
   items = [];
   render(<Providers><StrategiesPage /></Providers>);
-  expect(await screen.findByText('No strategies yet: build one on the right.')).toBeDefined();
+  expect(await screen.findByText(/No saved strategies yet/)).toBeDefined();
+});
+
+it('loads a template into the rules', async () => {
+  items = [];
+  render(<Providers><StrategiesPage /></Providers>);
+  fireEvent.click(await screen.findByRole('button', { name: /RSI dip buy/ }));
+  expect((screen.getByDisplayValue('RSI dip buy') as HTMLInputElement).value).toBe('RSI dip buy');
 });
 
 it('runs a saved strategy with its id and shows metrics, the overfit note, a missing out-of-sample and 100 newest trades', async () => {
