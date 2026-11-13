@@ -8,6 +8,10 @@
       {
         "include": "modules/agent/prompts/**/*.md",
         "watchAssets": true
+      },
+      {
+        "include": "modules/calendar/infrastructure/sources/*.json",
+        "watchAssets": true
       }
     ]
   }

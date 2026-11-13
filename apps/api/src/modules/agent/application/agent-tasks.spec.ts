@@ -271,3 +271,110 @@ describe('AgentTasks queueing (AG-6)', () => {
     });
   });
 });
+
+describe('move and event-desk watches', () => {
+  const signal = new AbortController().signal;
+  const fireOf = () => vi.fn<(task: unknown, reason: string) => Promise<{ error: string | null; outcome: 'silent' }>>().mockResolvedValue({ error: null, outcome: 'silent' });
+  const build = (clock: { now: number }, extra: Record<string, unknown>) => {
+    const store = memory();
+    let n = 0;
+    const reader = { news: () => Promise.resolve([]), events: () => Promise.resolve([] as never[]), changes: vi.fn(() => Promise.resolve(['NSE:NIFTY +0.60% on the day'])), ...extra };
+    return { store, reader, tasks: new AgentTasks(store, { read: vi.fn() }, reader, { now: () => clock.now, id: () => `m-${String(++n)}` }) };
+  };
+
+  it('reads moves once per pass for all watches sharing a window, wakes once per instrument per hour', async () => {
+    const clock = { now: Date.parse('2026-11-12T05:10:00Z') };
+    let pct = new Map<string, number | null>([['NSE:A', 3.5], ['NSE:M', 4]]);
+    const moves = vi.fn<(symbols: string[], minutes: number, now: number) => Promise<Map<string, number | null>>>(() => Promise.resolve(pct));
+    const members = vi.fn(() => Promise.resolve(['NSE:M']));
+    const { tasks, store } = build(clock, { moves, members });
+    const trigger = { kind: 'move' as const, symbols: ['NSE:A'], universe: 'nifty50' as const, minutes: 15, minPct: 3, direction: 'either' as const };
+    await tasks.create('u1', 'th1', { title: 'a', instruction: 'x', trigger, desk: { symbol: 'NSE:NIFTY', rounds: 1 } });
+    await tasks.create('u1', 'th2', { title: 'b', instruction: 'x', trigger });
+    const fire = fireOf();
+    const dispatcher = { queues: () => false, enqueue: vi.fn(), runInline: fire };
+    expect(await tasks.runDue(dispatcher, signal)).toBe(2);
+    expect(moves).toHaveBeenCalledTimes(1);
+    expect(moves.mock.calls[0]?.slice(1)).toEqual([15, clock.now]);
+    expect(moves.mock.calls[0]?.[0]).toEqual(['NSE:A', 'NSE:M']);
+    expect(members).toHaveBeenCalledTimes(1);
+    expect(fire.mock.calls[0]?.[1]).toContain('2 instruments moved at least 3% within 15 minutes:\n- NSE:M +4.00% in 15 min\n- NSE:A +3.50% in 15 min');
+    expect([...store.rows.values()][0]?.desk?.symbol).toBe('NSE:M');
+    clock.now += 60_000;
+    expect(await tasks.runDue(dispatcher, signal)).toBe(0);
+    clock.now += 3_600_000;
+    pct = new Map([['NSE:A', -3.5]]);
+    expect(await tasks.runDue(dispatcher, signal)).toBe(2);
+  });
+
+  it('does nothing when moves are not wired or fail', async () => {
+    const clock = { now: t0 };
+    const trigger = { kind: 'move' as const, symbols: ['NSE:A'], minutes: 15, minPct: 3, direction: 'either' as const };
+    const none = build(clock, {});
+    await none.tasks.create('u1', 'th1', { title: 'a', instruction: 'x', trigger });
+    const fire = fireOf();
+    expect(await none.tasks.runDue({ queues: () => false, enqueue: vi.fn(), runInline: fire }, signal)).toBe(0);
+    const failing = build(clock, { moves: () => Promise.reject(new Error('down')) });
+    await failing.tasks.create('u1', 'th1', { title: 'a', instruction: 'x', trigger });
+    expect(await failing.tasks.runDue({ queues: () => false, enqueue: vi.fn(), runInline: fire }, signal)).toBe(0);
+  });
+
+  describe('events', () => {
+    const release = t0 + 60 * 60_000;
+    const base = { id: 'e1', title: 'US CPI', country: 'USD', at: new Date(release).toISOString(), impact: 'High' as const, forecast: '3.1%', previous: '3.0%', moves: ['NSE:NIFTY', 'US stocks'] };
+    const trigger = { kind: 'event' as const, countries: ['USD'], minImpact: 'High' as const, afterMinutes: 5, briefMinutes: 30, minSurprise: 0.2 };
+
+    it('briefs 30 minutes before with scorecard and positions, once, then reports the surprise with the branch question and the event reactions', async () => {
+      const clock = { now: t0 };
+      const events = [{ ...base }] as Array<Record<string, unknown>>;
+      const scorecard = vi.fn(() => Promise.resolve({ title: 'US CPI', country: 'USD', spec: null, stats: [], releases: [{ eventId: 'p', at: '2026-10-10T13:30:00.000Z', forecast: '3.0%', previous: null, actual: '3.2%', surprise: 0.2, surpriseZ: null, reactions: [{ symbol: 'NSE:NIFTY', refPrice: 1, move5Pct: -0.1, move15Pct: -0.4, move60Pct: null }] }] }));
+      const positions = vi.fn(() => Promise.resolve([{ symbol: 'NSE:NIFTY', quantity: 50, side: 'long' }]));
+      const { tasks, reader } = build(clock, { events: () => Promise.resolve(events), scorecard, positions });
+      await tasks.create('u1', 'th1', { title: 'cpi', instruction: 'x', trigger, maxRuns: 5 });
+      const fire = fireOf();
+      const d = { queues: () => false, enqueue: vi.fn(), runInline: fire };
+      clock.now = release - 31 * 60_000;
+      expect(await tasks.runDue(d, signal)).toBe(0);
+      clock.now = release - 30 * 60_000;
+      expect(await tasks.runDue(d, signal)).toBe(1);
+      expect(positions).toHaveBeenCalledWith('u1', ['NSE:NIFTY']);
+      expect(fire.mock.calls[0]?.[1]).toContain('Pre-event brief: US CPI');
+      expect(fire.mock.calls[0]?.[1]).toContain('NSE:NIFTY -0.4%');
+      expect(fire.mock.calls[0]?.[1]).toContain('The user holds: NSE:NIFTY long 50.');
+      clock.now = release - 20 * 60_000;
+      expect(await tasks.runDue(d, signal)).toBe(0);
+      // Released, no actual yet: a surprise watch keeps waiting.
+      clock.now = release + 5 * 60_000;
+      expect(await tasks.runDue(d, signal)).toBe(0);
+      events[0] = { ...base, actual: '3.4%', surprise: 0.3, surpriseZ: 1.2, reactions: [{ symbol: 'NSE:NIFTY', refPrice: 1, move5Pct: 0.12, move15Pct: 0.2, move60Pct: null }] };
+      clock.now = release + 6 * 60_000;
+      expect(await tasks.runDue(d, signal)).toBe(1);
+      const reason = fire.mock.calls[1]?.[1] ?? '';
+      expect(reason).toContain('actual 3.4%, surprise +0.3 (z +1.2), forecast 3.1%, previous 3.0%');
+      expect(reason).toContain('Moves since: NSE:NIFTY +0.12% (5m) +0.20% (15m).');
+      expect(reason).toContain('Say which branch happened');
+      expect(reader.changes).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the day change without reactions, and asks no branch question without a brief', async () => {
+      const clock = { now: release + 6 * 60_000 };
+      const { tasks, reader } = build(clock, { events: () => Promise.resolve([{ ...base, actual: '3.4%', surprise: 0.3 }]) });
+      clock.now = release - 10 * 60_000;
+      await tasks.create('u1', 'th1', { title: 'cpi', instruction: 'x', trigger: { ...trigger, briefMinutes: undefined } });
+      clock.now = release + 6 * 60_000;
+      const fire = fireOf();
+      expect(await tasks.runDue({ queues: () => false, enqueue: vi.fn(), runInline: fire }, signal)).toBe(1);
+      expect(reader.changes).toHaveBeenCalledWith(['NSE:NIFTY']);
+      expect(fire.mock.calls[0]?.[1]).toContain('Moves since: NSE:NIFTY +0.60% on the day.');
+      expect(fire.mock.calls[0]?.[1]).not.toContain('Say which branch');
+    });
+
+    it('skips the brief when the task is made after the brief time', async () => {
+      const clock = { now: release - 20 * 60_000 };
+      const { tasks } = build(clock, { events: () => Promise.resolve([{ ...base }]) });
+      await tasks.create('u1', 'th1', { title: 'cpi', instruction: 'x', trigger });
+      clock.now += 60_000;
+      expect(await tasks.runDue({ queues: () => false, enqueue: vi.fn(), runInline: fireOf() }, signal)).toBe(0);
+    });
+  });
+});

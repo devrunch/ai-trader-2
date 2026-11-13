@@ -114,6 +114,19 @@ describe('SourceClient', () => {
     expect(health.failure).toHaveBeenCalledWith('feed', 'timed out');
   });
 
+  it('sends a POST with the body when one is given', async () => {
+    const { client, fetchFn } = setup([new Response('ok')]);
+    await client.get('feed', 'https://x.test', { body: '{"year":2026}', headers: { 'content-type': 'application/json' } });
+    expect(fetchFn.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', body: '{"year":2026}' });
+  });
+
+  it('returns the raw bytes of a binary body', async () => {
+    const { client } = setup([new Response(new Uint8Array([0x25, 0x50, 0xff, 0x00]))]);
+    const response = await client.get('feed', 'https://x.test/a.pdf', { binary: true });
+    expect([...(response.bytes ?? [])]).toEqual([0x25, 0x50, 0xff, 0x00]);
+    expect(response.text).toBe('');
+  });
+
   it('stops retrying when the caller aborts', async () => {
     const controller = new AbortController();
     const { client, fetchFn } = setup([new Error('boom'), new Response('late')]);

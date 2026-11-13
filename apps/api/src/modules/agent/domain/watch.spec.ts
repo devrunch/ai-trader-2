@@ -1,7 +1,7 @@
 import type { EconomicEvent, NewsItem, ScanResult } from '@aitrader/contracts';
 import { describe, expect, it } from 'vitest';
 import { tickWatch, afterRun, type AgentTask } from './agent-task';
-import { describeWatch, screenOutcome, dueEvents, eventReason, freshNews, newsMatches, parseWatchReply, type EventWatch, type NewsWatch } from './watch';
+import { describeWatch, screenOutcome, dueBriefs, dueEvents, eventReason, freshNews, newsMatches, parseWatchReply, type EventWatch, type NewsWatch } from './watch';
 
 const t0 = Date.parse('2026-11-12T04:00:00Z');
 const news = (patch: Partial<NewsItem> = {}): NewsItem => ({ id: 'n1', source: 'ET', title: 'RBI cuts repo rate by 25 bps', url: 'https://x.test/1', summary: null,
@@ -130,5 +130,62 @@ describe('screenOutcome', () => {
     const quiet = screenOutcome({ seen: ['NSE:A:2026-11-12'] }, result(2000, ['NSE:A']), noon);
     expect(quiet).toEqual({ fresh: null, seen: ['NSE:A:2026-11-12', 'bar:2000'] });
     expect(screenOutcome({ seen: [] }, { ...result(1, []), asOfBar: null }, noon)).toEqual({ fresh: null, seen: [] });
+  });
+});
+
+describe('surprise watches', () => {
+  const withActual = (patch: Partial<EconomicEvent> = {}) => event({ actual: '5.00%', surprise: -0.25, surpriseZ: 1.5, ...patch });
+  const now = release + 10 * 60_000;
+
+  it('does not fire without an actual, and does not consume the event while waiting', () => {
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.2 }), [event()], now)).toEqual([]);
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.2 }), [withActual()], now + 60_000).map(e => e.id)).toEqual(['e1']);
+  });
+  it('fires when |surprise| reaches minSurprise or |surpriseZ| reaches minSurpriseZ, either is enough', () => {
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.25 }), [withActual()], now)).toHaveLength(1);
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.26 }), [withActual()], now)).toHaveLength(0);
+    expect(dueEvents(task, watchEvent({ minSurpriseZ: 1.5 }), [withActual()], now)).toHaveLength(1);
+    expect(dueEvents(task, watchEvent({ minSurpriseZ: 1.6 }), [withActual()], now)).toHaveLength(0);
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.5, minSurpriseZ: 1 }), [withActual()], now)).toHaveLength(1);
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.2 }), [withActual({ surprise: null })], now)).toHaveLength(0);
+  });
+  it('gives up on an event whose actual never arrives 90 minutes after the release', () => {
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.2 }), [withActual()], release + 89 * 60_000)).toHaveLength(1);
+    expect(dueEvents(task, watchEvent({ minSurprise: 0.2 }), [withActual()], release + 90 * 60_000)).toHaveLength(0);
+  });
+  it('words the actual, surprise, spec and reactions', () => {
+    const spec = { measures: 'Policy repo rate.', usualEffect: 'A cut lifts banks.', why: '', notes: '', source: 'rbi', beat: 'lower-better' as const };
+    expect(eventReason(withActual({ spec }), ['NSE:NIFTY +0.12% (5m) +0.20% (15m)'], true)).toBe(
+      `RBI Policy Rate Decision (INR, High) was due ${event().at}; actual 5.00%, surprise -0.25 (z +1.5), forecast 5.25%, previous 5.50%. What it is: Policy repo rate. Usual effect: A cut lifts banks. Better when: lower.`
+      + ' Moves since: NSE:NIFTY +0.12% (5m) +0.20% (15m). Say which branch happened (the actual vs forecast) and whether the move matched the brief.');
+  });
+});
+
+describe('dueBriefs', () => {
+  const brief = watchEvent({ briefMinutes: 30 });
+  const briefAt = release - 30 * 60_000;
+  const task = { createdAt: briefAt - 60_000, seen: [] as string[] };
+  it('fires from release minus briefMinutes until the release, and never without briefMinutes', () => {
+    expect(dueBriefs(task, brief, [event()], briefAt - 1)).toEqual([]);
+    expect(dueBriefs(task, brief, [event()], briefAt).map(e => e.id)).toEqual(['e1']);
+    expect(dueBriefs(task, brief, [event()], release - 1)).toHaveLength(1);
+    expect(dueBriefs(task, brief, [event()], release)).toEqual([]);
+    expect(dueBriefs(task, watchEvent(), [event()], briefAt)).toEqual([]);
+  });
+  it('fires once per event and is skipped when the task was made after the brief time', () => {
+    expect(dueBriefs({ ...task, seen: ['brief:e1'] }, brief, [event()], briefAt)).toEqual([]);
+    expect(dueBriefs({ ...task, createdAt: briefAt + 1 }, brief, [event()], briefAt + 60_000)).toEqual([]);
+  });
+  it('applies the country, title and impact filters', () => {
+    expect(dueBriefs(task, watchEvent({ briefMinutes: 30, countries: ['USD'] }), [event()], briefAt)).toEqual([]);
+    expect(dueBriefs(task, watchEvent({ briefMinutes: 30, title: 'cpi' }), [event()], briefAt)).toEqual([]);
+  });
+});
+
+describe('describeWatch for move and event options', () => {
+  it('names a move watch and the surprise and brief options', () => {
+    expect(describeWatch({ kind: 'move', symbols: [], universe: 'nifty50', minutes: 15, minPct: 3, direction: 'up' })).toBe('Move: nifty50 up 3% in 15 min');
+    expect(describeWatch({ kind: 'move', symbols: ['NSE:TCS'], minutes: 60, minPct: 1, direction: 'either' })).toBe('Move: NSE:TCS 1% in 60 min');
+    expect(describeWatch(watchEvent({ title: 'CPI', countries: ['USD'], minSurprise: 0.2, briefMinutes: 30 }))).toBe('Event: CPI (USD, high+, 5 min after, surprise >= 0.2, brief 30 min before)');
   });
 });

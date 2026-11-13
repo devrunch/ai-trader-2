@@ -232,6 +232,20 @@
       "when": 1794300035000,
       "tag": "0035_universes",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794300036000,
+      "tag": "0036_event_actuals",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794300037000,
+      "tag": "0037_event_reactions",
+      "breakpoints": true
     }
   ]
 }

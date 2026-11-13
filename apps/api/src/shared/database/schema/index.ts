@@ -15,3 +15,4 @@ export { strategies } from './strategies';
 export { savedScreens } from './screens';
 export { fundamentals } from './fundamentals';
 export { universeConstituents } from './universes';
+export { eventReactions } from './event-reactions';

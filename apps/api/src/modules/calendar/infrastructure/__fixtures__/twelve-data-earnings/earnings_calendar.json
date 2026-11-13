@@ -1,0 +1,13 @@
+{
+  "earnings": {
+    "2026-11-17": [
+      { "symbol": "HD", "name": "Home Depot Inc", "currency": "USD", "exchange": "NYSE", "mic_code": "XNYS", "country": "United States", "time": "Pre Market", "eps_estimate": 3.64, "eps_actual": null, "difference": null, "surprise_prc": null },
+      { "symbol": "ZZZZ", "name": "Not In Universe Inc", "currency": "USD", "exchange": "NYSE", "mic_code": "XNYS", "country": "United States", "time": "Pre Market", "eps_estimate": 0.1, "eps_actual": null, "difference": null, "surprise_prc": null }
+    ],
+    "2026-11-19": [
+      { "symbol": "NVDA", "name": "NVIDIA Corp", "currency": "USD", "exchange": "NASDAQ", "mic_code": "XNAS", "country": "United States", "time": "After Hours", "eps_estimate": 0.75, "eps_actual": null, "difference": null, "surprise_prc": null },
+      { "symbol": "BRK.B", "name": "Berkshire Hathaway Inc", "currency": "USD", "exchange": "NYSE", "mic_code": "XNYS", "country": "United States", "time": "Time Not Supplied", "eps_estimate": null, "eps_actual": null, "difference": null, "surprise_prc": null }
+    ]
+  },
+  "status": "ok"
+}

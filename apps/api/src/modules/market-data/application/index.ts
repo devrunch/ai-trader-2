@@ -11,3 +11,4 @@ export { CheckSessionCoverage, type InstrumentCoverage } from './check-session-c
 export { exchangeTimezone, isMarketOpen, isTradingDay, sessionAt } from './market-hours';
 export { ReadDepth } from './read-depth';
 export { StoredBars } from './stored-bars';
+export { MinuteBars } from './minute-bars';

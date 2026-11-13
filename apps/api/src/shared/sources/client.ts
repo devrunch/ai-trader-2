@@ -9,10 +9,12 @@ export interface SourceRequest {
   /** Largest body accepted, default 2 MB. */ maxBytes?: number;
   /** 4xx statuses the caller expects (a not-yet-published page): returned as is, not retried and not counted as a failure. */
   allowStatus?: number[];
+  /** A JSON request body: the call becomes a POST (for the few vendors whose read API is a POST). */ body?: string;
+  /** Also return the raw bytes (a PDF); `text` is then empty. */ binary?: boolean;
   signal?: AbortSignal;
   /** How long to wait for a rate-limit token before giving up, default 10 s. */ maxWaitMs?: number;
 }
-export interface SourceResponse { status: number; text: string; headers: Headers }
+export interface SourceResponse { status: number; text: string; headers: Headers; /** Set when the request asked for `binary`. */ bytes?: Uint8Array }
 
 export class SourceUnavailableError extends Error { override readonly name = 'SourceUnavailableError'; constructor(readonly sourceId: string, message: string) { super(message); } }
 
@@ -57,7 +59,7 @@ export class SourceClient {
         throw error;
       }
       try {
-        const response = await this.fetchFn(url, { headers: { 'user-agent': USER_AGENT, ...request.headers }, signal });
+        const response = await this.fetchFn(url, { headers: { 'user-agent': USER_AGENT, ...request.headers }, signal, ...(request.body === undefined ? {} : { method: 'POST', body: request.body }) });
         if (response.status === 429 || response.status >= 500) {
           lastError = `HTTP ${String(response.status)}`;
           if (response.status === 429) await this.health.rateLimited(sourceId);
@@ -73,9 +75,9 @@ export class SourceClient {
           await response.body?.cancel().catch(() => undefined);
           throw await this.fail(sourceId, `HTTP ${String(response.status)}`, `${sourceId} answered HTTP ${String(response.status)}`);
         }
-        const text = await readCapped(sourceId, response, maxBytes);
+        const bytes = await readCappedBytes(response, maxBytes, () => tooBig(sourceId, maxBytes));
         await this.health.success(sourceId, { items: 0, latencyMs: Math.round(performance.now() - started) });
-        return { status: response.status, text, headers: response.headers };
+        return request.binary ? { status: response.status, text: '', headers: response.headers, bytes } : { status: response.status, text: new TextDecoder().decode(bytes), headers: response.headers };
       } catch (error) {
         if (error instanceof SourceUnavailableError) {
           // Oversize bodies are not retried: the next attempt would be just as large.
@@ -114,11 +116,11 @@ export class SourceClient {
 }
 
 /** Reads at most `maxBytes`; a longer body is refused (not cut) with the error `tooBig` builds. */
-export async function readCappedBody(response: Response, maxBytes: number, tooBig: () => Error): Promise<string> {
+async function readCappedBytes(response: Response, maxBytes: number, tooBig: () => Error): Promise<Uint8Array> {
   const declared = Number(response.headers.get('content-length'));
   if (Number.isFinite(declared) && declared > maxBytes) { await response.body?.cancel().catch(() => undefined); throw tooBig(); }
   const reader = response.body?.getReader();
-  if (!reader) return '';
+  if (!reader) return new Uint8Array();
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
@@ -128,8 +130,12 @@ export async function readCappedBody(response: Response, maxBytes: number, tooBi
     if (total > maxBytes) { await reader.cancel(); throw tooBig(); }
     chunks.push(value);
   }
-  return new TextDecoder().decode(Buffer.concat(chunks));
+  return new Uint8Array(Buffer.concat(chunks));
 }
 
-const readCapped = (sourceId: string, response: Response, maxBytes: number): Promise<string> =>
-  readCappedBody(response, maxBytes, () => new SourceUnavailableError(sourceId, `${sourceId} response is larger than ${String(maxBytes)} bytes`));
+/** The same as a string, for text bodies. */
+export async function readCappedBody(response: Response, maxBytes: number, tooBig: () => Error): Promise<string> {
+  return new TextDecoder().decode(await readCappedBytes(response, maxBytes, tooBig));
+}
+
+const tooBig = (sourceId: string, maxBytes: number): SourceUnavailableError => new SourceUnavailableError(sourceId, `${sourceId} response is larger than ${String(maxBytes)} bytes`);

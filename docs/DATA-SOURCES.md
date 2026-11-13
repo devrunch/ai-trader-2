@@ -53,7 +53,7 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | yahoo-delayed | market-data | quotes/bars about 15 min delayed | US | none | polite | live |
 | nasdaq-trader | instruments | symbol directory | US | none | daily | live |
 | nse-indices | instruments | NIFTY 50/100/500 constituents (NSE index CSVs) | India | none | daily | live (AG-7) |
-| twelve-data | market-data, calendar | quotes where feeds lack them; US earnings dates | US, forex, commodities | TWELVE_DATA_API_KEY | 8/min | build AG-8 |
+| twelve-data | market-data, calendar | quotes where feeds lack them; US earnings dates | US, forex, commodities | TWELVE_DATA_API_KEY | 8/min | built AG-8 (earnings calendar is not on the free plan; unverified live) |
 | rss-* (ET, Mint, BS, CNBC-TV18, BusinessLine, Investing, Yahoo index) | news | headlines | India, global | none | 5 min | live |
 | yahoo-ticker-rss | news | per-ticker headlines | US, watched symbols | none | 5 min | build AG-9 |
 | newsapi | news | global macro headlines | global | NEWS_API_KEY | 100/day | live |
@@ -64,11 +64,11 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | llm-sentiment | news | sentiment scoring (cheap model) | all | AGENT_MODEL / DESK_MODEL | NEWS_LLM_DAILY | build AG-9 |
 | finbert | news | sentiment fallback | all | HF_API_TOKEN, FINBERT_MODEL | HF free tier | build AG-9 |
 | ff-weekly | calendar | schedule, forecast, previous (no actual) | global FX | none | 3 h | live |
-| ff-event-specs | calendar | what each event measures, beat direction (29 inverted), notes | global FX | none (vendored JSON, 693 events) | static | build AG-8 |
-| rbi, mospi | calendar | India policy and data release dates; actuals from press releases | India | none | daily | live (dates); actuals + auto-discovered MoSPI calendar: build AG-8 |
+| ff-event-specs | calendar | what each event measures, beat direction (29 inverted), notes | global FX | none (vendored JSON, 693 events) | static | live (AG-8) |
+| rbi, mospi | calendar | India policy and data release dates; actuals from press releases | India | none | daily | live (dates); MoSPI calendar auto-discovered and RBI actuals live (AG-8); MoSPI actuals skipped (PDF only) |
 | fred | calendar | US actuals + full history (curated series) | US, so USD, gold | FRED_API_KEY | 120/min | key |
-| nse-corporate | calendar | results / board meetings for the NIFTY 500 | India | none | polite | build AG-8 (skip if not stably reachable) |
-| eia | calendar | crude inventory schedule + actuals | commodities | none | weekly | build AG-8 |
+| nse-corporate | calendar | results / board meetings for the NIFTY 500 | India | none | polite | skipped (AG-8): not stably reachable without bot-protection workarounds |
+| eia | calendar | crude inventory schedule + actuals | commodities | none | weekly | live (AG-8): schedule only, actuals need an EIA key |
 | screener-in | fundamentals | ratios, results, growth, shareholding | India | none | <= 1 request / 3 s; `/company/<SYMBOL>/` only (robots.txt) | live (AG-7; fixtures hand-written, verify against the live site) |
 | tavily | research | web search for the agent | all | TAVILY_API_KEY | AGENT_WEB_SEARCH_DAILY | build AG-9 |
 | ff-history | calendar | actuals history from 2007 (old product's 66 MB export) | global FX | none | static | lost: rebuild from FRED history + our own captured actuals |

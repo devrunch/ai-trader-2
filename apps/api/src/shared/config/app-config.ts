@@ -59,6 +59,9 @@ export const AppConfigSchema = z.object({
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.
   NEWS_API_KEY: unsetIfBlank(secret),
+  // Events: FRED (US actuals and history) and Twelve Data (US earnings dates, 8 requests/min) are off when blank.
+  FRED_API_KEY: unsetIfBlank(secret),
+  TWELVE_DATA_API_KEY: unsetIfBlank(secret),
   APP_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:5173'),
   NODE_ENV: z.enum(['development', 'test', 'production']),
   PORT: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(65535)).default(8000),

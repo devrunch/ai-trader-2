@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
-import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, NewsItem, ScanResult, ScreenSpec, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, EventScorecard, NewsItem, ScanResult, ScreenSpec, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
-import { describeWatch, dueEvents, eventReason, freshNews, isWatch, screenOutcome } from '../domain/watch';
+import { briefKey, briefReason, formatReactions, type HeldPosition } from '../domain/event-brief';
+import { freshMoves, moveSymbols, type MoveWatch } from '../domain/move-watch';
+import { describeWatch, dueBriefs, dueEvents, eventReason, freshNews, isWatch, screenOutcome } from '../domain/watch';
 
 export interface TaskStore {
   create(task: AgentTask): Promise<void>;
@@ -21,7 +23,16 @@ export interface WatchReader {
   changes(symbols: string[]): Promise<string[]>;
   /** Runs a screen for a user on stored bars; absent when screening is not wired. */
   screen?(spec: ScreenSpec, userId: string): Promise<ScanResult>;
+  /** Percent change of each symbol over the last `minutes` (null: no data); absent when move watches are not wired. */
+  moves?(symbols: string[], minutes: number, now: number): Promise<Map<string, number | null>>;
+  /** The symbols of a universe for a user (a move watch looks at all of them). */
+  members?(universe: NonNullable<MoveWatch['universe']>, userId: string): Promise<string[]>;
+  /** How past releases of this event moved the market, for the pre-event brief. */
+  scorecard?(event: EconomicEvent): Promise<EventScorecard | null>;
+  /** The user's open positions among `symbols`. */
+  positions?(userId: string, symbols: string[]): Promise<HeldPosition[]>;
 }
+type MoveBatch = Map<string, number | null>;
 /** Runs the assistant for a fired task; `error` is set when the run failed, `outcome` says how it ended. */
 export interface FireResult { error: string | null; outcome: TaskOutcome }
 export type FireTask = (task: AgentTask, reason: string) => Promise<FireResult>;
@@ -108,6 +119,39 @@ export class AgentTasks {
     return dto(next);
   }
 
+  private async releaseText(event: EconomicEvent, briefInThread: boolean): Promise<string> {
+    const reactions = formatReactions(event.reactions);
+    const lines = reactions.length ? reactions : await this.watches.changes(event.moves.filter(m => m.includes(':'))).catch(() => []);
+    return eventReason(event, lines, briefInThread);
+  }
+
+  private async briefText(userId: string, event: EconomicEvent): Promise<string> {
+    const symbols = event.moves.filter(m => m.includes(':'));
+    const [scorecard, positions] = await Promise.all([
+      this.watches.scorecard?.(event).catch(() => null) ?? null,
+      this.watches.positions?.(userId, symbols).catch((): HeldPosition[] => []) ?? [],
+    ]);
+    return briefReason(event, scorecard, positions);
+  }
+
+  /** For each window length, the changes of every symbol the active move watches need, read in one call. */
+  private moveBatches(tasks: AgentTask[], now: number, membersOf: (task: AgentTask, trigger: MoveWatch) => Promise<string[]>): Map<number, Promise<MoveBatch>> {
+    const moves = this.watches.moves?.bind(this.watches);
+    const wanted = new Map<number, Array<Promise<string[]>>>();
+    for (const task of tasks) {
+      const { trigger } = task;
+      if (trigger.kind !== 'move' || task.state !== 'active' || task.runState !== 'idle' || now >= task.expiresAt || !moves) continue;
+      const list = wanted.get(trigger.minutes) ?? [];
+      list.push(membersOf(task, trigger).then(m => moveSymbols(trigger, m)));
+      wanted.set(trigger.minutes, list);
+    }
+    const out = new Map<number, Promise<MoveBatch>>();
+    for (const [minutes, lists] of wanted) {
+      out.set(minutes, Promise.all(lists).then(all => moves?.([...new Set(all.flat())], minutes, now) ?? new Map()).catch((): MoveBatch => new Map()));
+    }
+    return out;
+  }
+
   /** One pass over every active task: expire, evaluate, fire what is due. Reads each condition, the news and the calendar once per pass. */
   async runDue(dispatch: Dispatcher, signal: AbortSignal): Promise<number> {
     const now = this.env.now();
@@ -124,6 +168,22 @@ export class AgentTasks {
     let events: Promise<EconomicEvent[]> | undefined;
     // One scan per (user, spec) per pass, however many tasks watch it.
     const scans = new Map<string, Promise<ScanResult | null>>();
+    const members = new Map<string, Promise<string[]>>();
+    const membersOf = (task: AgentTask, trigger: MoveWatch): Promise<string[]> => {
+      const { universe } = trigger;
+      if (!universe || !this.watches.members) return Promise.resolve([]);
+      const key = `${task.userId}|${universe}`;
+      const known = members.get(key) ?? this.watches.members(universe, task.userId).catch(() => []);
+      members.set(key, known);
+      return known;
+    };
+    const active = await this.store.active();
+    // One batched read per window length per pass, over every symbol the move watches need.
+    const batches = this.moveBatches(active, now, membersOf);
+    const moveFresh = async (task: AgentTask, trigger: MoveWatch): Promise<Fresh | null> => {
+      const changes = await batches.get(trigger.minutes);
+      return changes ? freshMoves(task, trigger, changes, await membersOf(task, trigger), now) : null;
+    };
     const evaluate = async (task: AgentTask): Promise<Tick> => {
       const { trigger } = task;
       if (trigger.kind === 'schedule') return tick(task, now);
@@ -140,19 +200,24 @@ export class AgentTasks {
             fresh = outcome.fresh;
             if (!fresh && outcome.seen !== task.seen) return { fire: false, task: { ...task, seen: outcome.seen } };
           }
+        } else if (trigger.kind === 'move') {
+          fresh = await moveFresh(task, trigger);
         } else if (trigger.kind === 'news') {
           news ??= this.watches.news().catch(() => []);
           fresh = freshNews(task, trigger, await (news));
         } else {
           events ??= this.watches.events().catch(() => []);
-          const [due] = dueEvents(task, trigger, await (events), now);
-          if (due) fresh = { ids: [due.id], reason: eventReason(due, await this.watches.changes(due.moves.filter(m => m.includes(':'))).catch(() => [])) };
+          const list = await events;
+          const [brief] = dueBriefs(task, trigger, list, now);
+          const [due] = brief ? [] : dueEvents(task, trigger, list, now);
+          if (brief) fresh = { ids: [briefKey(brief.id)], reason: await this.briefText(task.userId, brief) };
+          else if (due) fresh = { ids: [due.id], reason: await this.releaseText(due, task.seen.includes(briefKey(due.id))) };
         }
       }
       return tickWatch({ ...task, trigger }, now, fresh);
     };
     let fired = 0;
-    for (const task of await this.store.active()) {
+    for (const task of active) {
       if (signal.aborted) break;
       // One run in flight per task. A queued run that nobody has picked up for a long time is queued again.
       if (task.runState !== 'idle') {
