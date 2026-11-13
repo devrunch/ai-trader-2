@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
 import { NEWS_IMPACTS } from './news.js';
 import { DeskTaskSchema } from './desk.js';
-import { ScreenSpecSchema } from './screener.js';
+import { ScreenSpecSchema, UNIVERSES } from './screener.js';
 import { PAPER_PRODUCTS } from './paper.js';
 import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
@@ -101,7 +101,14 @@ export const TaskTriggerSchema = z.discriminatedUnion('kind', [
     keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(NEWS_IMPACTS).default('medium') }),
   /** Fires once per matching calendar event, `afterMinutes` after its release so the market's reaction is visible. */
   z.strictObject({ kind: z.literal('event'), countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
-    minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5) }),
+    minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5),
+    /** Fire only when the released value surprises: |actual - forecast| >= minSurprise (event units) or the surprise is >= minSurpriseZ standard deviations. Either may be set. */
+    minSurprise: z.number().positive().optional(), minSurpriseZ: z.number().positive().optional(),
+    /** Wake this many minutes before a matching event to write a brief that states both branches (above and below forecast). */
+    briefMinutes: z.number().int().min(5).max(1440).optional() }),
+  /** A sharp move: any listed instrument (or any member of the universe) changing by at least minPct within the last `minutes`; one report per instrument per hour. */
+  z.strictObject({ kind: z.literal('move'), symbols: z.array(SymbolId).max(20).default([]), universe: z.enum(UNIVERSES).optional(), minutes: z.number().int().min(1).max(240).default(15),
+    minPct: z.number().positive().max(100), direction: z.enum(['up', 'down', 'either']).default('either') }),
   /** Fires on symbols newly matching a screen, evaluated once per new closed bar; a symbol is reported at most once a day. */
   z.strictObject({ kind: z.literal('screen'), spec: ScreenSpecSchema }),
 ]);
