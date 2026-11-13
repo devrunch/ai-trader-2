@@ -1,7 +1,7 @@
-import type { EconomicEvent, NewsItem } from '@aitrader/contracts';
+import type { EconomicEvent, NewsItem, ScanResult } from '@aitrader/contracts';
 import { describe, expect, it } from 'vitest';
 import { tickWatch, afterRun, type AgentTask } from './agent-task';
-import { describeWatch, dueEvents, eventReason, freshNews, newsMatches, parseWatchReply, type EventWatch, type NewsWatch } from './watch';
+import { describeWatch, screenOutcome, dueEvents, eventReason, freshNews, newsMatches, parseWatchReply, type EventWatch, type NewsWatch } from './watch';
 
 const t0 = Date.parse('2026-11-12T04:00:00Z');
 const news = (patch: Partial<NewsItem> = {}): NewsItem => ({ id: 'n1', source: 'ET', title: 'RBI cuts repo rate by 25 bps', url: 'https://x.test/1', summary: null,
@@ -105,5 +105,30 @@ describe('describeWatch', () => {
   it('names a watch in plain words', () => {
     expect(describeWatch(watch({ markets: ['india'], keywords: ['rbi'], minImpact: 'high' }))).toBe('News: india "rbi" (high+)');
     expect(describeWatch(watchEvent({ countries: ['INR'], title: 'policy' }))).toBe('Event: policy (INR, high+, 5 min after)');
+  });
+});
+
+describe('screenOutcome', () => {
+  const row = (symbol: string) => ({ symbol, name: null, last: 100, changePct: 2.5, barTime: 1, values: { rsi: 28.123 }, spark: [] });
+  const result = (asOfBar: number, symbols: string[]): ScanResult => ({ universe: 'nifty50', interval: '1D', preset: 'rsi-oversold', asOfBar, scanned: 50, matched: symbols.length, rows: symbols.map(row), stale: [], durationMs: 1, cached: false });
+  const noon = Date.parse('2026-11-12T06:30:00Z');
+
+  it('reports new matches with their values and remembers the bar and each symbol for the IST day', () => {
+    const out = screenOutcome({ seen: [] }, result(1000, ['NSE:A', 'NSE:B']), noon);
+    expect(out.fresh?.ids).toEqual(['bar:1000', 'NSE:A:2026-11-12', 'NSE:B:2026-11-12']);
+    expect(out.fresh?.deskSymbol).toBe('NSE:A');
+    expect(out.fresh?.reason).toContain('- NSE:A last 100 (+2.50%); rsi 28.12');
+  });
+  it('does not scan-report the same bar twice, and reports a symbol once a day on later bars', () => {
+    expect(screenOutcome({ seen: ['bar:1000'] }, result(1000, ['NSE:A']), noon).fresh).toBeNull();
+    const later = screenOutcome({ seen: ['bar:1000', 'NSE:A:2026-11-12'] }, result(2000, ['NSE:A', 'NSE:B']), noon);
+    expect(later.fresh?.ids).toEqual(['bar:2000', 'NSE:B:2026-11-12']);
+    const nextDay = screenOutcome({ seen: ['bar:1000', 'NSE:A:2026-11-12'] }, result(3000, ['NSE:A']), noon + 86_400_000);
+    expect(nextDay.fresh?.ids).toEqual(['bar:3000', 'NSE:A:2026-11-13']);
+  });
+  it('marks a bar with nothing new as seen without firing, and ignores a scan with no bars', () => {
+    const quiet = screenOutcome({ seen: ['NSE:A:2026-11-12'] }, result(2000, ['NSE:A']), noon);
+    expect(quiet).toEqual({ fresh: null, seen: ['NSE:A:2026-11-12', 'bar:2000'] });
+    expect(screenOutcome({ seen: [] }, { ...result(1, []), asOfBar: null }, noon)).toEqual({ fresh: null, seen: [] });
   });
 });

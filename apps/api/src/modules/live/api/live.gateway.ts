@@ -2,6 +2,7 @@ import type { Server as HttpServer } from 'node:http';
 import { Server as SocketServer, type DefaultEventsMap, type Socket } from 'socket.io';
 import type { CurrentUser } from '../../auth/application/index';
 import type { LiveIndicators } from '../application/live-indicators';
+import type { LiveDepth } from '../application/live-depth';
 import type { LiveSubscriptions } from '../application/live-subscriptions';
 import { LiveAckSchema } from '@aitrader/contracts';
 
@@ -17,7 +18,7 @@ export class LiveGateway {
   private readonly warn: (message: string) => void;
   private readonly now: () => number;
   constructor(private readonly currentUser: Pick<CurrentUser, 'execute'>, options: GatewayOptions = {}, private readonly streams?: LiveSubscriptions,
-    private readonly indicators?: LiveIndicators) {
+    private readonly indicators?: LiveIndicators, private readonly depth?: LiveDepth) {
     this.sessionCheckMs = options.sessionCheckMs ?? 5 * 60_000;
     this.warn = options.warn ?? (message => { process.emitWarning(message); });
     this.now = options.now ?? Date.now;
@@ -81,11 +82,20 @@ export class LiveGateway {
       });
     });
     socket.on('unsubscribeIndicators', (value: unknown) => { this.indicators?.unsubscribe(socket.id, value); });
+    socket.on('subscribeDepth', (value: unknown, ack: (result: unknown) => void) => {
+      if (typeof ack !== 'function' || !this.depth) return;
+      void this.depth.subscribe(socket.id, value).then(ack).catch((error: unknown) => {
+        this.warn(`Live depth subscribe failed: ${errorName(error)}`);
+        ack({ ok: false, code: 'INVALID', message: 'Depth unavailable' });
+      });
+    });
+    socket.on('unsubscribeDepth', (value: unknown) => { this.depth?.unsubscribe(socket.id, value); });
     socket.on('unsubscribe', (value: unknown) => { if (this.streams) void this.streams.unsubscribe(socket.id, value).catch((error: unknown) => { this.warn(`Live unsubscribe failed: ${errorName(error)}`); }); });
     const timer = setInterval(() => { void this.checkSession(socket).catch((error: unknown) => { this.warn(`Socket session check failed: ${errorName(error)}`); }); }, this.sessionCheckMs);
     this.sessions.set(socket.id, timer);
     socket.once('disconnect', () => {
       clearInterval(timer); this.sessions.delete(socket.id);
+      this.depth?.disconnect(socket.id);
       const userSockets = this.users.get(userId); userSockets?.delete(socket.id); if (userSockets?.size === 0) this.users.delete(userId);
       if (this.streams) void this.streams.disconnect(socket.id).catch((error: unknown) => { this.warn(`Live disconnect cleanup failed: ${errorName(error)}`); });
     });

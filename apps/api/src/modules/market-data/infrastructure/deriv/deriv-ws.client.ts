@@ -92,7 +92,10 @@ export class DerivWsClient implements FeedTransport {
       if (!this.desired.has(tick.symbol)) { if (value.subscription) this.send(derivRequest.forget(value.subscription.id)); return; }
       if (value.subscription) this.subscriptions.set(tick.symbol, value.subscription.id);
       const id = this.mappings.get(tick.symbol);
-      if (id) this.message([{ instrumentId: id, at: tick.epoch * 1000, price: tick.quote, cumVolume: null }]);
+      // Deriv quotes carry no size: quantity 0 marks a price-only top of book.
+      if (id) this.message([{ instrumentId: id, at: tick.epoch * 1000, price: tick.quote, cumVolume: null,
+        ...(tick.bid !== undefined && tick.ask !== undefined ? { book: { levels: '1' as const,
+          bids: [{ price: tick.bid, quantity: 0, orders: null }], asks: [{ price: tick.ask, quantity: 0, orders: null }] } } : {}) }]);
     } catch { this.finish('PROVIDER_DOWN'); }
   }
 }

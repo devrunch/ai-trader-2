@@ -1,4 +1,4 @@
-import type { EconomicEvent, NewsItem } from '@aitrader/contracts';
+import type { EconomicEvent, NewsItem, ScanResult, ScreenSpec } from '@aitrader/contracts';
 import type { WatchReader } from '../application/agent-tasks';
 
 const MAX_CHANGES = 6;
@@ -7,7 +7,14 @@ const MAX_CHANGES = 6;
 export class FeedWatchReader implements WatchReader {
   constructor(private readonly news$: { list(query: { hours: number; limit: number }): Promise<NewsItem[]> },
     private readonly calendar: { list(query: { days: number; impact: 'Low' }): Promise<EconomicEvent[]> },
-    private readonly quote: { execute(id: string): Promise<{ changePct: number | null }> }) {}
+    private readonly quote: { execute(id: string): Promise<{ changePct: number | null }> },
+    private readonly scanner?: (spec: ScreenSpec, userId: string) => Promise<ScanResult>) {}
+
+  screen(spec: ScreenSpec, userId: string): Promise<ScanResult> {
+    const scanner = this.scanner;
+    if (!scanner) return Promise.reject(new Error('screening is not available'));
+    return scanner(spec, userId);
+  }
 
   news(): Promise<NewsItem[]> { return this.news$.list({ hours: 48, limit: 200 }); }
 

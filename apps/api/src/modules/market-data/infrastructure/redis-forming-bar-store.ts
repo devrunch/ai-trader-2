@@ -1,7 +1,6 @@
 import type { Redis } from 'ioredis';
 import { z } from 'zod';
-import { withTimeout } from '@aitrader/resilience';
-import { UnavailableError } from '../../../shared/errors';
+import { redisCall } from '../../../shared/redis';
 import type { FormingBarStore } from '../application/ports/forming-bar-store';
 
 const valueSchema = z.object({ bar: z.object({ time: z.number(), open: z.number(), high: z.number(), low: z.number(),
@@ -33,8 +32,5 @@ export class RedisFormingBarStore implements FormingBarStore {
     await this.run(async () => { await this.redis.del(`bar:forming:${instrumentId}`); }, signal);
   }
 
-  private async run<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
-    try { return await withTimeout(async abort => { abort.throwIfAborted(); return operation(); }, 3000, signal); }
-    catch { throw new UnavailableError('Forming bar storage unavailable'); }
-  }
+  private run<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> { return redisCall('Forming bar storage unavailable', operation, signal); }
 }

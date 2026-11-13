@@ -12,6 +12,9 @@ import { NewsModule } from '../../src/modules/news/news.module';
 import { WatchlistsModule } from '../../src/modules/watchlists/watchlists.module';
 import { CalendarModule } from '../../src/modules/calendar/calendar.module';
 import { StrategiesModule } from '../../src/modules/strategies/strategies.module';
+import { FundamentalsModule } from '../../src/modules/fundamentals/fundamentals.module';
+import { ScreenerModule } from '../../src/modules/screener/screener.module';
+import { UniversesModule } from '../../src/modules/instruments/universes.module';
 
 @Module({})
 class NoInstrumentsModule {}
@@ -28,6 +31,9 @@ export function isolateInstruments(builder: TestingModuleBuilder): TestingModule
     .overrideModule(PaperTradingModule).useModule(NoInstrumentsModule)
     .overrideModule(AgentModule).useModule(NoInstrumentsModule)
     .overrideModule(StrategiesModule).useModule(NoInstrumentsModule)
+    .overrideModule(FundamentalsModule).useModule(NoInstrumentsModule)
+    .overrideModule(ScreenerModule).useModule(NoInstrumentsModule)
+    .overrideModule(UniversesModule).useModule(NoInstrumentsModule)
     .overrideModule(NewsModule).useModule(NoInstrumentsModule)
     .overrideModule(WatchlistsModule).useModule(NoInstrumentsModule)
     .overrideModule(CalendarModule).useModule(NoInstrumentsModule);

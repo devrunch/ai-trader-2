@@ -1,5 +1,6 @@
 import { PINE_SCRIPT_LIMITS } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
+import { readCappedBody } from '../../../shared/sources';
 
 export const PINE_FETCH_LIMITS = { timeoutMs: 5000, maxBytes: 200 * 1024, maxRedirects: 3 } as const;
 
@@ -12,21 +13,8 @@ function checkUrl(raw: string): URL {
   return url;
 }
 
-/** Reads at most the byte cap; a longer body is refused rather than cut, so a half script is never proposed. */
-async function readCapped(response: Response): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) return '';
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > PINE_FETCH_LIMITS.maxBytes) { await reader.cancel(); throw new ValidationError('That link is larger than 200 KB'); }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
-}
+const readCapped = (response: Response): Promise<string> =>
+  readCappedBody(response, PINE_FETCH_LIMITS.maxBytes, () => new ValidationError('That link is larger than 200 KB'));
 
 /** Fetches a raw Pine source from a link: https only, plain text, 5 s, 200 KB, redirects re-checked. The text is only ever data. */
 export async function fetchPineSource(link: string, fetchFn: typeof fetch = fetch): Promise<string> {

@@ -232,4 +232,42 @@ describe('AgentTasks queueing (AG-6)', () => {
     expect(q.store.rows.get(created.id)?.runStateAt).toBe(t0 + 22 * 60_000);
   });
 
+
+  describe('screen watches', () => {
+    const scanRow = (symbol: string) => ({ symbol, name: null, last: 100, changePct: 3, barTime: 1, values: { rsi: 25 }, spark: [] });
+    const scanResult = (asOfBar: number, symbols: string[]) => ({ universe: 'nifty50' as const, interval: '1D' as const, preset: 'rsi-oversold', asOfBar, scanned: 50, matched: symbols.length,
+      rows: symbols.map(scanRow), stale: [], durationMs: 1, cached: false });
+
+    it('scans once per pass for tasks sharing a spec, fires on new matches only, and does not report a symbol twice in a day or a bar twice', async () => {
+      const clock = { now: t0 };
+      const store = memory();
+      let next = scanResult(1000, ['NSE:A']);
+      const screen = vi.fn(() => Promise.resolve(next));
+      let n = 0;
+      const tasks = new AgentTasks(store, { read: vi.fn() }, { news: () => Promise.resolve([]), events: () => Promise.resolve([]), changes: () => Promise.resolve([]), screen },
+        { now: () => clock.now, id: () => `s-${String(++n)}` });
+      const trigger = { kind: 'screen' as const, spec: { universe: 'nifty50' as const, interval: '1D' as const, preset: 'rsi-oversold', indicators: [], fundamentals: [], limit: 50 } };
+      await tasks.create('u1', 'th1', { title: 'a', instruction: 'x', trigger, maxRuns: 5 });
+      await tasks.create('u1', 'th2', { title: 'b', instruction: 'x', trigger, maxRuns: 5 });
+      const fire = vi.fn<(task: unknown, reason: string) => Promise<{ error: string | null; outcome: 'silent' }>>().mockResolvedValue({ error: null, outcome: 'silent' });
+      const dispatcher = { queues: () => false, enqueue: vi.fn(), runInline: fire };
+      const signal = new AbortController().signal;
+
+      expect(await tasks.runDue(dispatcher, signal)).toBe(2);
+      expect(screen).toHaveBeenCalledTimes(1);
+      expect(fire.mock.calls[0]?.[1]).toContain('1 new match for rsi-oversold on nifty50 1D');
+      expect(fire.mock.calls[0]?.[1]).toContain('NSE:A last 100');
+
+      clock.now += 60_000;
+      expect(await tasks.runDue(dispatcher, signal)).toBe(0);
+      next = scanResult(2000, ['NSE:A', 'NSE:B']);
+      clock.now += 60_000;
+      expect(await tasks.runDue(dispatcher, signal)).toBe(2);
+      expect(fire.mock.calls[2]?.[1]).toContain('NSE:B');
+      expect(fire.mock.calls[2]?.[1]).not.toContain('NSE:A last');
+      next = scanResult(3000, ['NSE:A', 'NSE:B']);
+      expect(await tasks.runDue(dispatcher, signal)).toBe(0);
+      expect([...store.rows.values()][0]?.seen).toContain('bar:3000');
+    });
+  });
 });

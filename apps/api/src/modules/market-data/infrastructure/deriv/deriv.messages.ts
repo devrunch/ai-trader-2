@@ -3,7 +3,7 @@ import { z } from 'zod';
 const number = z.number();
 const message = z.object({
   req_id: z.number().int().optional(),
-  tick: z.object({ symbol: z.string(), epoch: number.nonnegative(), quote: number }).optional(),
+  tick: z.object({ symbol: z.string(), epoch: number.nonnegative(), quote: number, bid: number.optional(), ask: number.optional() }).optional(),
   subscription: z.object({ id: z.string() }).optional(),
   candles: z.array(z.object({ epoch: number.nonnegative(), open: number, high: number, low: number, close: number })).optional(),
   error: z.object({ code: z.string(), message: z.string() }).optional(),

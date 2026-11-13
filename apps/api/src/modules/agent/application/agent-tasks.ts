@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, NewsItem, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, NewsItem, ScanResult, ScreenSpec, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
-import { describeWatch, dueEvents, eventReason, freshNews, isWatch } from '../domain/watch';
+import { describeWatch, dueEvents, eventReason, freshNews, isWatch, screenOutcome } from '../domain/watch';
 
 export interface TaskStore {
   create(task: AgentTask): Promise<void>;
@@ -19,6 +19,8 @@ export interface WatchReader {
   news(): Promise<NewsItem[]>;
   events(): Promise<EconomicEvent[]>;
   changes(symbols: string[]): Promise<string[]>;
+  /** Runs a screen for a user on stored bars; absent when screening is not wired. */
+  screen?(spec: ScreenSpec, userId: string): Promise<ScanResult>;
 }
 /** Runs the assistant for a fired task; `error` is set when the run failed, `outcome` says how it ended. */
 export interface FireResult { error: string | null; outcome: TaskOutcome }
@@ -120,13 +122,25 @@ export class AgentTasks {
     };
     let news: Promise<NewsItem[]> | undefined;
     let events: Promise<EconomicEvent[]> | undefined;
+    // One scan per (user, spec) per pass, however many tasks watch it.
+    const scans = new Map<string, Promise<ScanResult | null>>();
     const evaluate = async (task: AgentTask): Promise<Tick> => {
       const { trigger } = task;
       if (trigger.kind === 'schedule') return tick(task, now);
       if (trigger.kind === 'price' || trigger.kind === 'indicator') return tick(task, now, await read(trigger));
       let fresh: Fresh | null = null;
       if (task.state === 'active' && now < task.expiresAt) {
-        if (trigger.kind === 'news') {
+        if (trigger.kind === 'screen') {
+          const scanKey = `${task.userId}|${JSON.stringify(trigger.spec)}`;
+          const scan = scans.get(scanKey) ?? (this.watches.screen ? this.watches.screen(trigger.spec, task.userId).catch(() => null) : Promise.resolve(null));
+          scans.set(scanKey, scan);
+          const result = await scan;
+          if (result) {
+            const outcome = screenOutcome(task, result, now);
+            fresh = outcome.fresh;
+            if (!fresh && outcome.seen !== task.seen) return { fire: false, task: { ...task, seen: outcome.seen } };
+          }
+        } else if (trigger.kind === 'news') {
           news ??= this.watches.news().catch(() => []);
           fresh = freshNews(task, trigger, await (news));
         } else {

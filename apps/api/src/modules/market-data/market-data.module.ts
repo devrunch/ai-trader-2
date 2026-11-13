@@ -9,8 +9,16 @@ import { JobScheduler } from '../../shared/jobs';
 import { ReadinessRegistry, type ReadinessResult } from '../../shared/health';
 import { IpRateLimitGuard } from '../../shared/http';
 import { ResolveInstrument } from '../instruments/application/index';
-import { GetQuote, MarketDataService, ReadBars } from './application';
+import { GetQuote, MarketDataService, ReadBars, StoredBars } from './application';
+import { DrizzleStoredBarsReader } from './infrastructure/drizzle-stored-bars.reader';
 import { MarketDataController } from './api/market-data.controller';
+import { DepthController } from './api/depth.controller';
+import { AuthModule } from '../auth/auth.module';
+import { ReadDepth } from './application/read-depth';
+import { RecordDepth } from './application/record-depth';
+import { RedisDepthStore } from './infrastructure/redis-depth-store';
+import { SourceRegistry } from '../../shared/sources';
+import { MARKET_DATA_DESCRIPTORS } from './infrastructure/sources/descriptors';
 import { RedisFeedStateStore } from './infrastructure/feed-state.store';
 import { RedisFeedLeadership } from './infrastructure/process/redis-feed-leadership';
 import { GetFeedOverview } from './application/get-feed-overview';
@@ -49,6 +57,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
 @Module({
   imports: [KiteModule],
   providers: [
+    { provide: 'MARKET_DATA_SOURCE_DESCRIPTORS', inject: [SourceRegistry], useFactory: (registry: SourceRegistry) => { registry.register(...MARKET_DATA_DESCRIPTORS); return MARKET_DATA_DESCRIPTORS; } },
     { provide: IpRateLimitGuard, useFactory: () => new IpRateLimitGuard(60, 20) },
     { provide: RedisFeedStateStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFeedStateStore(redis) },
     { provide: CheckSessionCoverage, inject: [DrizzleCandleStore, FillHistory], useFactory: (store: DrizzleCandleStore, fill: FillHistory) => new CheckSessionCoverage(store, fill) },
@@ -110,6 +119,14 @@ const BarPublisherToken = 'BAR_PUBLISHER';
         new BackfillJob(scheduler, backfill, async signal => { await Promise.all([kite.retryBackfills(signal), deriv.retryBackfills(signal)]); }) },
     { provide: DrizzleCandleStore, inject: [DB], useFactory: (db: Database) => new DrizzleCandleStore(db) },
     { provide: RedisFormingBarStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisFormingBarStore(redis) },
+    { provide: RedisDepthStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisDepthStore(redis) },
+    { provide: RecordDepth, inject: [RedisDepthStore], useFactory: (store: RedisDepthStore) => {
+      const logger = new Logger('Depth');
+      return new RecordDepth(store, { clock: Date.now, log: (reason, error) => { logger.warn({ reason, code: error instanceof Error ? error.name : 'UNKNOWN' }); } });
+    } },
+    { provide: StoredBars, inject: [DB], useFactory: (db: Database) => new StoredBars(new DrizzleStoredBarsReader(db)) },
+    { provide: ReadDepth, inject: [RedisDepthStore, RedisFeedStateStore, RequestSubscription],
+      useFactory: (store: RedisDepthStore, feeds: RedisFeedStateStore, requests: RequestSubscription) => new ReadDepth(store, feeds, requests) },
     { provide: RedisBarPublisher, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarPublisher(redis) },
     { provide: RedisBarSequenceStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarSequenceStore(redis) },
     { provide: ReadSeq, inject: [RedisBarSequenceStore], useFactory: (store: RedisBarSequenceStore) => new ReadSeq(store) },
@@ -126,7 +143,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [ReadBars, SecondsBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
+  exports: [StoredBars, ReadDepth, ReadBars, SecondsBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;
@@ -147,5 +164,5 @@ export class MarketDataModule {
   }
   async onModuleDestroy(): Promise<void> { await this.kite.stop(); this.detach?.(); this.detach = undefined; }
 }
-@Module({ imports: [MarketDataModule], controllers: [MarketDataController], exports: [MarketDataModule] })
+@Module({ imports: [MarketDataModule, AuthModule], controllers: [MarketDataController, DepthController], exports: [MarketDataModule] })
 export class MarketDataApiModule {}

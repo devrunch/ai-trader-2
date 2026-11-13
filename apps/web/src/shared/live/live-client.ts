@@ -4,6 +4,7 @@ import { backoffDelay } from '@aitrader/resilience';
 import { setConnection } from './connection-store';
 import { ServerClock } from './server-clock';
 import { SeriesSync } from './series-sync';
+import { DepthWatcher } from './depth-watcher';
 
 export interface SocketLike {
   readonly connected: boolean;
@@ -54,7 +55,11 @@ export class LiveClient {
   private lastTick = Date.now();
   private unauthorized = false;
 
-  constructor(private readonly deps: LiveClientDeps) { this.clock = deps.clock ?? new ServerClock(); }
+  private readonly depth: DepthWatcher;
+  constructor(private readonly deps: LiveClientDeps) { this.clock = deps.clock ?? new ServerClock(); this.depth = new DepthWatcher(deps.socket); }
+
+  /** Order-book snapshots for a symbol (about one a second); resubscribed after every reconnect. */
+  watchDepth(symbol: string, handler: Parameters<DepthWatcher['watch']>[1]): () => void { return this.depth.watch(symbol, handler); }
 
   start(): void {
     const { socket, doc, win } = this.deps;
@@ -151,6 +156,7 @@ export class LiveClient {
     setConnection({ state: 'live' });
     void this.syncClock();
     for (const entry of this.series.values()) this.resync(entry);
+    this.depth.onConnect();
   }
 
   private onConnectError(error: unknown): void {
@@ -160,6 +166,7 @@ export class LiveClient {
   }
 
   private scheduleReconnect(): void {
+    this.depth.onDisconnect();
     if (this.unauthorized || this.reconnectTimer !== undefined) return;
     for (const entry of this.series.values()) { if (entry.id) this.byId.delete(entry.id); entry.id = undefined; }
     const delay = backoffDelay(this.attempt, { baseMs: 500, maxMs: 15_000, ...(this.deps.random ? { random: this.deps.random } : {}) });

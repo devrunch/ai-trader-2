@@ -48,11 +48,11 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 
 | id | Owner | Kind | Markets | Key | Limit | Status |
 |---|---|---|---|---|---|---|
-| kite | market-data, instruments | ticks, bars, 5-level depth, instruments | India (NSE/BSE/NFO/MCX) | ZERODHA_* | historical 3/s | live (depth: build AG-7) |
-| deriv | market-data, instruments | ticks, bars, bid/ask | forex, crypto, commodities | none | WS | live (bid/ask: build AG-7) |
+| kite | market-data, instruments | ticks, bars, 5-level depth, instruments | India (NSE/BSE/NFO/MCX) | ZERODHA_* | historical 3/s | live (5-level depth: AG-7) |
+| deriv | market-data, instruments | ticks, bars, bid/ask | forex, crypto, commodities | none | WS | live (top-of-book bid/ask: AG-7) |
 | yahoo-delayed | market-data | quotes/bars about 15 min delayed | US | none | polite | live |
 | nasdaq-trader | instruments | symbol directory | US | none | daily | live |
-| nse-indices | instruments | NIFTY 50/100/500 constituents (NSE index CSVs) | India | none | daily | build AG-7 |
+| nse-indices | instruments | NIFTY 50/100/500 constituents (NSE index CSVs) | India | none | daily | live (AG-7) |
 | twelve-data | market-data, calendar | quotes where feeds lack them; US earnings dates | US, forex, commodities | TWELVE_DATA_API_KEY | 8/min | build AG-8 |
 | rss-* (ET, Mint, BS, CNBC-TV18, BusinessLine, Investing, Yahoo index) | news | headlines | India, global | none | 5 min | live |
 | yahoo-ticker-rss | news | per-ticker headlines | US, watched symbols | none | 5 min | build AG-9 |
@@ -69,7 +69,7 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | fred | calendar | US actuals + full history (curated series) | US, so USD, gold | FRED_API_KEY | 120/min | key |
 | nse-corporate | calendar | results / board meetings for the NIFTY 500 | India | none | polite | build AG-8 (skip if not stably reachable) |
 | eia | calendar | crude inventory schedule + actuals | commodities | none | weekly | build AG-8 |
-| screener-in | fundamentals | ratios, results, growth, shareholding | India | none | <= 1 request / 3 s; `/company/<SYMBOL>/` only (robots.txt) | build AG-7 |
+| screener-in | fundamentals | ratios, results, growth, shareholding | India | none | <= 1 request / 3 s; `/company/<SYMBOL>/` only (robots.txt) | live (AG-7; fixtures hand-written, verify against the live site) |
 | tavily | research | web search for the agent | all | TAVILY_API_KEY | AGENT_WEB_SEARCH_DAILY | build AG-9 |
 | ff-history | calendar | actuals history from 2007 (old product's 66 MB export) | global FX | none | static | lost: rebuild from FRED history + our own captured actuals |
 

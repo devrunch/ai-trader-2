@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "totalResults": 3,
+  "articles": [
+    { "source": { "id": null, "name": "Reuters" }, "author": null, "title": "Fed officials signal patience on rate cuts", "description": "Policymakers said inflation progress is uneven.", "url": "https://www.reuters.com/markets/us/fed-patience-2026-11-11/", "urlToImage": null, "publishedAt": "2026-11-11T14:05:00Z", "content": "..." },
+    { "source": { "id": null, "name": "CNBC" }, "author": "Staff", "title": "Gold slips as dollar firms", "description": null, "url": "https://www.cnbc.com/2026/11/11/gold-slips.html", "urlToImage": null, "publishedAt": "2026-11-11T12:30:00Z", "content": null },
+    { "source": { "id": null, "name": "Removed" }, "author": null, "title": "[Removed]", "description": "[Removed]", "url": "https://removed.com", "urlToImage": null, "publishedAt": "2026-11-11T01:00:00Z", "content": "[Removed]" }
+  ]
+}

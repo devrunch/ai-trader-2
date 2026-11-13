@@ -16,3 +16,10 @@ describe('FR-MD-1 Deriv messages', () => {
     expect(derivRequest.history('frxEURUSD', 60, 299, 2)).toEqual({ ticks_history: 'frxEURUSD', style: 'candles', granularity: 60, end: 299, count: 1000, req_id: 2 });
   });
 });
+
+describe('Deriv tick bid and ask', () => {
+  it('parses bid and ask when present and tolerates their absence', () => {
+    expect(parseDerivMessage(JSON.stringify({ tick: { symbol: 'frxEURUSD', epoch: 1, quote: 1.1, bid: 1.0999, ask: 1.1001 } })).tick).toMatchObject({ bid: 1.0999, ask: 1.1001 });
+    expect(parseDerivMessage(JSON.stringify({ tick: { symbol: 'frxEURUSD', epoch: 1, quote: 1.1 } })).tick?.bid).toBeUndefined();
+  });
+});

@@ -11,6 +11,8 @@ import { DrizzleInstrumentRepository } from './infrastructure/drizzle-instrument
 import { RefreshJob } from './infrastructure/refresh.job.js';
 import { DerivSource, KiteSource, NasdaqSource } from './infrastructure/sources/index.js';
 
+import { SourceRegistry } from '../../shared/sources/index.js';
+import { NASDAQ_TRADER_DESCRIPTOR } from './infrastructure/sources/descriptors.js';
 import { MiniSearchIndex } from './infrastructure/minisearch-index.js';
 import { InstrumentsController } from './api/instruments.controller.js';
 import { CLOCK, InstrumentsRateLimitGuard } from './api/instruments-rate-limit.guard.js';
@@ -21,6 +23,7 @@ import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
 @Global()
 @Module({
   providers: [
+    { provide: 'INSTRUMENT_SOURCE_DESCRIPTORS', inject: [SourceRegistry], useFactory: (registry: SourceRegistry) => { registry.register(NASDAQ_TRADER_DESCRIPTOR); return true; } },
     { provide: ListInstrumentSources, inject: [INSTRUMENT_REPOSITORY], useFactory: (repo: InstrumentRepository) => new ListInstrumentSources(repo) },
     { provide: InstrumentHistory, inject: [INSTRUMENT_REPOSITORY],
       useFactory: (repo: InstrumentRepository) => new InstrumentHistory(repo, POPULAR_INSTRUMENTS) },

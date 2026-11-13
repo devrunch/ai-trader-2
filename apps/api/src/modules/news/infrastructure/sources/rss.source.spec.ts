@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRss } from './sources';
+import { parseRss } from './rss.source';
 
 const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Markets</title>
 <item><title><![CDATA[Nifty closes at <b>record</b> high]]></title><link>https://et.test/1</link><pubDate>Tue, 11 Nov 2026 10:00:00 +0530</pubDate>
@@ -22,5 +22,14 @@ describe('feed dates', () => {
   it('reads the bare UTC format some feeds use', () => {
     const xml = '<rss><channel><item><title>A</title><link>https://a.test</link><pubDate>2026-11-11 03:52:40</pubDate></item></channel></rss>';
     expect(parseRss('Investing', xml)[0]?.publishedAt).toBe(Date.parse('2026-11-11T03:52:40Z'));
+  });
+});
+
+describe('parseRss shape changes', () => {
+  it('throws when the document is not RSS', () => {
+    expect(() => parseRss('ET', '<html><body>Access denied</body></html>')).toThrow('not an RSS document');
+  });
+  it('throws when items exist but none can be read', () => {
+    expect(() => parseRss('ET', '<rss><channel><item><headline>x</headline></item></channel></rss>')).toThrow('none readable');
   });
 });

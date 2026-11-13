@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { SourceClient } from '../../../shared/sources';
 import { EconomicCalendar, type CalendarStore, type EventSource, type RawEvent } from '../application/calendar';
 import { MergedSource } from '../application/merged-source';
 import { IndiaScheduleSource } from './india-schedule.source';
@@ -39,5 +40,18 @@ describe('India schedule source', () => {
     const calendar = calendarOver(new MergedSource([failing, new IndiaScheduleSource(() => now, 1, 10)]));
     expect(await calendar.refresh(signal)).toBe(2);
     await expect(new MergedSource([failing, failing]).fetch(signal)).rejects.toThrow('HTTP 503');
+  });
+});
+
+describe('India schedule source health', () => {
+  it('records upcoming releases per source and flags an exhausted schedule', async () => {
+    const recordItems = vi.fn(() => Promise.resolve());
+    const client = { recordItems } as unknown as SourceClient;
+    await new IndiaScheduleSource(() => now, 1, 10, client).fetch();
+    expect(recordItems).toHaveBeenCalledWith('rbi', 2);
+    expect(recordItems).toHaveBeenCalledWith('mospi', 7);
+    recordItems.mockClear();
+    await new IndiaScheduleSource(() => Date.parse('2030-01-01T00:00:00Z'), 1, 10, client).fetch();
+    expect(recordItems).toHaveBeenCalledWith('rbi', 0);
   });
 });

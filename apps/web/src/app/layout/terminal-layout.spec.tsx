@@ -6,7 +6,7 @@ import { TerminalLayout } from './terminal-layout';
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 function show(desktop: boolean) {
   vi.stubGlobal('matchMedia', () => ({ matches: desktop, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
-  render(<TooltipProvider><TerminalLayout toolbar="Toolbar" chart="Chart" bottom="Trading" widgets={{ watchlist: 'Watchlist', assistant: 'Chat', news: 'News', alerts: 'Alerts' }} /></TooltipProvider>);
+  render(<TooltipProvider><TerminalLayout toolbar="Toolbar" chart="Chart" bottom="Trading" widgets={{ watchlist: 'Watchlist', depth: 'Book', assistant: 'Chat', news: 'News', alerts: 'Alerts' }} /></TooltipProvider>);
 }
 it('shows the chart, the trading panel and one widget on desktop; the rail toggles the widget', () => {
   show(true);
@@ -21,6 +21,6 @@ it('shows the chart, the trading panel and one widget on desktop; the rail toggl
 });
 it('shows tabs on mobile', () => {
   show(false);
-  expect(screen.getAllByRole('tab')).toHaveLength(6);
+  expect(screen.getAllByRole('tab')).toHaveLength(7);
   expect(screen.getByRole('tab', { name: 'Chart' }).getAttribute('aria-selected')).toBe('true');
 });

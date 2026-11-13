@@ -1,4 +1,5 @@
 import type { BacktestSpec } from '@aitrader/contracts';
+import { draftSpec as sharedDraftSpec } from '../../shared/backtest-dsl';
 import { Button } from '../../shared/ui/button';
 import { StrategyFormFields } from './strategy-form';
 import { toSpec, type StrategyForm } from './strategy-builder';
@@ -6,10 +7,7 @@ import { toSpec, type StrategyForm } from './strategy-builder';
 /** Editing state: a simple form, or (for specs the form cannot show) the spec as read-only JSON. */
 export interface Draft { id: string | null; name: string; form: StrategyForm | null; advanced: BacktestSpec | null }
 
-export const draftSpec = (d: Draft): { spec: BacktestSpec } | { error: string } => {
-  if (d.form) { const built = toSpec(d.form); return built.ok ? { spec: built.spec } : { error: built.error }; }
-  return d.advanced ? { spec: d.advanced } : { error: 'Nothing to run.' };
-};
+export const draftSpec = (d: Draft): { spec: BacktestSpec } | { error: string } => sharedDraftSpec(d.form, d.advanced, toSpec);
 
 export function StrategyEditor({ draft, onChange, onSave, onRun, busy, error }: { draft: Draft; onChange: (d: Draft) => void; onSave: () => void; onRun: () => void; busy: boolean; error: string | null }) {
   return <div className="space-y-3">
