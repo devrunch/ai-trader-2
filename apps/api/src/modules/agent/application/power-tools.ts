@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, type AgentAction, type DeskTask, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, type AgentAction, type DeskTask, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, UNIVERSES, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { autoTradeBlocks } from '../domain/auto-trade';
 import { calculate, CalcError } from '../domain/calculator';
@@ -101,6 +101,9 @@ function deskFor(option: z.infer<typeof DeskOption>, fallback: string | undefine
   return { symbol, rounds: option.rounds };
 }
 
+/** A universe-only move watch has no symbol at creation; each fire replaces this with the biggest mover. */
+const MOVE_DESK_PLACEHOLDER = 'NSE:NIFTY';
+
 export interface TaskDesk {
   create(userId: string, threadId: string, input: { title: string; instruction: string; trigger: TaskTrigger; maxRuns?: number | undefined; expiresInDays?: number | undefined; desk?: DeskTask | null | undefined }): Promise<unknown>;
   createAlert(userId: string, input: AlertCreate): Promise<unknown>;
@@ -137,14 +140,30 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
       } }, deps),
     guardedTool({ name: 'watchEvent',
       description: 'Watch the economic calendar and wake yourself shortly after a release ("tell me when RBI policy comes out", "watch US CPI"), then decide whether it is worth telling the user. '
-        + 'countries are 3-letter codes (USD, INR, EUR); title is a word in the event name; afterMinutes (default 5) lets the market react first. The wake-up includes forecast, previous and how the instruments moved. Set desk {symbol} to run the multi-analyst trading desk on the release instead of a single turn.',
+        + 'countries are 3-letter codes (USD, INR, EUR); title is a word in the event name; afterMinutes (default 5) lets the market react first. The wake-up includes forecast, previous, actual, surprise, what the event measures and how the instruments moved. '
+        + 'minSurprise (in the event\'s own units) or minSurpriseZ (standard deviations) wake you only when the release surprises: "tell me if CPI surprises by more than 0.2". '
+        + 'briefMinutes wakes you that long before the release to write a brief with both branches (above and below forecast): "brief me 30 minutes before the Fed". Set desk {symbol} to run the multi-analyst trading desk on the release instead of a single turn.',
       input: z.strictObject({ countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
         minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5),
+        minSurprise: z.number().positive().optional(), minSurpriseZ: z.number().positive().optional(), briefMinutes: z.number().int().min(5).max(1440).optional(),
         instruction: z.string().min(1).max(2000).default('Compare the result with the forecast and previous figure and say what it means for the instruments that moved.'),
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'event' as const, ...rest };
         return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) });
+      } }, deps),
+    guardedTool({ name: 'watchMove',
+      description: 'Watch instruments in the background and wake yourself when one moves sharply: "tell me if any NIFTY 50 stock moves 3% in 15 minutes", "watch NIFTY and BANKNIFTY for a 1% drop in an hour". '
+        + 'Give symbols and/or a universe (nifty50, nifty100, nifty500, forex-majors, ...; at most 200 instruments per watch); minutes is the window (default 15); minPct the size of the move; direction up, down or either. '
+        + 'Each instrument is reported at most once an hour. The wake-up lists the movers, strongest first. Set desk to run the trading desk on the biggest mover instead of a single turn.',
+      input: z.strictObject({ symbols: z.array(SYMBOL).max(20).default([]), universe: z.enum(UNIVERSES).optional(), minutes: z.number().int().min(1).max(240).default(15),
+        minPct: z.number().positive().max(100), direction: z.enum(['up', 'down', 'either']).default('either'),
+        instruction: z.string().min(1).max(2000).default('Say what moved, whether there is news behind it, and whether it matters for the user\'s watchlist, positions or open ideas.'),
+        maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7), desk: DeskOption })
+        .refine(o => o.symbols.length > 0 || o.universe !== undefined, { message: 'give symbols or a universe', path: ['symbols'] }),
+      run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
+        const trigger = { kind: 'move' as const, ...rest };
+        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0] ?? MOVE_DESK_PLACEHOLDER) });
       } }, deps),
     guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),

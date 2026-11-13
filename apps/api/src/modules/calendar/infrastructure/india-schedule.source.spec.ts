@@ -32,7 +32,7 @@ describe('India schedule source', () => {
     await calendar.refresh(signal);
     const events = await calendar.list({ days: 7, impact: 'High' });
     expect(events.map(e => e.title)).toEqual(['CPI m/m', 'India GDP q/q', 'RBI Monetary Policy Decision']);
-    expect(events[1]?.moves).toEqual(['NIFTY', 'BANKNIFTY', 'USD/INR']);
+    expect(events[1]?.moves).toEqual(['NSE:NIFTY', 'NSE:BANKNIFTY', 'FX:USDINR']);
   });
 
   it('still yields the Indian events when ForexFactory fails, and throws only when every feed fails', async () => {

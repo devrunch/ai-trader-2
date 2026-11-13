@@ -10,7 +10,7 @@ export interface AgentTask {
   /** A fire waiting for, or in, a worker: queued -> running -> idle. `pendingFire` is what the worker runs, so a lost job can be queued again. */
   runState: 'idle' | 'queued' | 'running'; runStateAt: number | null; pendingFire: { key: string; reason: string } | null;
   /** How the last run ended. */ lastOutcome: TaskOutcome | null;
-  /** Headline and event ids a news or event watch has already reported, newest last. */ seen: string[];
+  /** Headline and event ids a watch has already reported, newest last. */ seen: string[];
   expiresAt: number; createdAt: number;
 }
 
@@ -34,7 +34,7 @@ export function nextScheduled(trigger: Extract<TaskTrigger, { kind: 'schedule' }
   return first;
 }
 
-type WatchKind = Extract<TaskTrigger, { kind: 'news' | 'event' | 'screen' }>;
+type WatchKind = Extract<TaskTrigger, { kind: 'news' | 'event' | 'screen' | 'move' }>;
 
 export type Tick = { fire: false; task: AgentTask } | { fire: true; task: AgentTask; reason: string };
 
@@ -50,7 +50,7 @@ export function tick(task: AgentTask, now: number, observed?: number): Tick {
     if (task.nextRunAt === null || now < task.nextRunAt) return { fire: false, task };
     return { fire: true, task: { ...task, nextRunAt: nextScheduled(trigger, now) }, reason: `scheduled run (${trigger.cron} ${trigger.tz})` };
   }
-  if (trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen') return { fire: false, task };
+  if (trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen' || trigger.kind === 'move') return { fire: false, task };
   if (observed === undefined) return { fire: false, task };
   const met = trigger.op === 'above' ? observed > trigger.value : observed < trigger.value;
   if (!met) return { fire: false, task: task.armed ? task : { ...task, armed: true } };

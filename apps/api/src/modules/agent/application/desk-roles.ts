@@ -22,6 +22,18 @@ function renderFundamentals(f: NonNullable<DeskSnapshot['fundamentals']>): strin
     `Recent quarters (oldest first):\n${q}`].join('\n');
 }
 
+const pct = (n: number | null): string => (n === null ? 'n/a' : `${n > 0 ? '+' : ''}${num(n)}%`);
+
+function renderEvent(e: DeskSnapshot['events'][number]): string {
+  const head = `- ${e.at} ${e.country} ${e.impact} ${e.title} (${e.released ? 'released' : 'scheduled'}) forecast ${e.forecast ?? 'n/a'} previous ${e.previous ?? 'n/a'}`;
+  const result = e.released && e.actual != null ? ` actual ${e.actual}${e.surprise == null ? '' : ` surprise ${pct(e.surprise)}`}` : '';
+  const spec = e.spec ?? e.scorecard?.spec;
+  const card = e.scorecard;
+  return [head + result,
+    ...(spec ? [`    measures: ${spec.measures}; usual effect: ${spec.usualEffect}`] : []),
+    ...(card && card.releases > 0 ? [`    history: last ${String(card.releases)} releases${card.symbol ? `, ${card.symbol} avg 15m move after a beat ${pct(card.avgMove15WhenBeatPct)} / after a miss ${pct(card.avgMove15WhenMissPct)}` : ''}`] : [])].join('\n');
+}
+
 function renderSnapshot(symbol: string, s: DeskSnapshot): string {
   const bar = (b: { time: number; open: number; high: number; low: number; close: number; volume: number | null }) => `${iso(b.time)} O${num(b.open)} H${num(b.high)} L${num(b.low)} C${num(b.close)} V${num(b.volume)}`;
   return [
@@ -31,7 +43,7 @@ function renderSnapshot(symbol: string, s: DeskSnapshot): string {
     `Last 5m bars (oldest first):\n${s.intraday.slice(-20).map(bar).join('\n') || 'none'}`,
     `Headlines (newest first):\n${s.headlines.map(h => `- ${iso(Date.parse(h.publishedAt))} [${h.impact}] ${h.title}${h.moves.length ? ` (moves ${h.moves.join(', ')}${h.direction ? `, ${h.direction}` : ''})` : ''}`).join('\n') || 'none'}`,
     ...(s.fundamentals ? [renderFundamentals(s.fundamentals)] : []),
-    `Calendar around this time:\n${s.events.map(e => `- ${e.at} ${e.country} ${e.impact} ${e.title} (${e.released ? 'released' : 'scheduled'}) forecast ${e.forecast ?? 'n/a'} previous ${e.previous ?? 'n/a'}`).join('\n') || 'none'}`,
+    `Calendar around this time:\n${s.events.map(renderEvent).join('\n') || 'none'}`,
   ].join('\n\n');
 }
 
@@ -42,7 +54,7 @@ const analyst = (role: 'news' | 'technical' | 'macro' | 'fundamentals', focus: s
 });
 export const newsAnalyst = (symbol: string, s: DeskSnapshot): RoleCall<DeskReport> => analyst('news', 'Judge what the headlines and their impact tags mean for this instrument in the next trading session.', symbol, s);
 export const technicalAnalyst = (symbol: string, s: DeskSnapshot): RoleCall<DeskReport> => analyst('technical', 'Judge trend, momentum, volatility and nearby levels from the bars and indicators only.', symbol, s);
-export const macroAnalyst = (symbol: string, s: DeskSnapshot): RoleCall<DeskReport> => analyst('macro', 'Judge the macro and sentiment backdrop from the calendar and headlines (rates, currency, commodities, risk appetite) as it bears on this instrument.', symbol, s);
+export const macroAnalyst = (symbol: string, s: DeskSnapshot): RoleCall<DeskReport> => analyst('macro', 'Judge the macro and sentiment backdrop from the calendar and headlines (rates, currency, commodities, risk appetite) as it bears on this instrument. For each calendar event use its spec (what it measures and its usual effect), the actual and surprise once released, and its history lines (how the instrument moved after past beats and misses) instead of a general belief; say so when there is no history.', symbol, s);
 export const fundamentalsAnalyst = (symbol: string, s: DeskSnapshot): RoleCall<DeskReport> => analyst('fundamentals', 'Judge valuation, profitability, balance-sheet strength, growth and promoter/institutional holding from the fundamentals block only, and what they imply over a longer horizon than the next session. Say so if the data is stale.', symbol, s);
 
 type Reports = Record<'news' | 'technical' | 'macro' | 'fundamentals', DeskReport | { skipped: string }>;

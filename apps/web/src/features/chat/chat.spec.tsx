@@ -166,6 +166,20 @@ it('lists background tasks with what wakes them, and pauses one', async () => {
   await vi.waitFor(() => { expect(verbs).toEqual(['pause']); });
 });
 
+it('words move and surprise watches in the tasks list', async () => {
+  const base = { threadId: '00000000-0000-4000-8000-0000000000b1', mode: 'agent', instruction: 'check', state: 'active', runs: 0, maxRuns: 10, lastRunAt: null, nextRunAt: null, lastError: null,
+    lastOutcome: null, autoTrade: null, desk: null, runState: 'idle', expiresAt: '2026-11-12T18:40:00.000Z', createdAt: '2026-11-11T18:40:00.000Z' };
+  const tasks = [
+    { ...base, id: '00000000-0000-4000-8000-0000000000a2', title: 'Move watch', trigger: { kind: 'move', symbols: [], universe: 'nifty50', minutes: 15, minPct: 3, direction: 'up' } },
+    { ...base, id: '00000000-0000-4000-8000-0000000000a3', title: 'CPI watch', trigger: { kind: 'event', countries: ['USD'], minImpact: 'High', afterMinutes: 5, minSurprise: 0.2, briefMinutes: 30 } },
+  ];
+  server.use(http.get('/api/v1/agent/tasks', () => HttpResponse.json(tasks)));
+  render(<Providers><ChatPanel /></Providers>);
+  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  expect(await screen.findByText(/when nifty50 move up 3% in 15 min/)).toBeDefined();
+  expect(screen.getByText(/5 min after matching USD events \(surprise of 0.2\+, brief 30 min before\)/)).toBeDefined();
+});
+
 it('shows which skill the assistant is following', async () => {
   server.use(http.post('/api/v1/agent/chat', () => sse([
     { type: 'start', messageId: 'a4' }, { type: 'start-step' },

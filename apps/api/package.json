@@ -51,6 +51,7 @@
     "socket.io": "4.8.4",
     "trading-signals": "8.3.0",
     "undici": "8.12.4",
+    "unpdf": "2.1.0",
     "ws": "8.22.2",
     "yahoo-finance2": "4.0.6",
     "zod": "4.6.7"

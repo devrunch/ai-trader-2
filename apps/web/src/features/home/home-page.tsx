@@ -3,23 +3,22 @@ import { LineChart } from 'lucide-react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
-import { AgentTaskSchema, CalendarResponseSchema, NewsResponseSchema, PaperAccountsResponseSchema, WatchlistSchema, type EconomicEvent } from '@aitrader/contracts';
+import { AgentTaskSchema, NewsResponseSchema, PaperAccountsResponseSchema, WatchlistSchema } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 import { ApiError } from '../../shared/api/api-error';
 import { Button } from '../../shared/ui/button';
 import { AiButton } from '../../shared/ui/ai-button';
 import { Skeleton } from '../../shared/ui/skeleton';
+import { CalendarEvents } from '../calendar';
 import { ChatMarkdown } from '../chat';
 import { marketStatus } from './market-status';
 import { formatPct, formatPrice, useQuotes } from '../terminal';
 
 const BriefSchema = z.strictObject({ threadId: z.string(), text: z.string(), error: z.string().nullable() });
-const ist = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
 const ago = (iso: string): string => {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   return minutes < 60 ? `${String(minutes)}m` : minutes < 1440 ? `${String(Math.round(minutes / 60))}h` : `${String(Math.round(minutes / 1440))}d`;
 };
-const IMPACT_TONE: Record<EconomicEvent['impact'], string> = { High: 'bg-down', Medium: 'bg-[orange]', Low: 'bg-muted-foreground', Holiday: 'bg-muted-foreground' };
 
 /** The morning view (SRD N1, N2): the brief, the day's releases, the user's markets, headlines, paper account and alerts. */
 export function HomePage() {
@@ -86,19 +85,7 @@ function Brief() {
 }
 
 function Calendar() {
-  const events = useQuery({ queryKey: ['calendar', 3], refetchInterval: 600_000,
-    queryFn: ({ signal }) => apiFetch('v1/calendar?days=3&impact=Medium', { schema: CalendarResponseSchema, signal }) });
-  return <Card title="Economic calendar (IST)">
-    {events.isPending ? <Skeleton className="h-24" /> : events.isError ? <p role="alert" className="text-down">Calendar unavailable.</p>
-      : events.data.events.length === 0 ? <p className="text-muted-foreground">No medium or high impact releases in the next three days.</p>
-      : <ul aria-label="Upcoming releases" className="divide-y">{events.data.events.slice(0, 14).map(e => <li key={e.id} className="grid grid-cols-[5.5rem_2.75rem_minmax(0,1fr)] items-start gap-2 py-2 sm:grid-cols-[7.5rem_3rem_minmax(0,1fr)]">
-        <span className="num text-muted-foreground">{ist.format(Date.parse(e.at))}</span>
-        <span className="flex items-center gap-1 font-semibold"><span aria-label={`${e.impact} impact`} className={`inline-block size-2 rounded-full ${IMPACT_TONE[e.impact]}`} />{e.country}</span>
-        <span className="min-w-0"><span className="font-medium">{e.title}</span>
-          {(e.forecast ?? e.previous) && <span className="text-muted-foreground"> · f {e.forecast ?? '—'} · p {e.previous ?? '—'}</span>}
-          {e.moves.length > 0 && <span className="block truncate text-[11px] text-muted-foreground">Moves: {e.moves.join(', ')}</span>}</span>
-      </li>)}</ul>}
-  </Card>;
+  return <Card title="Economic calendar (IST)"><CalendarEvents /></Card>;
 }
 
 function Headlines() {

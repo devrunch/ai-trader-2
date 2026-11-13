@@ -1,16 +1,16 @@
-import type { DeskProposal, DeskReport, FundamentalsResponse } from '@aitrader/contracts';
+import type { DeskProposal, DeskReport, EconomicEvent, EventScorecard, FundamentalsResponse } from '@aitrader/contracts';
 import { DeskArgumentSchema, DeskProposalSchema, DeskReportSchema, DeskRiskReviewSchema } from '@aitrader/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { DeskRunDto } from '@aitrader/contracts';
 import { AsOfDeskData, type DeskBar, type DeskSnapshot } from './desk-data';
 import { DeskBacktests, decisionTime, type DeskBacktestStore, type StoredBacktest } from './desk-backtest';
-import { fundamentalsAnalyst, type RoleCall } from './desk-roles';
+import { fundamentalsAnalyst, macroAnalyst, type RoleCall } from './desk-roles';
 import { TradingDesk, callsPerRun, type DeskConfig, type DeskModel, type DeskRunStore } from './trading-desk';
 
 const asOf = Date.parse('2026-11-10T04:30:00Z');
 const bar = (time: number, close = 100): DeskBar => ({ time, open: close, high: close + 1, low: close - 1, close, volume: 10 });
 const news = (id: string, at: number) => ({ id, source: 'ET', title: id, url: 'https://x.test/1', summary: null, publishedAt: new Date(at).toISOString(), symbols: [], impact: 'high' as const, moves: ['NSE:NIFTY'], direction: null });
-const event = (id: string, at: number) => ({ id, title: id, country: 'INR', at: new Date(at).toISOString(), impact: 'High' as const, forecast: null, previous: null, moves: [] });
+const event = (id: string, at: number): EconomicEvent => ({ id, title: id, country: 'INR', at: new Date(at).toISOString(), impact: 'High', forecast: null, previous: null, moves: [] });
 const report: DeskReport = { stance: 'bullish', confidence: 0.7, summary: 's', evidence: ['e'] };
 const fundamentalsRecord = (fetchedAt: string, reportDate: string | null = '2026-09-30'): FundamentalsResponse => ({ symbol: 'NSE:INFY', name: 'Infosys', consolidated: false, source: 'screener-in', fetchedAt, reportDate, stale: false,
   ratios: { marketCap: 600000, pe: 24, bookValue: 200, roe: 25, roce: 30, dividendYield: 2, debtToEquity: 0.1, salesGrowth3y: 10, salesGrowth5y: 11, profitGrowth3y: 9, profitGrowth5y: 8, promoterHolding: 14, fiiHolding: 33, diiHolding: 30 },
@@ -217,5 +217,58 @@ describe('DeskBacktests', () => {
     const { backtests } = bt();
     await expect(backtests.start('u1', { ...request, dates: ['2027-01-01'] })).rejects.toThrow('future');
     await expect(backtests.start('u1', { ...request, dates: ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04'] })).rejects.toThrow('left today');
+  });
+});
+
+describe('desk event scorecards', () => {
+  const spec = { measures: 'Consumer prices', usualEffect: 'Higher CPI lifts USD', why: 'rates', notes: '', source: 'vendored', beat: 'higher-better' as const };
+  const release = (at: number, surprise: number, move15: number) => ({ eventId: `r${String(at)}`, at: new Date(at).toISOString(), forecast: '0.3%', previous: '0.2%', actual: '0.4%', surprise, surpriseZ: null,
+    reactions: [{ symbol: 'FX:USDINR', refPrice: 83, move5Pct: 0, move15Pct: move15, move60Pct: null }] });
+  const day = 86_400_000;
+  const card: EventScorecard = { title: 'CPI', country: 'USD', spec,
+    releases: [release(asOf - 60 * day, 0.1, 0.2), release(asOf - 30 * day, 0.2, 0.4), release(asOf - 10 * day, -0.1, -0.3), release(asOf + 3_600_000, 0.5, 9.99)],
+    stats: [{ symbol: 'FX:USDINR', n: 4, avgAbsMove15Pct: 2, avgMove15WhenBeatPct: 3.5, avgMove15WhenMissPct: -0.3, followedSurprisePct: 100 }] };
+  const dataWith = (events: ReturnType<typeof event>[]) => {
+    const forEvents = vi.fn<(e: Array<{ id: string; title: string; country: string }>, limit: number, asOf?: number) => Promise<Map<string, EventScorecard>>>(es => Promise.resolve(new Map(es.map(e => [e.id, card]))));
+    const data = new AsOfDeskData({ bars: () => Promise.resolve({ bars: [bar(asOf - 600_000)] }) }, { compute: () => Promise.reject(new Error('none')) }, { list: () => Promise.resolve([]) },
+      { list: () => Promise.resolve(events) }, undefined, { forEvents });
+    return { data, forEvents };
+  };
+
+  it('asks for history only for events inside the window, at most 5, with asOf, and drops releases after asOf from the summary', async () => {
+    const events = [...Array.from({ length: 7 }, (_, i) => ({ ...event(`e${String(i)}`, asOf + (i + 1) * 60_000), impact: i < 2 ? 'Medium' as const : 'High' as const })), event('far', asOf + 5 * day)];
+    const { data, forEvents } = dataWith(events);
+    const s = await data.snapshot('FX:USDINR', asOf);
+    expect(forEvents).toHaveBeenCalledTimes(1);
+    const [asked, limit, at] = forEvents.mock.calls[0] ?? [];
+    expect(asked?.map(e => e.id)).toEqual(['e2', 'e3', 'e4', 'e5', 'e6']);
+    expect([limit, at]).toEqual([8, asOf]);
+    expect(s.events.find(e => e.id === 'far')).toBeUndefined();
+    expect(s.events.find(e => e.id === 'e2')?.scorecard).toEqual({ releases: 3, spec, symbol: 'FX:USDINR', avgMove15WhenBeatPct: 0.3, avgMove15WhenMissPct: -0.3 });
+    expect(s.events.find(e => e.id === 'e0')?.scorecard).toBeUndefined();
+    expect(JSON.stringify(s)).not.toContain('9.99');
+  });
+
+  it('still returns the snapshot when the history port fails', async () => {
+    const { data, forEvents } = dataWith([event('e', asOf + 60_000)]);
+    forEvents.mockRejectedValueOnce(new Error('db down'));
+    expect((await data.snapshot('FX:USDINR', asOf)).events.map(e => e.scorecard)).toEqual([undefined]);
+  });
+
+  it('shows the macro analyst each event\'s spec, actual and surprise once released, and its history', async () => {
+    const { data } = dataWith([{ ...event('CPI', asOf - 3_600_000), country: 'USD', forecast: '0.3%', previous: '0.2%' } satisfies EconomicEvent]);
+    const s = await data.snapshot('FX:USDINR', asOf);
+    const released = { ...s, events: s.events.map(e => ({ ...e, actual: '0.4%', surprise: 0.1 })) };
+    const call = macroAnalyst('FX:USDINR', released);
+    expect(call.prompt).toContain('forecast 0.3% previous 0.2% actual 0.4% surprise +0.1%');
+    expect(call.prompt).toContain('measures: Consumer prices; usual effect: Higher CPI lifts USD');
+    expect(call.prompt).toContain('history: last 3 releases, FX:USDINR avg 15m move after a beat +0.3% / after a miss -0.3%');
+    expect(call.system).toContain('history lines');
+    const scheduled = macroAnalyst('FX:USDINR', { ...released, events: released.events.map(e => ({ ...e, released: false })) });
+    expect(scheduled.prompt).not.toContain('actual 0.4%');
+  });
+
+  it('keeps the number of model calls per run unchanged', () => {
+    expect(callsPerRun(1)).toBe(8);
   });
 });

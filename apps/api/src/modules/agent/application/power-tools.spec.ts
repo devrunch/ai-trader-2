@@ -153,6 +153,25 @@ const auto = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 2, requireBackte
 const note = (patch: Partial<BacktestNote> = {}): BacktestNote => ({ symbol: 'NSE:INFY', interval: '5', profitFactor: 1.6, tradeCount: 42, summary: 'INFY 5, 2000 bars: return 12%, max drawdown 6%, 42 trades', ...patch });
 const entry = { symbol: 'NSE:INFY', side: 'buy' as const, type: 'market' as const, quantity: 10, stopLoss: 1480, target: 1560, rationale: 'RBI cut, banks and IT follow', skill: 'breakout-trading' };
 
+describe('watchMove and event options', () => {
+  const tasks = { create: vi.fn().mockResolvedValue({ id: 'x' }), createAlert: vi.fn(), list: vi.fn(), setState: vi.fn() };
+  const tools = buildTaskTools(tasks, deps);
+  it('watchMove makes a move trigger with defaults, a plain title, and a desk symbol from the universe placeholder', async () => {
+    expect(await byName(tools, 'watchMove')?.call(ctx, { universe: 'nifty50', minPct: 3, desk: {} })).toMatchObject({ ok: true });
+    expect(tasks.create).toHaveBeenLastCalledWith('u1', ctx.conversationId, expect.objectContaining({ title: 'Move: nifty50 3% in 15 min', maxRuns: 10, expiresInDays: 7,
+      trigger: { kind: 'move', symbols: [], universe: 'nifty50', minutes: 15, minPct: 3, direction: 'either' }, desk: { symbol: 'NSE:NIFTY', rounds: 1 } }));
+  });
+  it('watchMove refuses a watch with no symbols and no universe', async () => {
+    expect(await byName(tools, 'watchMove')?.call(ctx, { minPct: 3 })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+  it('watchEvent passes minSurprise, minSurpriseZ and briefMinutes into the trigger', async () => {
+    expect(await byName(tools, 'watchEvent')?.call(ctx, { countries: ['USD'], title: 'cpi', minSurprise: 0.2, briefMinutes: 30 })).toMatchObject({ ok: true });
+    expect(tasks.create).toHaveBeenLastCalledWith('u1', ctx.conversationId, expect.objectContaining({
+      trigger: { kind: 'event', countries: ['USD'], title: 'cpi', minImpact: 'High', afterMinutes: 5, minSurprise: 0.2, briefMinutes: 30 } }));
+    expect(await byName(tools, 'watchEvent')?.call(ctx, { briefMinutes: 2 })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+});
+
 describe('agent orders and the trade journal', () => {
   function background(t: AgentTask, patch: Record<string, unknown> = {}) {
     const d = desk(patch);

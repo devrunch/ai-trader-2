@@ -1,16 +1,18 @@
 import type { EconomicEvent, NewsItem, ScanResult, TaskTrigger } from '@aitrader/contracts';
 import { MAX_SEEN, type AgentTask, type Fresh } from './agent-task';
+import { branchInstruction, briefKey, figuresOf, specLine, surpriseText } from './event-brief';
+import type { MoveWatch } from './move-watch';
 
 export type NewsWatch = Extract<TaskTrigger, { kind: 'news' }>;
 export type EventWatch = Extract<TaskTrigger, { kind: 'event' }>;
 type ScreenWatch = Extract<TaskTrigger, { kind: 'screen' }>;
-export type Watch = NewsWatch | EventWatch | ScreenWatch;
+export type Watch = NewsWatch | EventWatch | ScreenWatch | MoveWatch;
 const NEWS_RANK: Readonly<Record<NewsItem['impact'], number>> = { high: 3, medium: 2, low: 1 };
 const EVENT_RANK: Readonly<Record<EconomicEvent['impact'], number>> = { High: 3, Medium: 2, Low: 1, Holiday: 0 };
 const EVENT_MAX_AGE_MS = 6 * 3_600_000;
 const MAX_LISTED = 5;
 
-export const isWatch = (trigger: TaskTrigger): trigger is Watch => trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen';
+export const isWatch = (trigger: TaskTrigger): trigger is Watch => trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen' || trigger.kind === 'move';
 
 /** The markets a headline touches, from the instruments it names and the asset classes it moves. */
 function marketsOf(item: Pick<NewsItem, 'symbols' | 'moves'>): Set<string> {
@@ -52,22 +54,48 @@ export function freshNews(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: 
 
 const releaseTime = (trigger: EventWatch, event: Pick<EconomicEvent, 'at'>): number => Date.parse(event.at) + trigger.afterMinutes * 60_000;
 
-/** Events whose release plus delay has passed (within 6 hours), made after the task, not reported before. */
-export function dueEvents(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: EventWatch, events: EconomicEvent[], now: number): EconomicEvent[] {
+const matchesEvent = (trigger: EventWatch, e: EconomicEvent): boolean => {
   const wanted = trigger.title?.toLowerCase();
+  return EVENT_RANK[e.impact] >= EVENT_RANK[trigger.minImpact] && (trigger.countries.length === 0 || trigger.countries.includes(e.country))
+    && (!wanted || e.title.toLowerCase().includes(wanted));
+};
+
+/** A surprise watch waits this long after the release for the actual to be captured, then gives up on the event. */
+const ACTUAL_WAIT_MS = 90 * 60_000;
+const hasSurpriseRule = (trigger: EventWatch): boolean => trigger.minSurprise !== undefined || trigger.minSurpriseZ !== undefined;
+
+/** With a surprise threshold only a captured actual far enough from the forecast counts (either threshold is enough). */
+const surprising = (trigger: EventWatch, e: EconomicEvent): boolean => !hasSurpriseRule(trigger) || (!!e.actual
+  && ((trigger.minSurprise !== undefined && e.surprise != null && Math.abs(e.surprise) >= trigger.minSurprise)
+    || (trigger.minSurpriseZ !== undefined && e.surpriseZ != null && Math.abs(e.surpriseZ) >= trigger.minSurpriseZ)));
+
+/**
+ * Events whose release plus delay has passed (within 6 hours), made after the task, not reported before. With a surprise threshold an event without an actual
+ * is not consumed: it is checked again each pass until release + 90 minutes.
+ */
+export function dueEvents(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: EventWatch, events: EconomicEvent[], now: number): EconomicEvent[] {
   return events.filter(e => {
     const fireAt = releaseTime(trigger, e);
-    return fireAt <= now && now - fireAt < EVENT_MAX_AGE_MS && fireAt > task.createdAt && !task.seen.includes(e.id)
-      && EVENT_RANK[e.impact] >= EVENT_RANK[trigger.minImpact] && (trigger.countries.length === 0 || trigger.countries.includes(e.country))
-      && (!wanted || e.title.toLowerCase().includes(wanted));
+    const inWindow = hasSurpriseRule(trigger) ? now - Date.parse(e.at) < ACTUAL_WAIT_MS : now - fireAt < EVENT_MAX_AGE_MS;
+    return fireAt <= now && inWindow && fireAt > task.createdAt && !task.seen.includes(e.id) && matchesEvent(trigger, e) && surprising(trigger, e);
   }).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
-/** Wake-up text for a release, with the figures and how its instruments have moved (`changes`, already formatted). */
-export function eventReason(event: EconomicEvent, changes: string[]): string {
-  const figures = [event.forecast ? `forecast ${event.forecast}` : null, event.previous ? `previous ${event.previous}` : null].filter(Boolean).join(', ');
-  return `${event.title} (${event.country}, ${event.impact}) was due ${event.at}${figures ? `; ${figures}` : ''}.`
-    + (changes.length ? ` Moves since: ${changes.join('; ')}.` : ' No instrument moves to report.');
+/** Events about to be released that a brief was asked for: the brief time has come, the release has not, the task existed at the brief time, no brief yet. */
+export function dueBriefs(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: EventWatch, events: EconomicEvent[], now: number): EconomicEvent[] {
+  if (trigger.briefMinutes === undefined) return [];
+  const lead = trigger.briefMinutes * 60_000;
+  return events.filter(e => {
+    const at = Date.parse(e.at);
+    return at - lead <= now && now < at && at - lead > task.createdAt && !task.seen.includes(briefKey(e.id)) && !task.seen.includes(e.id) && matchesEvent(trigger, e);
+  }).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+/** Wake-up text for a release: the figures, the surprise, the spec and how the instruments moved (`changes`, already formatted). */
+export function eventReason(event: EconomicEvent, changes: string[], briefInThread = false): string {
+  const figures = [surpriseText(event), figuresOf(event)].filter(Boolean).join(', ');
+  return `${event.title} (${event.country}, ${event.impact}) was due ${event.at}${figures ? `; ${figures}` : ''}.${specLine(event.spec)}`
+    + (changes.length ? ` Moves since: ${changes.join('; ')}.` : ' No instrument moves to report.') + branchInstruction(briefInThread);
 }
 
 /** The reply the assistant gives to a fired watch: `REPORT:` is shown to the user, anything else is not. */
@@ -88,9 +116,14 @@ export function describeWatch(trigger: Watch): string {
     const { spec } = trigger;
     return `Screen: ${spec.preset ?? 'custom conditions'} on ${spec.universe} ${spec.interval}`;
   }
+  if (trigger.kind === 'move') {
+    const what = trigger.symbols.length ? trigger.symbols.join(', ') : trigger.universe ?? 'instruments';
+    const way = trigger.direction === 'up' ? 'up ' : trigger.direction === 'down' ? 'down ' : '';
+    return `Move: ${what} ${way}${String(trigger.minPct)}% in ${String(trigger.minutes)} min`;
+  }
   if (trigger.kind === 'event') {
     const who = trigger.countries.length ? trigger.countries.join('/') : 'any country';
-    return `Event: ${trigger.title ?? 'releases'} (${who}, ${trigger.minImpact.toLowerCase()}+, ${String(trigger.afterMinutes)} min after)`;
+    return `Event: ${trigger.title ?? 'releases'} (${who}, ${trigger.minImpact.toLowerCase()}+, ${String(trigger.afterMinutes)} min after${trigger.minSurprise !== undefined ? `, surprise >= ${String(trigger.minSurprise)}` : ''}${trigger.minSurpriseZ !== undefined ? `, z >= ${String(trigger.minSurpriseZ)}` : ''}${trigger.briefMinutes !== undefined ? `, brief ${String(trigger.briefMinutes)} min before` : ''})`;
   }
   const scope = [trigger.markets.join('/'), ...trigger.symbols, ...trigger.keywords.map(k => `"${k}"`)].join(' ');
   return `News: ${scope} (${trigger.minImpact}+)`;

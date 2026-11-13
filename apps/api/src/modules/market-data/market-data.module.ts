@@ -9,7 +9,7 @@ import { JobScheduler } from '../../shared/jobs';
 import { ReadinessRegistry, type ReadinessResult } from '../../shared/health';
 import { IpRateLimitGuard } from '../../shared/http';
 import { ResolveInstrument } from '../instruments/application/index';
-import { GetQuote, MarketDataService, ReadBars, StoredBars } from './application';
+import { GetQuote, MarketDataService, MinuteBars, ReadBars, StoredBars } from './application';
 import { DrizzleStoredBarsReader } from './infrastructure/drizzle-stored-bars.reader';
 import { MarketDataController } from './api/market-data.controller';
 import { DepthController } from './api/depth.controller';
@@ -125,6 +125,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
       return new RecordDepth(store, { clock: Date.now, log: (reason, error) => { logger.warn({ reason, code: error instanceof Error ? error.name : 'UNKNOWN' }); } });
     } },
     { provide: StoredBars, inject: [DB], useFactory: (db: Database) => new StoredBars(new DrizzleStoredBarsReader(db)) },
+    { provide: MinuteBars, inject: [DB], useFactory: (db: Database) => new MinuteBars(new DrizzleStoredBarsReader(db)) },
     { provide: ReadDepth, inject: [RedisDepthStore, RedisFeedStateStore, RequestSubscription],
       useFactory: (store: RedisDepthStore, feeds: RedisFeedStateStore, requests: RequestSubscription) => new ReadDepth(store, feeds, requests) },
     { provide: RedisBarPublisher, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarPublisher(redis) },
@@ -143,7 +144,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
       useFactory: (db: Database, jobs: JobScheduler, ready: ReadinessRegistry) => new PartitionJob(db, jobs, ready) },
     { provide: RetentionJob, inject: [DB, JobScheduler], useFactory: (db: Database, jobs: JobScheduler) => new RetentionJob(db, undefined, jobs) },
   ],
-  exports: [StoredBars, ReadDepth, ReadBars, SecondsBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
+  exports: [MinuteBars, StoredBars, ReadDepth, ReadBars, SecondsBars, KiteTickerFeed, DerivFeed, UsDelayedFeed, LiveBars, RequestSubscription, GetQuote, MarketDataService, IpRateLimitGuard, ReadSeq, AggregateLiveBars, GetFeedOverview, CheckSessionCoverage],
 })
 export class MarketDataModule {
   private detach: (() => void) | undefined;

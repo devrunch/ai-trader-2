@@ -23,7 +23,13 @@ import { BacktestRunner, Strategies } from '../strategies/application/index';
 import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { buildDepthTools } from './application/depth-tools';
+import { buildEventScorecardTools } from './application/event-tools';
+import { buildEventScorecardTools } from './application/event-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
+import { EventScorecards } from '../calendar/application/index';
+import { MinuteBars } from '../market-data/application/index';
+import { EventScorecards } from '../calendar/application/index';
+import { MinuteBars } from '../market-data/application/index';
 import { buildScreenerTools } from './application/screener-tools';
 import { buildUniverseTools } from './application/universe-tools';
 import { FundamentalsService } from '../fundamentals/application/index';
@@ -160,11 +166,19 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
             return clientOrderId;
           } }, { now: Date.now, id: randomUUID });
       } },
-    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar, ScanService],
-      useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, scans: ScanService) =>
-        new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote, (spec, userId) => scans.scan(userId, spec)), { now: Date.now, id: randomUUID }) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks): DataTools => deps => [
+    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar, ScanService, MinuteBars, Universes, EventScorecards, ReadPortfolio],
+      useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, scans: ScanService, minutes: MinuteBars, universes: Universes,
+        scorecards: EventScorecards, portfolio: ReadPortfolio) =>
+        new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote, (spec, userId) => scans.scan(userId, spec), {
+          moves: (symbols, minutesBack, now) => minutes.changePct(symbols, minutesBack, now),
+          members: async (universe, userId) => (await universes.members(universe, userId)).map(m => m.symbol),
+          scorecard: event => scorecards.get({ title: event.title, country: event.country, limit: 12 }),
+          positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
+            .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
+        }), { now: Date.now, id: randomUUID }) },
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards): DataTools => deps => [
+        ...buildEventScorecardTools(scorecards, deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
         ...buildUniverseTools(universes, deps),
