@@ -2,6 +2,7 @@ import type { ProviderReason } from '@aitrader/contracts';
 import { z } from 'zod';
 import type { LiveBars } from '../../application/live-bars';
 import type { SecondsBars } from '../../application/seconds-bars';
+import type { RecordDepth } from '../../application/record-depth';
 import type { LiveFeed, FeedState } from '../../application/ports/live-feed';
 import type { FeedVendor } from '../../application/ports/feed-state-store';
 import { vendorFor } from '../../application/vendor-for';
@@ -17,7 +18,7 @@ export class FeedSupervisor {
   private started = false;
   private refresh: ReturnType<typeof setInterval> | undefined;
   private heldRetry: ReturnType<typeof setTimeout> | undefined;
-  constructor(private readonly deps: { feeds: LiveFeed[]; liveBars: Pick<LiveBars, 'attach' | 'closeDue'>; seconds?: Pick<SecondsBars, 'attach'>; publisher: Pick<FeedStatePublisher, 'publish'>;
+  constructor(private readonly deps: { feeds: LiveFeed[]; liveBars: Pick<LiveBars, 'attach' | 'closeDue'>; seconds?: Pick<SecondsBars, 'attach'>; depth?: Pick<RecordDepth, 'attach'>; publisher: Pick<FeedStatePublisher, 'publish'>;
     requests: Pick<SubscriptionRequests, 'current' | 'onChange'>;
     held?: () => Promise<readonly string[]>; clock?: () => number; log?: (message: string) => void;
     resolveContinuous?: (id: string) => Promise<string>;
@@ -28,6 +29,7 @@ export class FeedSupervisor {
     for (const feed of this.deps.feeds) {
       this.detach.push(this.deps.liveBars.attach(feed));
       if (this.deps.seconds) this.detach.push(this.deps.seconds.attach(feed));
+      if (this.deps.depth) this.detach.push(this.deps.depth.attach(feed));
       this.detach.push(feed.onState((state, reason, detail) => {
         this.states.set(feed.name, { state, ...(reason === undefined ? {} : { reason }), ...(detail === undefined ? {} : { detail }) });
         void this.publish(feed.name, state, reason, detail);

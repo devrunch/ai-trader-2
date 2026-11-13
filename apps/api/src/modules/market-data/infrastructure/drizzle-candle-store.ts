@@ -16,7 +16,7 @@ const fields = { open: sql`excluded.open`, high: sql`excluded.high`, low: sql`ex
 const changed = (table: typeof bars1m | typeof bars1d) => sql`(${table.open}, ${table.high}, ${table.low}, ${table.close}, ${table.volume})
   is distinct from (excluded.open, excluded.high, excluded.low, excluded.close, excluded.volume)
   or (excluded.repaired and not ${table.repaired})`;
-function dailyClock(instrumentId: string): { date: (time: number) => string; start: (date: string) => number } {
+export function dailyClock(instrumentId: string): { date: (time: number) => string; start: (date: string) => number } {
   const id = InstrumentId.tryParse(instrumentId);
   if (!id) throw new ValidationError('Invalid instrument ID');
   let cal;

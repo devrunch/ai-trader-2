@@ -2,7 +2,7 @@ import type { DeskDecision, DeskReport, DeskRunDto, DeskTrail } from '@aitrader/
 import { ConflictError, RateLimitedError, ValidationError } from '../../../shared/errors';
 import { clampRounds, finalDecision, gateProposal } from '../domain/desk-gate';
 import type { DeskData, DeskSnapshot } from './desk-data';
-import { macroAnalyst, newsAnalyst, researcher, riskManager, technicalAnalyst, trader, type RoleCall } from './desk-roles';
+import { fundamentalsAnalyst, macroAnalyst, newsAnalyst, researcher, riskManager, technicalAnalyst, trader, type RoleCall } from './desk-roles';
 
 /** One focused model call that must answer in JSON matching the schema; `tokens` is what it used. */
 export interface DeskModel { generate<T>(call: RoleCall<T>, signal: AbortSignal): Promise<{ data: T; tokens: number }> }
@@ -15,8 +15,8 @@ export interface DeskRunStore {
 export interface DeskConfig { maxTokens: number; dailyRuns: number; minRewardRisk: number; maxRiskPct: number; defaultCash: number }
 
 const CALLS_PER_ROUND = 2;
-/** Analysts (3) + trader + risk, plus two debate calls per round. */
-export const callsPerRun = (rounds: number): number => 5 + CALLS_PER_ROUND * clampRounds(rounds);
+/** Analysts (4) + trader + risk, plus two debate calls per round. */
+export const callsPerRun = (rounds: number): number => 6 + CALLS_PER_ROUND * clampRounds(rounds);
 export const TOKENS_PER_CALL_ESTIMATE = 4000;
 
 const IST_MS = 19_800_000;
@@ -86,14 +86,15 @@ export class TradingDesk {
     const hasNews = s.headlines.length > 0;
     const hasEvents = s.events.length > 0;
     const hasBars = s.intraday.length + s.daily.length > 0;
-    const [news, technical, macro] = await Promise.all([
+    const [news, technical, macro, fundamentals] = await Promise.all([
       hasNews || hasEvents ? call(newsAnalyst(symbol, s)) : skipped('no headlines or events before the as-of time'),
       hasBars ? call(technicalAnalyst(symbol, s)) : skipped('no bars before the as-of time'),
       hasEvents || hasNews ? call(macroAnalyst(symbol, s)) : skipped('no calendar or headlines before the as-of time'),
+      s.fundamentals ? call(fundamentalsAnalyst(symbol, s)) : skipped('no fundamentals before the as-of time (or not an NSE stock)'),
     ]);
-    trail.reports = { news, technical, macro, fundamentals: skipped('no fundamentals data source for this instrument') };
-    const reports: Record<'news' | 'technical' | 'macro', DeskReport | { skipped: string }> = { news, technical, macro };
-    if ([news, technical, macro].every(r => 'skipped' in r)) return holdDecision('No data before the as-of time, so no decision.');
+    trail.reports = { news, technical, macro, fundamentals };
+    const reports: Record<'news' | 'technical' | 'macro' | 'fundamentals', DeskReport | { skipped: string }> = { news, technical, macro, fundamentals };
+    if ([news, technical, macro, fundamentals].every(r => 'skipped' in r)) return holdDecision('No data before the as-of time, so no decision.');
     for (let round = 1; round <= rounds; round++) {
       trail.debate.push(await call(researcher('bull', round, symbol, s, reports, trail.debate)));
       trail.debate.push(await call(researcher('bear', round, symbol, s, reports, trail.debate)));
@@ -110,6 +111,6 @@ export class TradingDesk {
 
 function emptyTrail(s: DeskSnapshot): DeskTrail {
   return { data: { asOf: new Date(s.asOf).toISOString(), lastClose: s.lastClose, bars: s.intraday.length + s.daily.length, headlines: s.headlines.length, events: s.events.length },
-    reports: { news: skipped('not run'), technical: skipped('not run'), macro: skipped('not run'), fundamentals: skipped('no fundamentals data source for this instrument') },
+    reports: { news: skipped('not run'), technical: skipped('not run'), macro: skipped('not run'), fundamentals: skipped('not run') },
     debate: [], proposal: null, riskReview: null, gate: { pass: true, blocks: [] } };
 }

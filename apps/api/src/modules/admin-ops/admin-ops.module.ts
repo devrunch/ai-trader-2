@@ -6,6 +6,8 @@ import { AuthModule } from '../auth/auth.module.js';
 import { ZerodhaConnect } from './application/zerodha-connect.js';
 import { ZerodhaController } from './api/zerodha.controller.js';
 import { OpsController } from './api/ops.controller.js';
+import { SOURCE_HEALTH, SourceRegistry, type SourceHealth } from '../../shared/sources/index.js';
+import { OpsSources } from './application/ops-sources.js';
 import { OpsOverview } from './application/ops-overview.js';
 import { JobScheduler } from '../../shared/jobs/index.js';
 import { InstrumentsModule } from '../instruments/instruments.module.js';
@@ -21,6 +23,7 @@ import { GetFeedOverview } from '../market-data/application/index.js';
       jobs: { list: () => jobs.list(), lastRun: name => jobs.lastRun(name), has: name => jobs.has(name), runNow: name => jobs.runNow(name) },
       sources: { list: () => sources.execute() },
     }) },
+  { provide: OpsSources, inject: [SourceRegistry, SOURCE_HEALTH], useFactory: (registry: SourceRegistry, health: SourceHealth) => new OpsSources({ registry, health }) },
   { provide: ZerodhaConnect, inject: [KiteSessionService, APP_CONFIG], useFactory: (sessions: KiteSessionService, config: AppConfig) =>
     new ZerodhaConnect(sessions, config.ZERODHA_API_KEY, config.KITE_AUTO_LOGIN, config.KITE_REDIRECT_URL) },
 ] })

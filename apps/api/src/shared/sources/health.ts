@@ -10,6 +10,8 @@ const EMPTY: SourceHealthRecord = { lastSuccessAt: null, lastError: null, lastEr
 /** What every call records, per source: the admin "Data sources" view reads it. */
 export interface SourceHealth {
   success(id: string, info: { items: number; latencyMs: number }): Promise<void>;
+  /** Adds parsed items to the 24-hour count without touching latency or the last-success time. */
+  items(id: string, count: number): Promise<void>;
   failure(id: string, message: string): Promise<void>;
   rateLimited(id: string): Promise<void>;
   read(ids: string[]): Promise<Record<string, SourceHealthRecord>>;
@@ -27,6 +29,13 @@ export class RedisSourceHealth implements SourceHealth {
       const t = this.now();
       await this.redis.multi().hset(`source:${id}`, { lastSuccessAt: new Date(t).toISOString(), lastLatencyMs: String(info.latencyMs) })
         .incrby(`source:${id}:items:${String(hourBucket(t))}`, info.items).expire(`source:${id}:items:${String(hourBucket(t))}`, DAY_S + 3600).exec();
+    });
+  }
+
+  async items(id: string, count: number): Promise<void> {
+    await this.safely(async () => {
+      const key = `source:${id}:items:${String(hourBucket(this.now()))}`;
+      await this.redis.multi().incrby(key, count).expire(key, DAY_S + 3600).exec();
     });
   }
 
@@ -61,12 +70,4 @@ export class RedisSourceHealth implements SourceHealth {
   private async safely(work: () => Promise<unknown>): Promise<void> {
     try { await work(); } catch { /* health is advisory: a Redis hiccup must not fail a fetch */ }
   }
-}
-
-/** Keeps nothing; for tests and when Redis is not wired. */
-export class NoSourceHealth implements SourceHealth {
-  success(): Promise<void> { return Promise.resolve(); }
-  failure(): Promise<void> { return Promise.resolve(); }
-  rateLimited(): Promise<void> { return Promise.resolve(); }
-  read(ids: string[]): Promise<Record<string, SourceHealthRecord>> { return Promise.resolve(Object.fromEntries(ids.map(id => [id, { ...EMPTY }]))); }
 }

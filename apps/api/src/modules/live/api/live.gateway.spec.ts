@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { io, type Socket } from 'socket.io-client';
 import { LiveGateway } from './live.gateway';
+import { LiveDepth } from '../application/live-depth';
 
 describe('LiveGateway handshake (NFR-SC-1)', () => {
   let gateway: LiveGateway | undefined;
@@ -56,3 +57,24 @@ function socketErrorData(error: Error): unknown {
   const value: unknown = error;
   return typeof value === 'object' && value !== null && 'data' in value ? value.data : undefined;
 }
+
+describe('LiveGateway depth channel', () => {
+  it('routes subscribeDepth to LiveDepth and cleans up on disconnect', async () => {
+    const depth = new LiveDepth({ resolve: () => Promise.resolve(null), read: () => Promise.reject(new Error('unused')) }, () => undefined);
+    const subscribe = vi.spyOn(depth, 'subscribe').mockResolvedValue({ ok: true, subscriptionId: '7d9f0a2e-0000-4000-8000-000000000001' });
+    const disconnect = vi.spyOn(depth, 'disconnect');
+    const server = createServer();
+    const gateway = new LiveGateway({ execute: vi.fn().mockResolvedValue({ id: 'user-1', username: 'u', role: 'user' }) }, {}, undefined, undefined, depth);
+    gateway.attach(server);
+    await new Promise<void>(resolve => server.listen(0, resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Missing listening address');
+    const client = io(`http://127.0.0.1:${String(address.port)}`, { path: '/api/socket.io', transports: ['websocket'], extraHeaders: { cookie: 'aitrader_session=valid' }, reconnection: false });
+    await new Promise<void>(resolve => client.once('connect', () => { resolve(); }));
+    expect(await client.timeout(2000).emitWithAck('subscribeDepth', { symbol: 'NSE:TEST' })).toEqual({ ok: true, subscriptionId: '7d9f0a2e-0000-4000-8000-000000000001' });
+    expect(subscribe).toHaveBeenCalledWith(expect.any(String), { symbol: 'NSE:TEST' });
+    client.disconnect();
+    await vi.waitFor(() => { expect(disconnect).toHaveBeenCalled(); });
+    await gateway.close();
+  });
+});

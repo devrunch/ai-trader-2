@@ -1,15 +1,16 @@
-import type { EconomicEvent, NewsItem, TaskTrigger } from '@aitrader/contracts';
-import type { AgentTask, Fresh } from './agent-task';
+import type { EconomicEvent, NewsItem, ScanResult, TaskTrigger } from '@aitrader/contracts';
+import { MAX_SEEN, type AgentTask, type Fresh } from './agent-task';
 
 export type NewsWatch = Extract<TaskTrigger, { kind: 'news' }>;
 export type EventWatch = Extract<TaskTrigger, { kind: 'event' }>;
-export type Watch = NewsWatch | EventWatch;
+type ScreenWatch = Extract<TaskTrigger, { kind: 'screen' }>;
+export type Watch = NewsWatch | EventWatch | ScreenWatch;
 const NEWS_RANK: Readonly<Record<NewsItem['impact'], number>> = { high: 3, medium: 2, low: 1 };
 const EVENT_RANK: Readonly<Record<EconomicEvent['impact'], number>> = { High: 3, Medium: 2, Low: 1, Holiday: 0 };
 const EVENT_MAX_AGE_MS = 6 * 3_600_000;
 const MAX_LISTED = 5;
 
-export const isWatch = (trigger: TaskTrigger): trigger is Watch => trigger.kind === 'news' || trigger.kind === 'event';
+export const isWatch = (trigger: TaskTrigger): trigger is Watch => trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen';
 
 /** The markets a headline touches, from the instruments it names and the asset classes it moves. */
 function marketsOf(item: Pick<NewsItem, 'symbols' | 'moves'>): Set<string> {
@@ -83,10 +84,39 @@ export const WATCH_REPLY_RULE = 'Decide whether this is worth the user\'s attent
 
 /** A plain-words name for a watch, used as the task title. */
 export function describeWatch(trigger: Watch): string {
+  if (trigger.kind === 'screen') {
+    const { spec } = trigger;
+    return `Screen: ${spec.preset ?? 'custom conditions'} on ${spec.universe} ${spec.interval}`;
+  }
   if (trigger.kind === 'event') {
     const who = trigger.countries.length ? trigger.countries.join('/') : 'any country';
     return `Event: ${trigger.title ?? 'releases'} (${who}, ${trigger.minImpact.toLowerCase()}+, ${String(trigger.afterMinutes)} min after)`;
   }
   const scope = [trigger.markets.join('/'), ...trigger.symbols, ...trigger.keywords.map(k => `"${k}"`)].join(' ');
   return `News: ${scope} (${trigger.minImpact}+)`;
+}
+
+const istDay = (ms: number): string => new Date(ms + 330 * 60_000).toISOString().slice(0, 10);
+const MAX_ROWS_LISTED = 8;
+const signed = (n: number | null): string => (n === null ? '' : ` (${n >= 0 ? '+' : ''}${n.toFixed(2)}%)`);
+
+/**
+ * A screen watch looks at each closed bar once (`bar:<time>` is remembered) and reports a symbol at most once a day
+ * (`<symbol>:<IST date>`). Returns the wake-up when something is new; otherwise the seen list to save, changed only when the bar is new.
+ */
+export function screenOutcome(task: Pick<AgentTask, 'seen'>, result: ScanResult, now: number): { fresh: Fresh | null; seen: string[] } {
+  if (result.asOfBar === null) return { fresh: null, seen: task.seen };
+  const barKey = `bar:${String(result.asOfBar)}`;
+  if (task.seen.includes(barKey)) return { fresh: null, seen: task.seen };
+  const day = istDay(now);
+  const hits = result.rows.filter(r => !task.seen.includes(`${r.symbol}:${day}`));
+  if (hits.length === 0) return { fresh: null, seen: [...task.seen, barKey].slice(-MAX_SEEN) };
+  const lines = hits.slice(0, MAX_ROWS_LISTED).map(r => {
+    const values = Object.entries(r.values).filter(([, v]) => v !== null).map(([k, v]) => `${k} ${String(Math.round((v ?? 0) * 100) / 100)}`).join(', ');
+    return `- ${r.symbol} last ${String(r.last)}${signed(r.changePct)}${values ? `; ${values}` : ''}`;
+  });
+  const more = hits.length > MAX_ROWS_LISTED ? `\n- and ${String(hits.length - MAX_ROWS_LISTED)} more` : '';
+  const what = result.preset ?? 'custom screen';
+  const reason = `${String(hits.length)} new match${hits.length === 1 ? '' : 'es'} for ${what} on ${result.universe} ${result.interval} (bar ${new Date(result.asOfBar).toISOString()}):\n${lines.join('\n')}${more}`;
+  return { fresh: { ids: [barKey, ...hits.map(r => `${r.symbol}:${day}`)], reason, deskSymbol: (hits[0] as (typeof hits)[number]).symbol }, seen: task.seen };
 }

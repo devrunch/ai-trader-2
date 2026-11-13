@@ -9,3 +9,4 @@ export const DataSourceSchema = z.strictObject({
 });
 export type DataSourceDto = z.infer<typeof DataSourceSchema>;
 export const DataSourcesResponseSchema = z.strictObject({ sources: z.array(DataSourceSchema) });
+export type DataSourcesResponse = z.infer<typeof DataSourcesResponseSchema>;

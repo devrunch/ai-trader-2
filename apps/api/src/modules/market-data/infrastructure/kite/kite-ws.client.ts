@@ -108,7 +108,8 @@ export class KiteWsClient implements FeedTransport {
     return mapping ? [{ instrumentId: mapping.id, at: raw.exchange_timestamp ?? raw.last_trade_time ?? this.now(),
       price: raw.last_price, cumVolume: mapping.volume ? raw.volume_traded ?? null : null,
       // ohlc.close in quote/full mode is the exchange's official previous close.
-      ...(raw.ohlc && raw.ohlc.close > 0 ? { prevClose: raw.ohlc.close } : {}) }] : [];
+      ...(raw.ohlc && raw.ohlc.close > 0 ? { prevClose: raw.ohlc.close } : {}),
+      ...(raw.depth ? { book: { levels: '5' as const, bids: raw.depth.buy, asks: raw.depth.sell } } : {}) }] : [];
   }
   private text(payload: string): void {
     const value: unknown = JSON.parse(payload); const parsed = envelope.parse(value);

@@ -163,3 +163,36 @@ it('shows the assistant run queue on the Jobs tab: waiting, running and failed i
   expect(card.textContent).toContain('Running (of 2)2');
   expect(card.textContent).toContain('Failed, last 24 h1');
 });
+
+it('data sources tab shows enabled and off sources with health, limits and terms', async () => {
+  const row = (over: object) => ({ id: 'rss-et', owner: 'news', kind: 'headlines', markets: ['india'], envKeys: [], state: 'enabled', missingKeys: [], rateLimit: { requests: 3, windowSec: 300 },
+    schedule: '*/5 * * * *', terms: 'Public RSS feed terms', docs: 'https://example.test', lastSuccessAt: new Date(Date.now() - 120_000).toISOString(), lastError: null, lastErrorAt: null,
+    lastLatencyMs: 90, items24h: 288, rateLimitHits24h: 0, ...over });
+  server.use(http.get('/api/v1/admin/ops/sources', () => HttpResponse.json({ sources: [row({}),
+    row({ id: 'newsapi', envKeys: ['NEWS_API_KEY'], state: 'off', missingKeys: ['NEWS_API_KEY'], lastSuccessAt: null, items24h: 0, rateLimit: { requests: 100, windowSec: 86_400 } }),
+    row({ id: 'rss-bs', lastError: 'HTTP 503', lastErrorAt: new Date().toISOString(), rateLimitHits24h: 4 })] })));
+  await renderAt('/admin?tab=sources');
+  const etRow = (await screen.findByText('rss-et')).closest('tr');
+  if (!etRow) throw new Error('row missing');
+  expect(within(etRow).getByText('enabled')).toBeDefined();
+  expect(within(etRow).getByText('2 min ago')).toBeDefined();
+  expect(within(etRow).getByText('288')).toBeDefined();
+  expect(within(etRow).getByText('3 / 5 min')).toBeDefined();
+  expect(within(etRow).getByText('Public RSS feed terms')).toBeDefined();
+  const offRow = screen.getByText('newsapi').closest('tr');
+  if (!offRow) throw new Error('row missing');
+  expect(within(offRow).getByText('off (no key)')).toBeDefined();
+  expect(within(offRow).getByText('NEWS_API_KEY')).toBeDefined();
+  expect(within(offRow).getByText('100 / day')).toBeDefined();
+  expect(within(offRow).getByText('never')).toBeDefined();
+  const failing = screen.getByText('rss-bs').closest('tr');
+  if (!failing) throw new Error('row missing');
+  expect(within(failing).getByText(/HTTP 503/)).toBeDefined();
+  expect(within(failing).getByText('4')).toBeDefined();
+});
+
+it('data sources tab says why when nothing is registered', async () => {
+  server.use(http.get('/api/v1/admin/ops/sources', () => HttpResponse.json({ sources: [] })));
+  await renderAt('/admin?tab=sources');
+  expect(await screen.findByText('No data source is registered in this API instance.')).toBeDefined();
+});

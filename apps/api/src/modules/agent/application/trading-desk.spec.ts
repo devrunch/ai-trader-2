@@ -1,10 +1,10 @@
-import type { DeskProposal, DeskReport } from '@aitrader/contracts';
+import type { DeskProposal, DeskReport, FundamentalsResponse } from '@aitrader/contracts';
 import { DeskArgumentSchema, DeskProposalSchema, DeskReportSchema, DeskRiskReviewSchema } from '@aitrader/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import type { DeskRunDto } from '@aitrader/contracts';
 import { AsOfDeskData, type DeskBar, type DeskSnapshot } from './desk-data';
 import { DeskBacktests, decisionTime, type DeskBacktestStore, type StoredBacktest } from './desk-backtest';
-import type { RoleCall } from './desk-roles';
+import { fundamentalsAnalyst, type RoleCall } from './desk-roles';
 import { TradingDesk, callsPerRun, type DeskConfig, type DeskModel, type DeskRunStore } from './trading-desk';
 
 const asOf = Date.parse('2026-11-10T04:30:00Z');
@@ -12,6 +12,9 @@ const bar = (time: number, close = 100): DeskBar => ({ time, open: close, high: 
 const news = (id: string, at: number) => ({ id, source: 'ET', title: id, url: 'https://x.test/1', summary: null, publishedAt: new Date(at).toISOString(), symbols: [], impact: 'high' as const, moves: ['NSE:NIFTY'], direction: null });
 const event = (id: string, at: number) => ({ id, title: id, country: 'INR', at: new Date(at).toISOString(), impact: 'High' as const, forecast: null, previous: null, moves: [] });
 const report: DeskReport = { stance: 'bullish', confidence: 0.7, summary: 's', evidence: ['e'] };
+const fundamentalsRecord = (fetchedAt: string, reportDate: string | null = '2026-09-30'): FundamentalsResponse => ({ symbol: 'NSE:INFY', name: 'Infosys', consolidated: false, source: 'screener-in', fetchedAt, reportDate, stale: false,
+  ratios: { marketCap: 600000, pe: 24, bookValue: 200, roe: 25, roce: 30, dividendYield: 2, debtToEquity: 0.1, salesGrowth3y: 10, salesGrowth5y: 11, profitGrowth3y: 9, profitGrowth5y: 8, promoterHolding: 14, fiiHolding: 33, diiHolding: 30 },
+  quarterly: [], annual: [], shareholding: { period: 'Sep 2026', promoter: 14, fii: 33, dii: 30, public: 23 } });
 const goodProposal: DeskProposal = { action: 'BUY', confidence: 0.7, entry: 100, stopLoss: 98, target: 104, skill: 'breakout-trading', rationale: 'r' };
 
 describe('role output schemas', () => {
@@ -37,7 +40,8 @@ describe('AsOfDeskData: nothing after asOf can leak', () => {
     const compute = vi.fn<(request: { range: { before?: number | undefined } }) => Promise<never>>(() => Promise.resolve({ times: [asOf - 600_000, asOf - 300_000, asOf - 120_000, asOf, future], plots: [{ id: 'v', values: [1, 2, 3, 4, 5] }] } as never));
     const newsPort = vi.fn((q: { asOf: number }) => Promise.resolve([news('past', asOf - 3_600_000), news('now', asOf), news('later', future)].filter(() => q.asOf > 0)));
     const calendar = vi.fn(() => Promise.resolve([event('earlier', asOf - 3_600_000), event('soon', asOf + 3_600_000), event('far', asOf + 5 * 86_400_000)]));
-    return { data: new AsOfDeskData({ bars }, { compute }, { list: newsPort }, { list: calendar }), bars, compute, newsPort, calendar };
+    const fundamentals = vi.fn<(symbol: string, asOf: number) => Promise<FundamentalsResponse | null>>(() => Promise.resolve(fundamentalsRecord(new Date(future).toISOString())));
+    return { data: new AsOfDeskData({ bars }, { compute }, { list: newsPort }, { list: calendar }, { get: fundamentals }), bars, compute, newsPort, calendar, fundamentals };
   };
 
   it('drops bars that had not closed, later headlines, and indicator values from unfinished bars', async () => {
@@ -53,6 +57,23 @@ describe('AsOfDeskData: nothing after asOf can leak', () => {
     expect(s.events.map(e => [e.id, e.released])).toEqual([['earlier', true], ['soon', false]]);
   });
 
+  it('never shows a fundamentals record fetched after asOf, or one whose results were published after it', async () => {
+    const { data, fundamentals } = leaky();
+    expect((await data.snapshot('NSE:INFY', asOf)).fundamentals).toBeNull();
+    expect(fundamentals).toHaveBeenCalledWith('NSE:INFY', asOf);
+    fundamentals.mockResolvedValueOnce(fundamentalsRecord(new Date(asOf - 1000).toISOString(), '2026-12-31'));
+    expect((await data.snapshot('NSE:INFY', asOf)).fundamentals).toBeNull();
+    const kept = fundamentalsRecord(new Date(asOf - 1000).toISOString());
+    fundamentals.mockResolvedValueOnce(kept);
+    expect((await data.snapshot('NSE:INFY', asOf)).fundamentals).toEqual(kept);
+  });
+
+  it('does not read fundamentals for a non-NSE instrument', async () => {
+    const { data, fundamentals } = leaky();
+    expect((await data.snapshot('FX:EURUSD', asOf)).fundamentals).toBeNull();
+    expect(fundamentals).not.toHaveBeenCalled();
+  });
+
   it('asks every source for data cut at asOf, never at the wall clock', async () => {
     const { data, bars, compute, newsPort, calendar } = leaky();
     await data.snapshot('NSE:INFY', asOf);
@@ -64,12 +85,12 @@ describe('AsOfDeskData: nothing after asOf can leak', () => {
 });
 
 function setup(options: { maxTokens?: number; tokensPerCall?: number; proposal?: DeskProposal; review?: { approve: boolean; reasons: string[] }; snapshot?: Partial<DeskSnapshot> } = {}) {
-  const snapshot: DeskSnapshot = { asOf, lastClose: 100, intraday: [bar(asOf - 300_000)], daily: [bar(asOf - 86_400_000)], indicators: { rsi14: 55 }, headlines: [news('h', asOf - 1000)], events: [], ...options.snapshot };
+  const snapshot: DeskSnapshot = { asOf, lastClose: 100, intraday: [bar(asOf - 300_000)], daily: [bar(asOf - 86_400_000)], indicators: { rsi14: 55 }, headlines: [news('h', asOf - 1000)], events: [], fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()), ...options.snapshot };
   const calls: string[] = [];
   const model: DeskModel = { generate: <T>(call: RoleCall<T>) => {
     calls.push(call.role);
     const byRole: Record<string, unknown> = { news: report, technical: report, macro: report,
-      bull: { side: 'bull', round: 1, argument: 'a', keyPoints: [], rebuttal: '' }, bear: { side: 'bear', round: 1, argument: 'b', keyPoints: [], rebuttal: '' },
+      fundamentals: report, bull: { side: 'bull', round: 1, argument: 'a', keyPoints: [], rebuttal: '' }, bear: { side: 'bear', round: 1, argument: 'b', keyPoints: [], rebuttal: '' },
       trader: options.proposal ?? goodProposal, risk: options.review ?? { approve: true, reasons: ['fine'] } };
     return Promise.resolve({ data: call.schema.parse(byRole[call.role]), tokens: options.tokensPerCall ?? 1000 });
   } };
@@ -82,18 +103,36 @@ function setup(options: { maxTokens?: number; tokensPerCall?: number; proposal?:
   return { desk, calls, rows, data };
 }
 const signal = new AbortController().signal;
+const fundamentalsSnapshot = (): DeskSnapshot => ({ asOf, lastClose: 100, intraday: [], daily: [], indicators: {}, headlines: [], events: [], fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()) });
 
 describe('TradingDesk', () => {
   it('runs analysts, one debate round, trader and risk manager, sizes by code, and stores the trail', async () => {
     const { desk, calls, rows, data } = setup();
     const run = await desk.run('u1', { symbol: 'NSE:INFY', asOf, rounds: 1 }, signal);
     expect(data.snapshot).toHaveBeenCalledWith('NSE:INFY', asOf);
-    expect(calls).toEqual(expect.arrayContaining(['news', 'technical', 'macro', 'bull', 'bear', 'trader', 'risk']));
+    expect(calls).toEqual(expect.arrayContaining(['news', 'technical', 'macro', 'fundamentals', 'bull', 'bear', 'trader', 'risk']));
     expect(calls).toHaveLength(callsPerRun(1));
-    expect(run).toMatchObject({ status: 'done', live: false, calls: 7, tokens: 7000, decision: { action: 'BUY', quantity: 2500, vetoed: false, entry: 100, stopLoss: 98, target: 104 } });
-    expect(run.trail.reports.fundamentals).toEqual({ skipped: 'no fundamentals data source for this instrument' });
+    expect(run).toMatchObject({ status: 'done', live: false, calls: 8, tokens: 8000, decision: { action: 'BUY', quantity: 2500, vetoed: false, entry: 100, stopLoss: 98, target: 104 } });
+    expect(run.trail.reports.fundamentals).toEqual(report);
     expect(run.trail.debate.map(d => d.side)).toEqual(['bull', 'bear']);
     expect(rows).toHaveLength(1);
+  });
+
+  it('skips the fundamentals analyst when there is no fundamentals data, and the rest still runs', async () => {
+    const { desk, calls } = setup({ snapshot: { fundamentals: null } });
+    const run = await desk.run('u1', { symbol: 'FX:EURUSD', asOf, rounds: 1 }, signal);
+    expect(calls).not.toContain('fundamentals');
+    expect(calls).toHaveLength(callsPerRun(1) - 1);
+    expect(run.trail.reports.fundamentals).toEqual({ skipped: 'no fundamentals before the as-of time (or not an NSE stock)' });
+    expect(run.decision.action).toBe('BUY');
+  });
+
+  it('gives the fundamentals analyst the ratios and their provenance', () => {
+    const spec = fundamentalsAnalyst('NSE:INFY', fundamentalsSnapshot());
+    expect(spec.role).toBe('fundamentals');
+    expect(spec.prompt).toContain('P/E 24');
+    expect(spec.prompt).toContain('source screener-in');
+    expect(spec.prompt).toContain('promoter 14%');
   });
 
   it('bounds the debate to two rounds however many are asked for', async () => {
@@ -126,7 +165,7 @@ describe('TradingDesk', () => {
   });
 
   it('skips roles without data and decides nothing when there is no data at all', async () => {
-    const { desk, calls } = setup({ snapshot: { intraday: [], daily: [], headlines: [], events: [] } });
+    const { desk, calls } = setup({ snapshot: { intraday: [], daily: [], headlines: [], events: [], fundamentals: null } });
     const run = await desk.run('u1', { symbol: 'NSE:INFY', asOf, rounds: 1 }, signal);
     expect(calls).toEqual([]);
     expect(run.decision).toMatchObject({ action: 'HOLD' });
@@ -158,7 +197,7 @@ describe('DeskBacktests', () => {
 
   it('estimates calls and tokens before anything runs', async () => {
     const estimate = await bt().backtests.estimate('u1', request);
-    expect(estimate).toEqual({ runs: 2, callsPerRun: 7, calls: 14, tokensEstimate: 56_000, dailyRunsLeft: 3 });
+    expect(estimate).toEqual({ runs: 2, callsPerRun: 8, calls: 16, tokensEstimate: 64_000, dailyRunsLeft: 3 });
   });
 
   it('runs each date as of 10:00 IST and scores the decisions on the bars that followed', async () => {
@@ -171,7 +210,7 @@ describe('DeskBacktests', () => {
     expect(done.items.map(i => [i.outcome, i.r])).toEqual([['target', 2], ['target', 2]]);
     expect(done.summary).toMatchObject({ trades: 2, hitRatePct: 100, avgR: 2, totalR: 4, maxDrawdownR: 0 });
     expect(future.after).toHaveBeenCalledWith('NSE:INFY', '5', decisionTime('2026-11-09'), 75);
-    expect(done.tokens).toBe(14_000);
+    expect(done.tokens).toBe(16_000);
   });
 
   it('refuses a date in the future, and more dates than runs left today', async () => {

@@ -1,4 +1,4 @@
-import type { IndicatorChartInputs, IndicatorComputeRequest, IndicatorDefinition, IndicatorResult, IndicatorSpec, Interval } from '@aitrader/contracts';
+import type { Bar, IndicatorChartInputs, IndicatorInputValues, IndicatorComputeRequest, IndicatorDefinition, IndicatorResult, IndicatorSpec, Interval } from '@aitrader/contracts';
 import { NotFoundError, ValidationError } from '../../../shared/errors';
 import type { MarketDataService } from '../../market-data/application/index';
 import { BUILTINS, findBuiltin, findBuiltinByRef } from '../domain/catalog';
@@ -18,6 +18,9 @@ const PINE_WARMUP = 500;
 /** A Pine script as described by the runtime, with the caller's inputs resolved against it. */
 interface PineInfo { definition: IndicatorDefinition; inputs: ResolvedInputs }
 type Pines = ReadonlyMap<ChainNode, PineInfo>;
+
+/** Times and plot series of a computation on supplied bars. */
+export interface OnBars { times: number[]; plots: Array<{ id: string; values: Array<number | null> }> }
 
 interface Plan { program: IndicatorProgram; ref: string; /** Bars the program needs before its first value is right. */ warmup: number; offsets: Readonly<Record<string, number>>; plots: string[] | null;
   /** The inputs as resolved, with a source ref kept as the ref rather than the runtime marker. */
@@ -48,6 +51,20 @@ export class IndicatorService {
     const { result, stream } = await this.open(request);
     stream.close();
     return result;
+  }
+
+  /**
+   * A built-in on bars the caller already holds (scans): the native runtime, no market data read. Plots are shifted by the indicator's offsets like
+   * compute(); time zone and interval only matter to session-based indicators such as VWAP.
+   */
+  async computeOnBars(spec: { id: string; inputs: IndicatorInputValues }, bars: readonly Bar[], context: { interval?: Interval; timezone?: string } = {}): Promise<OnBars> {
+    const interval = context.interval ?? '1D';
+    const { program, offsets, plots } = plan({ spec: { kind: 'builtin', id: spec.id, inputs: spec.inputs }, label: spec.id }, interval, new Map());
+    const instance = this.runtimes.resolve(program).create(program, { instrumentId: 'ADHOC:BARS', interval, timezone: context.timezone ?? 'UTC' });
+    try {
+      const rows = await instance.seed(bars);
+      return { times: bars.map(b => b.time), plots: (plots ?? []).map(id => ({ id, values: shiftByOffset(rows.map(row => row[id] ?? null), offsets[id] ?? 0) })) };
+    } finally { instance.close(); }
   }
 
   /** Computes the range, then keeps the instance for live updates from saved state. The caller closes the stream. */

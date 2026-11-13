@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { IndicatorDefinitionSchema, IndicatorInputValuesSchema } from './indicator.js';
 import { NEWS_IMPACTS } from './news.js';
 import { DeskTaskSchema } from './desk.js';
+import { ScreenSpecSchema } from './screener.js';
 import { PAPER_PRODUCTS } from './paper.js';
 import { PINE_SCRIPT_LIMITS } from './pine-script.js';
 import { DataStatusSchema, INTERVALS } from './market-data.js';
@@ -85,6 +86,8 @@ export const TaskTriggerSchema = z.discriminatedUnion('kind', [
   /** Fires once per matching calendar event, `afterMinutes` after its release so the market's reaction is visible. */
   z.strictObject({ kind: z.literal('event'), countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
     minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5) }),
+  /** Fires on symbols newly matching a screen, evaluated once per new closed bar; a symbol is reported at most once a day. */
+  z.strictObject({ kind: z.literal('screen'), spec: ScreenSpecSchema }),
 ]);
 export type TaskTrigger = z.infer<typeof TaskTriggerSchema>;
 /** What a task may do on its own when it fires (paper money only): the limits it must stay inside. */

@@ -14,9 +14,9 @@ export interface AgentTask {
   expiresAt: number; createdAt: number;
 }
 
-/** What a fired watch passes on: the ids to remember so they never fire twice, and the wake-up text. */
-export interface Fresh { ids: string[]; reason: string }
-const MAX_SEEN = 200;
+/** What a fired watch passes on: the ids to remember so they never fire twice, the wake-up text, and for a screen the symbol a desk run should look at. */
+export interface Fresh { ids: string[]; reason: string; deskSymbol?: string }
+export const MAX_SEEN = 200;
 
 const MIN_SCHEDULE_GAP_MS = 5 * 60_000;
 export const MAX_TASK_DAYS = 30;
@@ -34,7 +34,7 @@ export function nextScheduled(trigger: Extract<TaskTrigger, { kind: 'schedule' }
   return first;
 }
 
-type WatchKind = Extract<TaskTrigger, { kind: 'news' | 'event' }>;
+type WatchKind = Extract<TaskTrigger, { kind: 'news' | 'event' | 'screen' }>;
 
 export type Tick = { fire: false; task: AgentTask } | { fire: true; task: AgentTask; reason: string };
 
@@ -50,7 +50,7 @@ export function tick(task: AgentTask, now: number, observed?: number): Tick {
     if (task.nextRunAt === null || now < task.nextRunAt) return { fire: false, task };
     return { fire: true, task: { ...task, nextRunAt: nextScheduled(trigger, now) }, reason: `scheduled run (${trigger.cron} ${trigger.tz})` };
   }
-  if (trigger.kind === 'news' || trigger.kind === 'event') return { fire: false, task };
+  if (trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen') return { fire: false, task };
   if (observed === undefined) return { fire: false, task };
   const met = trigger.op === 'above' ? observed > trigger.value : observed < trigger.value;
   if (!met) return { fire: false, task: task.armed ? task : { ...task, armed: true } };
@@ -64,7 +64,8 @@ export function tickWatch(task: AgentTask & { trigger: WatchKind }, now: number,
   if (task.state !== 'active') return { fire: false, task };
   if (now >= task.expiresAt) return { fire: false, task: { ...task, state: 'expired', nextRunAt: null } };
   if (!fresh) return { fire: false, task };
-  return { fire: true, task: { ...task, seen: [...task.seen, ...fresh.ids].slice(-MAX_SEEN) }, reason: fresh.reason };
+  const desk = task.desk && fresh.deskSymbol ? { ...task.desk, symbol: fresh.deskSymbol } : task.desk;
+  return { fire: true, task: { ...task, desk, seen: [...task.seen, ...fresh.ids].slice(-MAX_SEEN) }, reason: fresh.reason };
 }
 
 /** After a run: count it, finish when the run budget is spent. */

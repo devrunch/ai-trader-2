@@ -42,7 +42,7 @@ export type DeskDecision = z.infer<typeof DeskDecisionSchema>;
 export const DeskTrailSchema = z.strictObject({
   data: z.strictObject({ asOf: z.string(), lastClose: z.number().nullable(), bars: z.number().int(), headlines: z.number().int(), events: z.number().int() }),
   reports: z.strictObject({ news: z.union([DeskReportSchema, DeskSkippedSchema]), technical: z.union([DeskReportSchema, DeskSkippedSchema]),
-    macro: z.union([DeskReportSchema, DeskSkippedSchema]), fundamentals: DeskSkippedSchema }),
+    macro: z.union([DeskReportSchema, DeskSkippedSchema]), fundamentals: z.union([DeskReportSchema, DeskSkippedSchema]) }),
   debate: z.array(DeskArgumentSchema).max(2 * DESK_LIMITS.maxRounds),
   proposal: DeskProposalSchema.nullable(), riskReview: DeskRiskReviewSchema.nullable(),
   gate: z.strictObject({ pass: z.boolean(), blocks: z.array(Short(300)).max(12) }),

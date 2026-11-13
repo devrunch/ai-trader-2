@@ -9,3 +9,5 @@ export type { FormingBarStore } from './ports/forming-bar-store';
 export { GetFeedOverview } from './get-feed-overview';
 export { CheckSessionCoverage, type InstrumentCoverage } from './check-session-coverage';
 export { exchangeTimezone, isMarketOpen, isTradingDay, sessionAt } from './market-hours';
+export { ReadDepth } from './read-depth';
+export { StoredBars } from './stored-bars';
