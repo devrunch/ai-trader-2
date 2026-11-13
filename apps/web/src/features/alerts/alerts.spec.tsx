@@ -34,12 +34,17 @@ beforeEach(() => { posted.length = 0; verbs.length = 0; tasks = [
 afterEach(() => { cleanup(); server.resetHandlers(); });
 afterAll(() => { server.close(); });
 
-it('lists alerts only, not the assistant\'s tasks, and opens the alert\'s symbol', async () => {
+it('lists alerts and AI watches together, filters by type, and opens the alert\'s symbol', async () => {
   const open = vi.fn();
   render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={open} /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: 'NSE:INFY above 1,500' }));
   expect(open).toHaveBeenCalledWith('NSE:INFY');
+  expect(screen.getByText('Assistant task')).toBeDefined();
+  fireEvent.click(screen.getByRole('tab', { name: /^Alerts/ }));
   expect(screen.queryByText('Assistant task')).toBeNull();
+  fireEvent.click(screen.getByRole('tab', { name: /^AI watches/ }));
+  expect(screen.getByText('Assistant task')).toBeDefined();
+  expect(screen.queryByText('NSE:INFY above 1,500')).toBeNull();
 });
 
 it('creates a price alert on the chart symbol and shows the last price', async () => {
@@ -102,7 +107,7 @@ it('disables Add for an invalid country code, and does not open a symbol for a n
   render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={open} /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: 'India headlines' }));
   expect(open).not.toHaveBeenCalled();
-  expect(screen.getByText(/last outcome: silent/)).toBeDefined();
+  expect(screen.getByText(/checked, nothing worth telling/)).toBeDefined();
   fireEvent.change(screen.getByLabelText('Alert type'), { target: { value: 'event' } });
   fireEvent.change(screen.getByLabelText('Countries'), { target: { value: 'us' } });
   expect(screen.getByRole('button', { name: 'Add' }).hasAttribute('disabled')).toBe(true);

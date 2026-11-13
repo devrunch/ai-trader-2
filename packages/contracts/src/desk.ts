@@ -50,7 +50,7 @@ export const DeskTrailSchema = z.strictObject({
 export type DeskTrail = z.infer<typeof DeskTrailSchema>;
 
 export const DeskRunSchema = z.strictObject({
-  id: z.uuid(), symbol: SymbolId, asOf: z.string(), live: z.boolean(), createdAt: z.string(), status: z.enum(['done', 'budget', 'error']),
+  id: z.uuid(), symbol: SymbolId, asOf: z.string(), live: z.boolean(), createdAt: z.string(), status: z.enum(['running', 'done', 'budget', 'error']),
   decision: DeskDecisionSchema, trail: DeskTrailSchema, tokens: z.number().int().nonnegative(), calls: z.number().int().nonnegative(), error: Short(300).nullable(),
 });
 export type DeskRunDto = z.infer<typeof DeskRunSchema>;

@@ -5,6 +5,7 @@ import { SymbolSearchDialog, useOpenOnType } from '../../features/symbol-search'
 import { CompactNav } from '../layout/app-shell';
 import { Wordmark } from '../../shared/ui/brand-mark';
 import { AiButton } from '../../shared/ui/ai-button';
+import { DeskRunningPill } from '../../features/desk';
 import { TerminalLayout } from '../layout/terminal-layout';
 import { ConnectionIndicator, LiveChart, useDrawingStore } from '../../features/chart';
 import { IndicatorPicker, IndicatorTemplatesMenu } from '../../features/indicators';
@@ -41,6 +42,7 @@ export function TerminalPage() {
       <span className="shrink-0"><IndicatorPicker /></span><span className="shrink-0"><IndicatorTemplatesMenu /></span>
     </div>
     <div className="flex shrink-0 items-center gap-1">
+      <DeskRunningPill enabled />
       <AiButton size="sm" className="mr-1 hidden md:inline-flex" onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval, panel: 'assistant' } }); }}>Ask AI</AiButton>
       <ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
   </div>;

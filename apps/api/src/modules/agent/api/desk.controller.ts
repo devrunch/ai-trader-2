@@ -22,7 +22,7 @@ export class DeskController {
   @Post('runs') @HttpCode(200) @UseGuards(CsrfHeaderGuard)
   run(@Body() body: unknown, @Req() req: AuthRequest) {
     const { symbol, asOf, rounds } = DeskRunRequestSchema.parse(body);
-    return this.desk.run(userId(req), { symbol, rounds, ...(asOf === undefined ? {} : { asOf: Date.parse(asOf) }) }, AbortSignal.timeout(240_000));
+    return this.desk.start(userId(req), { symbol, rounds, ...(asOf === undefined ? {} : { asOf: Date.parse(asOf) }) });
   }
 
   @Get('runs')

@@ -7,7 +7,7 @@ import { deskBacktests, deskRuns } from '../../../shared/database/schema';
 import type { DeskBacktestStore, StoredBacktest } from '../application/desk-backtest';
 import type { DeskRunStore } from '../application/trading-desk';
 
-const Status = z.enum(['done', 'budget', 'error']);
+const Status = z.enum(['running', 'done', 'budget', 'error']);
 type RunRow = typeof deskRuns.$inferSelect;
 const toRun = (r: RunRow): DeskRunDto => ({ id: r.id, symbol: r.symbol, asOf: new Date(r.asOf).toISOString(), live: r.live, createdAt: new Date(r.createdAt).toISOString(),
   status: Status.parse(r.status), decision: DeskDecisionSchema.parse(r.decision), trail: DeskTrailSchema.parse(r.trail), tokens: r.tokens, calls: r.calls, error: r.error });
@@ -18,6 +18,11 @@ export class DrizzleDeskRunStore implements DeskRunStore {
   async insert(userId: string, run: DeskRunDto): Promise<void> {
     await withTimeout(() => this.db.insert(deskRuns).values({ id: run.id, userId, symbol: run.symbol, asOf: run.asOf, live: run.live, createdAt: run.createdAt, status: run.status,
       decision: run.decision, trail: run.trail, tokens: run.tokens, calls: run.calls, error: run.error }), 5000);
+  }
+
+  async update(userId: string, run: DeskRunDto): Promise<void> {
+    await withTimeout(() => this.db.update(deskRuns).set({ status: run.status, decision: run.decision, trail: run.trail, tokens: run.tokens, calls: run.calls, error: run.error })
+      .where(and(eq(deskRuns.userId, userId), eq(deskRuns.id, run.id))), 5000);
   }
 
   async list(userId: string, query: { symbol?: string | undefined; limit: number }): Promise<DeskRunDto[]> {

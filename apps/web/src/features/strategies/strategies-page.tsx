@@ -5,7 +5,7 @@ import { Button } from '../../shared/ui/button';
 import { Page, PageHeader, Panel } from '../../shared/ui/page';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { BacktestResults } from './backtest-results';
-import { emptyForm, fromSpec } from './strategy-builder';
+import { STARTERS, emptyForm, fromSpec } from './strategy-builder';
 import { draftSpec, StrategyEditor, type Draft } from './strategy-editor';
 import { useStrategies, useStrategyActions } from './use-strategies';
 
@@ -44,7 +44,7 @@ export function StrategiesPage() {
       <div className="p-3">
       {list.isPending ? <div className="space-y-1"><Skeleton className="h-8" /><Skeleton className="h-8" /></div>
         : list.isError ? <p role="alert" className="text-down">Strategies are unavailable right now. {list.error.message}</p>
-        : items.length === 0 ? <p className="text-muted-foreground">No strategies yet: build one on the right.</p>
+        : items.length === 0 ? <p className="text-muted-foreground">No saved strategies yet. Pick a template or write rules, run the backtest, then Save.</p>
         : <ul className={list.isFetching ? 'opacity-70' : ''}>{items.map(s => <li key={s.id} className="flex items-center gap-1 border-b py-1">
           <button type="button" className="min-w-0 flex-1 text-left hover:underline" onClick={() => { setDraft(draftOf(s)); setProblem(null); run.reset(); }}>
             <span className="block truncate font-semibold">{s.name}</span>
@@ -55,6 +55,14 @@ export function StrategiesPage() {
       </div>
     </aside>
     <section className="min-w-0 space-y-4">
+      {draft.id === null && <Panel title="Start from a template">
+        <ul className="grid gap-2 sm:grid-cols-2">{STARTERS.map(t => <li key={t.name}>
+          <button type="button" className="h-full w-full border p-3 text-left hover:border-link hover:bg-muted"
+            onClick={() => { setDraft({ id: null, name: t.name, form: t.form(), advanced: null }); setProblem(null); run.reset(); }}>
+            <span className="block font-semibold">{t.name}</span><span className="mt-1 block text-[12px] text-muted-foreground">{t.summary}</span>
+          </button></li>)}</ul>
+        <p className="mt-3 text-[12px] text-muted-foreground">Templates are starting points to learn from, not recommendations. Change the symbol and rules, then run the backtest.</p>
+      </Panel>}
       <Panel title="Rules">
       <StrategyEditor draft={draft} onChange={setDraft} onSave={onSave} onRun={onRun} busy={run.isPending || save.isPending}
         error={problem ?? message(save.error) ?? message(run.error)} />

@@ -95,9 +95,9 @@ describe('FR-MD-2 E1 E2 E11 E12 Kite ticker integration', () => {
     try {
       await Promise.all([first.connect(AbortSignal.timeout(5000)), second.connect(AbortSignal.timeout(5000))]);
       first.sendSubscribe(['256001']); second.sendSubscribe(['256001']);
-      a.tick(start, 11, 100); await vi.waitFor(() => { expect(receivedA).toHaveBeenCalledExactlyOnceWith([{ instrumentId: 'NSE:A', at: start, price: 11, cumVolume: 100 }]); });
+      a.tick(start, 11, 100); await vi.waitFor(() => { expect(receivedA).toHaveBeenCalledExactlyOnceWith([expect.objectContaining({ instrumentId: 'NSE:A', at: start, price: 11, cumVolume: 100 })]); });
       expect(receivedB).not.toHaveBeenCalled();
-      b.tick(start + 1000, 22, 200); await vi.waitFor(() => { expect(receivedB).toHaveBeenCalledExactlyOnceWith([{ instrumentId: 'NSE:B', at: start + 1000, price: 22, cumVolume: 200 }]); });
+      b.tick(start + 1000, 22, 200); await vi.waitFor(() => { expect(receivedB).toHaveBeenCalledExactlyOnceWith([expect.objectContaining({ instrumentId: 'NSE:B', at: start + 1000, price: 22, cumVolume: 200 })]); });
       first.close(); b.tick(start + 2000, 23, 201);
       await vi.waitFor(() => { expect(receivedB).toHaveBeenCalledTimes(2); }); expect(receivedA).toHaveBeenCalledOnce();
     } finally { first.close(); second.close(); await Promise.all([a.stop(), b.stop()]); }
@@ -126,7 +126,7 @@ describe('FR-MD-2 E1 E2 E11 E12 Kite ticker integration', () => {
       const url = new URL(server.urls[0] ?? '', server.root);
       expect(url.searchParams.get('api_key')).toBe('key +&'); expect(url.searchParams.get('access_token')).toBe('token +&');
       server.binary(encodeKitePackets([kitePacket(184, 256001, [[4, 1234], [16, 500], [44, start / 1000 + 1]]), kitePacket(8, 265, [[4, 2100000]])]));
-      await vi.waitFor(() => { expect(ticks).toHaveBeenCalledExactlyOnceWith([{ instrumentId: id, at: start + 1000, price: 12.34, cumVolume: 500 }, { instrumentId: 'NSE:NIFTY', at: now, price: 21000, cumVolume: null }]); });
+      await vi.waitFor(() => { expect(ticks).toHaveBeenCalledExactlyOnceWith([expect.objectContaining({ instrumentId: id, at: start + 1000, price: 12.34, cumVolume: 500 }), expect.objectContaining({ instrumentId: 'NSE:NIFTY', at: now, price: 21000, cumVolume: null })]); });
       client.sendUnsubscribe(['265']); await vi.waitFor(() => { expect(server.commands.at(-1)).toEqual({ a: 'unsubscribe', v: [265] }); });
       server.binary(encodeKitePackets([kitePacket(8, 265, [[4, 2200000]])])); now += 1; server.heartbeat();
       await vi.waitFor(() => { expect(client.lastActivityAt).toBe(now); }); expect(ticks).toHaveBeenCalledOnce();

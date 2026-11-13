@@ -3,6 +3,7 @@ import { BookOpen, Bell, ChevronDown, ChevronUp, List, Newspaper, Sparkles, type
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../shared/ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
 import { useIsDesktop } from './use-is-desktop';
+import { TerminalGuide } from './terminal-guide';
 
 export type Widget = 'watchlist' | 'depth' | 'assistant' | 'alerts' | 'news';
 type Props = { toolbar: ReactNode; chart: ReactNode; bottom: ReactNode; widgets: Record<Widget, ReactNode>; requestedWidget?: Widget | undefined };
@@ -11,7 +12,7 @@ const WIDGETS: Array<{ id: Widget; label: string; icon: LucideIcon }> = [
   { id: 'watchlist', label: 'Watchlist', icon: List },
   { id: 'depth', label: 'Order book', icon: BookOpen },
   { id: 'assistant', label: 'Assistant', icon: Sparkles },
-  { id: 'alerts', label: 'Alerts', icon: Bell },
+  { id: 'alerts', label: 'Alerts and watches', icon: Bell },
   { id: 'news', label: 'News', icon: Newspaper },
 ];
 
@@ -35,6 +36,7 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets, requestedWidge
 
   return <div className="flex min-h-0 flex-1 flex-col bg-background">
     <div className="flex h-10 shrink-0 items-center border-b bg-panel">{toolbar}</div>
+    <TerminalGuide />
     <div className="flex min-h-0 flex-1">
       {/* The group sizes itself to 100% of its parent; the wrapper keeps the rail on screen. */}
       <div className="min-w-0 flex-1"><ResizablePanelGroup orientation="horizontal" className="h-full">

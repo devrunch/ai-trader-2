@@ -5,6 +5,7 @@ import { ThemeToggle } from '../../shared/ui/theme-toggle';
 import { AiButton } from '../../shared/ui/ai-button';
 import { Wordmark } from '../../shared/ui/brand-mark';
 import { useSession } from '../../features/auth';
+import { DeskRunningPill } from '../../features/desk';
 
 function MainNav() {
   const link = 'relative inline-flex min-h-10 items-center px-3 text-muted-foreground transition-colors md:min-h-12 md:px-2.5 hover:text-foreground';
@@ -14,7 +15,7 @@ function MainNav() {
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Terminal</Link>
     <Link to="/strategies" className={link} activeProps={active}>Strategies</Link>
     <Link to="/screener" className={link} activeProps={active}>Screener</Link>
-    <Link to="/desk" search={{ symbol: 'NSE:NIFTY' }} className={link} activeProps={active}>Desk</Link>
+    <Link to="/desk" search={{ symbol: 'NSE:NIFTY' }} className={link} activeProps={active}>AI Desk</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={active}>Admin</Link>
   </nav>;
 }
@@ -42,12 +43,14 @@ function useOwnChrome(): boolean {
 
 export function AppShell() {
   const ownChrome = useOwnChrome();
+  const signedIn = useSession().isSuccess;
   const navigate = useNavigate();
   return <div className="flex h-dvh flex-col">
     {!ownChrome && <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-panel px-3 md:gap-4">
       <Link to="/" aria-label="AI Trader home" className="shrink-0"><Brand /></Link>
       <MainNav />
       <span className="ml-auto flex shrink-0 items-center gap-2">
+        <DeskRunningPill enabled={signedIn} />
         <AiButton size="sm" onClick={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }}>Ask AI</AiButton>
         <ThemeToggle />
       </span>
