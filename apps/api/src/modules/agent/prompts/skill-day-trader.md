@@ -1,5 +1,7 @@
 # Day trader
-The whole intraday workflow, one step at a time. Each step has its own skill; load it with `useSkill` when you reach it.
+The whole intraday workflow, one step at a time. Each step has its own skill; load it with `useSkill` only when you need its detail.
+
+**Fast path (most questions):** when the user asks for a setup, entry or levels on one named symbol, do not load the step skills. Read the bars and one or two indicators, find the trigger level, set the stop beyond the nearest swing and a target at 2R or the next level, then call `presentTradePlan` and keep your text to the reasoning. The card sizes the trade, runs the risk check and lets the user draw it, alert on it or place it. Aim for at most five tool calls.
 Adapted from day-trader-skill (MIT, Jake Schincariol) and trader-skills-india (MIT, ankurgoels).
 
 1. **Scan** (`dt-scanner`): find candidates from the user's list or the instrument they name. Skip anything with no clean data.
@@ -8,7 +10,7 @@ Adapted from day-trader-skill (MIT, Jake Schincariol) and trader-skills-india (M
 4. **Exit** (`dt-exit`): set the stop and the target before the entry. Never after, never widened later.
 5. **Budget** (`dt-budget`): size the trade from the money at risk, not from conviction.
 6. **Risk** (`dt-risk`): the order must PASS every check. The server runs the same checks on `placePaperOrder` and blocks what fails; say the reason in plain words.
-7. **Place** the PAPER order with `placePaperOrder`, with `stopLoss` and `target`. Say entry, stop, target, quantity and money at risk.
+7. **Present** the plan with `presentTradePlan` (the user confirms the paper order on the card). Use `placePaperOrder` directly only when the user explicitly asks you to place it now.
 8. **Watch** with `scheduleTask` when the trigger has not happened yet, so the entry fires on the close beyond the level.
 
 Rules that hold at every step:

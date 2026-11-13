@@ -79,6 +79,13 @@ function Conversation({ threadId, model }: { threadId: string; model: string | n
   return <ChatBody threadId={threadId} initial={history.data as UIMessage[]} model={model} />;
 }
 
+const SUGGESTIONS = [
+  'Give me an intraday setup on RELIANCE with entry, stop and target.',
+  'What moved NIFTY today, and what is on the calendar this week?',
+  'Scan NIFTY 50 for breakouts on volume.',
+  'Watch RBI policy news and tell me only if it matters.',
+];
+
 function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIMessage[]; model: string | null }) {
   const client = useQueryClient();
   // Only the new message travels; the server holds the history (no forged assistant or tool turns).
@@ -100,7 +107,11 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
   };
   return <>
     <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-auto">
-      {chat.messages.length === 0 && <li className="text-muted-foreground">Ask about a symbol, your paper positions or a setup. The assistant reads data only and never places orders.</li>}
+      {chat.messages.length === 0 && <li className="space-y-3">
+        <p className="text-muted-foreground">Ask about a symbol, a setup, the news or your paper positions. Trade ideas come back as a card you can draw on the chart, alert on, or place on paper after you confirm.</p>
+        <ul aria-label="Try asking" className="flex flex-col gap-1.5">{SUGGESTIONS.map(q => <li key={q}>
+          <button type="button" disabled={busy} className="ai-border w-full px-3 py-2 text-left text-[12px] hover:bg-muted" onClick={() => { void chat.sendMessage({ text: q }); }}>{q}</button></li>)}</ul>
+      </li>}
       {chat.messages.map(m => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
         <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} role={m.role} />
       </li>)}

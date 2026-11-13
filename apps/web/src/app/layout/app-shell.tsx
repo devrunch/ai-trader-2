@@ -11,7 +11,7 @@ import { useSession } from '../../features/auth';
 import { DeskRunningPill } from '../../features/desk';
 
 function MainNav() {
-  const link = 'relative inline-flex min-h-10 items-center px-3 text-muted-foreground transition-colors md:min-h-12 md:px-2.5 hover:text-foreground';
+  const link = 'relative inline-flex min-h-10 shrink-0 items-center whitespace-nowrap px-3 text-muted-foreground transition-colors md:min-h-12 md:px-2.5 hover:text-foreground';
   const active = { className: 'text-foreground after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:bg-link' };
   return <nav aria-label="Main navigation" className="order-last flex w-full items-center gap-0.5 overflow-x-auto border-t text-[13px] [scrollbar-width:none] md:order-none md:w-auto md:border-t-0">
     <Link to="/" className={link} activeProps={active} activeOptions={{ exact: true }}>Home</Link>
