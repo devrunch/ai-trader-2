@@ -12,7 +12,7 @@ export function useDeskRuns(symbol: string) {
 export function useDeskRun(id: string | undefined) {
   return useQuery({ queryKey: ['desk', 'run', id], enabled: id !== undefined,
     queryFn: ({ signal }) => apiFetch(`/v1/desk/runs/${id ?? ''}`, { schema: DeskRunSchema, signal }),
-    refetchInterval: query => (query.state.data?.status === 'running' ? POLL_MS : false) });
+    refetchInterval: query => (query.state.data?.status === 'running' ? POLL_MS : false), refetchIntervalInBackground: true });
 }
 
 /** The user's latest runs on any symbol, to show a run in progress from any page. */
@@ -20,7 +20,7 @@ export function useRunningDesk(enabled: boolean) {
   return useQuery({ queryKey: ['desk', 'runs', 'recent'], enabled,
     queryFn: ({ signal }) => apiFetch('/v1/desk/runs?limit=5', { schema: DeskRunListSchema, signal }),
     select: data => data.items.filter(r => r.status === 'running'),
-    refetchInterval: query => (query.state.data?.items.some(r => r.status === 'running') ? POLL_MS : 60_000) });
+    refetchInterval: query => (query.state.data?.items.some(r => r.status === 'running') ? POLL_MS : 60_000), refetchIntervalInBackground: true });
 }
 
 export function useRunDesk() {

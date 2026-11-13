@@ -17,11 +17,13 @@ const noContent = z.unknown();
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
 export function ChatPanel({ actions }: { actions?: ChatActions }) {
-  const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }) });
+  const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }),
+    refetchInterval: query => (query.state.status === 'error' ? 5000 : false) });
   const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
   const [view, setView] = useState<'chat' | 'tasks' | 'memory'>('chat');
   if (status.isPending) return <p className="text-sm text-muted-foreground">Loading assistant…</p>;
-  if (status.isError) return <p role="alert" className="text-sm text-down">The assistant is unreachable. Try again shortly.</p>;
+  if (status.isError) return <div role="alert" className="space-y-2 text-sm"><p className="text-down">The assistant cannot be reached right now. Retrying every few seconds.</p>
+    <button type="button" className="border px-2 py-1 text-[12px] hover:bg-muted" onClick={() => { void status.refetch(); }}>Try again now</button></div>;
   if (!status.data.enabled) {
     return <div className="space-y-2 text-sm"><h2 className="font-medium">Assistant</h2>
       <p className="text-muted-foreground">The assistant is not configured on this server. An admin sets <code>AGENT_MODEL</code> and its provider key in <code>apps/api/.env</code>.</p></div>;

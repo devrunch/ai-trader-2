@@ -1,4 +1,7 @@
+import { useEffect } from 'react';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { SESSION_EXPIRED } from '../../shared/api/http';
 import { House, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../shared/ui/tooltip';
 import { ThemeToggle } from '../../shared/ui/theme-toggle';
@@ -45,6 +48,17 @@ export function AppShell() {
   const ownChrome = useOwnChrome();
   const signedIn = useSession().isSuccess;
   const navigate = useNavigate();
+  const client = useQueryClient();
+  const path = useRouterState({ select: state => state.location.pathname });
+  // An expired session on a page that needs one goes to sign-in and comes back here afterwards, instead of failing quietly.
+  useEffect(() => {
+    const expired = () => {
+      void client.invalidateQueries({ queryKey: ['auth', 'session'] });
+      if (path !== '/' && !path.startsWith('/login')) void navigate({ to: '/login', search: { redirect: window.location.pathname + window.location.search } });
+    };
+    window.addEventListener(SESSION_EXPIRED, expired);
+    return () => { window.removeEventListener(SESSION_EXPIRED, expired); };
+  }, [client, navigate, path]);
   return <div className="flex h-dvh flex-col">
     {!ownChrome && <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-panel px-3 md:gap-4">
       <Link to="/" aria-label="AI Trader home" className="shrink-0"><Brand /></Link>
