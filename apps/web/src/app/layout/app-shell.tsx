@@ -17,6 +17,7 @@ function MainNav() {
     <Link to="/" className={link} activeProps={active} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Terminal</Link>
     <Link to="/agent" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Agent</Link>
+    <Link to="/portfolio" className={link} activeProps={active}>Portfolio</Link>
     <Link to="/strategies" className={link} activeProps={active}>Strategies</Link>
     <Link to="/screener" className={link} activeProps={active}>Screener</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={active}>Admin</Link>

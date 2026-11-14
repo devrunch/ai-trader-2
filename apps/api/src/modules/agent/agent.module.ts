@@ -258,7 +258,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         return new WhatToWatch(new DrizzleWhatToWatchStore(db), {
           symbols: async userId => [...new Set([...(await watchlist.get(userId)).items.slice(0, 12), ...DEFAULTS])],
           quotes: async symbols => new Map((await Promise.all(symbols.map(async s => {
-            try { const q = await quote.execute(s); return q.price === null ? null : [s, { price: q.price, changePct: q.changePct }] as [string, WatchQuote]; } catch { return null; }
+            try { const q = await quote.execute(s); return [s, { price: q.price, changePct: q.changePct }] as [string, WatchQuote]; } catch { return null; }
           }))).filter((x): x is [string, WatchQuote] => x !== null)),
           headlines: async () => (await news.clusters({ hours: 18, limit: 80 })).sort((a, b) => b.sourceCount - a.sourceCount).slice(0, 12)
             .map(c => ({ title: c.lead.title, sources: c.sourceCount, sentiment: c.sentiment?.label ?? null, symbols: c.symbols })),
