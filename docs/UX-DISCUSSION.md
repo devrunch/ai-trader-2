@@ -257,3 +257,25 @@ The owner wants it free, since it is all our data. Technical position:
 - **AI Desk** is removed as a place. Its runs live in the assistant's history and in Tasks.
 - **Portfolio** (AI vs user) and **Settings** are confirmed as places.
 - What stays: What to watch (home), the Symbol workspace, Screener, Strategies (both reachable from the assistant and opening their results in the chat or the symbol), and Admin.
+
+## Decisions (owner, 14 Nov 2026, third round)
+
+1. **Two modes of one app, switched with a button.**
+   - From the Terminal, **Switch to agent** opens the agent window.
+   - From the agent window, **Back to terminal** returns.
+   - Nothing is lost when switching: the symbol, the conversation and the tasks carry over.
+2. **What to watch is global for the user.**
+   - The assistant keeps it for that user and knows it, so it can answer "what should I watch?" from it in chat.
+   - It is shown on the Home page.
+3. **In the agent window the chart is not the focus.**
+   - The stocks in focus are shown as **numbers**: price and move, their fundamentals, and the figures the assistant is using.
+   - Charts stay in the Terminal; the assistant can still show a small chart inside a reply when it explains something.
+
+### Proposal to confirm: the numbers shown for a stock in focus
+
+- **Price:** last price, change today, day range, volume against its usual volume, where it sits in its 52-week range.
+- **Fundamentals (NSE):** P/E, ROE, debt to equity, sales and profit growth, promoter holding.
+- **Mood:** news sentiment today and this week, the number of sources, crowd chatter.
+- **Coming up:** the next event or results date that can move it.
+- **Yours:** open position and P&L, and the tasks on it with their plain titles.
+- **The assistant's view:** its current call (buy, sell, hold or watch), how sure it is, and its levels.
