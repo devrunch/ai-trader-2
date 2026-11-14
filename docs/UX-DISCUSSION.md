@@ -220,3 +220,40 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
   - what has worked for you, learned from thumbs up/down and the cards you apply or dismiss.
 - **Report:** in-app notifications and email (to an address you give).
 - **Stays inside:** daily limits on turns, wake-ups and desk runs, and token budgets.
+
+## Decisions (owner, 14 Nov 2026, second round)
+
+1. **The assistant gets its own main window, agent first (like a code editor where the agent is the main thing).**
+   - The chat is the centre of the product: how the assistant replies is what the product does.
+   - Tasks are shown in that window, beside the conversation, with running ones visible.
+   - Charts, scans, trade plans and portfolio views appear inside the conversation as interactive pieces, and can be opened full size.
+2. **The AI Desk page goes away.**
+   - The desk becomes something the assistant runs by itself when a decision needs it, like a skill.
+   - Every run is saved automatically to history with its full trace (what each role said, the data it saw).
+   - The result shows in the chat as an interactive card.
+3. **A Portfolio page** shows what the AI has done and what the user has done, side by side: positions, orders, results and the reasons behind each trade.
+4. **A Settings page** holds the profile, the autonomy flag and limits, email and theme in one place, designed so the user never hunts for a setting.
+5. **Interactive chat is the core experience.**
+   - Replies are made of working pieces (cards, tables, charts, buttons) that do things: place, follow, alert, draw, open.
+   - The assistant can build the UI a reply needs, not only text.
+6. **The assistant gives predictions, trades and suggestions directly.** No holding back, and no refusing to give a view.
+
+### How "the assistant builds the UI" stays safe (proposal)
+
+The owner wants it free, since it is all our data. Technical position:
+
+- **Free to build:** the assistant composes replies from a library of our components (trade card, price ladder, chart, table, comparison, checklist, buttons). It can build any layout from them, and every piece reads our data freely.
+- **Buttons only do things through our actions** (place a paper order, follow as a task, set an alert, draw, open a symbol), with the same checks as everywhere else. A headline or a web page the assistant read can never make a button do something else.
+- **For anything the library cannot show,** the assistant can write a custom view that runs in a sandbox. It gets our data passed in, but no login session and no direct way to place orders, so a bad or tricked piece of code cannot act for the user.
+
+### What "no holding back" keeps (proposal)
+
+- Every prediction and suggestion still states **its reason and how sure it is**, and feeds the **track record**. That does not hold back the view; it is what makes it useful.
+- Trades still go through the **risk check and the user's limits**. The view is free; position size is not.
+
+## UX map changes from this round
+
+- **Assistant window** becomes the main place: Chat in the centre, Tasks beside it, interactive replies.
+- **AI Desk** is removed as a place. Its runs live in the assistant's history and in Tasks.
+- **Portfolio** (AI vs user) and **Settings** are confirmed as places.
+- What stays: What to watch (home), the Symbol workspace, Screener, Strategies (both reachable from the assistant and opening their results in the chat or the symbol), and Admin.
