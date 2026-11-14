@@ -16,26 +16,34 @@ const OUTCOME: Record<NonNullable<AgentTaskDto['lastOutcome']>, string> = {
   ran: 'ran', report: 'reported to you', silent: 'checked, nothing worth telling', notified: 'notified you', capped: 'skipped: daily limit', error: 'failed' };
 const STATE_TONE: Record<AgentTaskDto['state'], string> = { active: 'text-up', paused: 'text-muted-foreground', done: 'text-muted-foreground', cancelled: 'text-muted-foreground', expired: 'text-muted-foreground' };
 
-/** Price, indicator, news and event alerts on the chart's symbol and interval, and every alert the user has: fired count, pause, resume, cancel. A fire lands in the bell. */
+/** Price, indicator, news and event alerts on the chart's symbol and interval, above the list of everything the assistant and the user have set. */
 export function AlertsPanel({ symbol, interval, onOpenSymbol }: { symbol: string; interval: Interval; onOpenSymbol: (symbol: string) => void }) {
   const client = useQueryClient();
-  const list = useQuery({ queryKey: KEY, refetchInterval: 30_000, queryFn: ({ signal }) => apiFetch('/v1/agent/tasks', { schema: listSchema, signal }) });
   const create = useMutation({ retry: 0,
     mutationFn: (body: AlertCreate) => apiFetch('/v1/agent/tasks/alerts', { method: 'POST', body, schema: created }),
     onSettled: () => client.invalidateQueries({ queryKey: KEY }) });
+  return <div className="flex h-full flex-col text-sm">
+    <NewAlert symbol={symbol} interval={interval} pending={create.isPending} error={create.error}
+      onCreate={body => { create.mutate(body); }} last={create.data?.conditionNow ?? null} />
+    <TaskList onOpenSymbol={onOpenSymbol} />
+  </div>;
+}
+
+/** Every alert and task: what each one is doing, its state, and pause, resume or delete. Used in the terminal and in the agent window. */
+export function TaskList({ onOpenSymbol, initial = 'all' }: { onOpenSymbol: (symbol: string) => void; initial?: 'all' | 'notify' | 'agent' }) {
+  const client = useQueryClient();
+  const list = useQuery({ queryKey: KEY, refetchInterval: 30_000, queryFn: ({ signal }) => apiFetch('/v1/agent/tasks', { schema: listSchema, signal }) });
   const change = useMutation({
     mutationFn: ({ id, verb }: { id: string; verb: 'pause' | 'resume' | 'cancel' }) => apiFetch(`/v1/agent/tasks/${id}/${verb}`, { schema: AgentTaskSchema, method: 'POST' }),
     onSettled: () => client.invalidateQueries({ queryKey: KEY }) });
-  const [show, setShow] = useState<'all' | 'notify' | 'agent'>('all');
+  const [show, setShow] = useState<'all' | 'notify' | 'agent'>(initial);
   const all = list.data ?? [];
   const shown = all.filter(t => show === 'all' || t.mode === show);
   const live = shown.filter(t => t.state === 'active' || t.state === 'paused');
   const past = shown.filter(t => t.state !== 'active' && t.state !== 'paused').slice(0, 10);
   const count = (mode: 'notify' | 'agent') => all.filter(t => t.mode === mode && (t.state === 'active' || t.state === 'paused')).length;
 
-  return <div className="flex h-full flex-col text-sm">
-    <NewAlert symbol={symbol} interval={interval} pending={create.isPending} error={create.error}
-      onCreate={body => { create.mutate(body); }} last={create.data?.conditionNow ?? null} />
+  return <div className="flex min-h-0 flex-1 flex-col">
     <div role="tablist" aria-label="Show" className="flex gap-1 border-b px-3 py-1.5">
       {([['all', 'All'], ['notify', `Alerts (${String(count('notify'))})`], ['agent', `Tasks (${String(count('agent'))})`]] as const).map(([id, label]) =>
         <button key={id} type="button" role="tab" aria-selected={show === id} onClick={() => { setShow(id); }}

@@ -16,9 +16,9 @@ function MainNav() {
   return <nav aria-label="Main navigation" className="order-last flex w-full items-center gap-0.5 overflow-x-auto border-t text-base [scrollbar-width:none] md:order-none md:w-auto md:border-t-0">
     <Link to="/" className={link} activeProps={active} activeOptions={{ exact: true }}>Home</Link>
     <Link to="/terminal" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Terminal</Link>
+    <Link to="/agent" search={{ symbol: 'NSE:NIFTY', interval: '5' }} className={link} activeProps={active}>Agent</Link>
     <Link to="/strategies" className={link} activeProps={active}>Strategies</Link>
     <Link to="/screener" className={link} activeProps={active}>Screener</Link>
-    <Link to="/desk" search={{ symbol: 'NSE:NIFTY' }} className={link} activeProps={active}>AI Desk</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={active}>Admin</Link>
   </nav>;
 }
@@ -40,7 +40,7 @@ function Brand() {
 function useOwnChrome(): boolean {
   const path = useRouterState({ select: state => state.location.pathname });
   const session = useSession();
-  if (path.startsWith('/terminal') || path.startsWith('/login')) return true;
+  if (path.startsWith('/terminal') || path.startsWith('/agent') || path.startsWith('/login')) return true;
   return path === '/' && session.isError;
 }
 
@@ -65,7 +65,7 @@ export function AppShell() {
       <MainNav />
       <span className="ml-auto flex h-12 shrink-0 items-center gap-2">
         <DeskRunningPill enabled={signedIn} />
-        <AiButton size="sm" onClick={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }}>Ask AI</AiButton>
+        <AiButton size="sm" onClick={() => { void navigate({ to: '/agent', search: { symbol: 'NSE:NIFTY', interval: '5' } }); }}>Open agent</AiButton>
         <ThemeToggle />
       </span>
     </header>}

@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { useMemo, useState, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useState, type SyntheticEvent } from 'react';
 import { z } from 'zod';
 import { AgentStatusSchema, ThreadSummarySchema } from '@aitrader/contracts';
 import { API_HEADERS, apiFetch, apiUrl } from '../../shared/api';
@@ -18,7 +18,8 @@ const noContent = z.unknown();
 const LABELS = { chat: 'Chat', tasks: 'Tasks', memory: 'About you' } as const;
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
-export function ChatPanel({ actions }: { actions?: ChatActions }) {
+/** `onMessages` lets a host (the agent window) follow the conversation, for example to show the stocks it is about. */
+export function ChatPanel({ actions, onMessages }: { actions?: ChatActions; onMessages?: (messages: UIMessage[]) => void }) {
   const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }),
     refetchInterval: query => (query.state.status === 'error' ? 5000 : false) });
   const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
@@ -38,7 +39,7 @@ export function ChatPanel({ actions }: { actions?: ChatActions }) {
     {view === 'memory' ? <div className="min-h-0 flex-1 overflow-auto"><Knowledge /></div>
       : view === 'tasks' ? <div className="min-h-0 flex-1 overflow-auto"><TasksList onOpenThread={id => { setThreadId(id); setView('chat'); }} /></div> : <>
       <ThreadBar current={threadId} onSelect={setThreadId} />
-      <Conversation key={threadId} threadId={threadId} model={status.data.model} />
+      <Conversation key={threadId} threadId={threadId} model={status.data.model} onMessages={onMessages} />
     </>}
   </div>;
   return actions ? <ChatActionsContext value={actions}>{body}</ChatActionsContext> : body;
@@ -74,11 +75,11 @@ function ThreadBar({ current, onSelect }: { current: string; onSelect: (id: stri
   </div>;
 }
 
-function Conversation({ threadId, model }: { threadId: string; model: string | null }) {
+function Conversation({ threadId, model, onMessages }: { threadId: string; model: string | null; onMessages: ((messages: UIMessage[]) => void) | undefined }) {
   const history = useQuery({ queryKey: ['agent', 'thread', threadId], retry: false,
     queryFn: ({ signal }) => apiFetch(`/v1/agent/threads/${threadId}`, { schema: messagesSchema, signal }).catch(() => []) });
   if (history.isPending) return <p className="text-muted-foreground">Loading chat…</p>;
-  return <ChatBody threadId={threadId} initial={history.data as UIMessage[]} model={model} />;
+  return <ChatBody threadId={threadId} initial={history.data as UIMessage[]} model={model} onMessages={onMessages} />;
 }
 
 const SUGGESTIONS = [
@@ -88,7 +89,7 @@ const SUGGESTIONS = [
   'Watch RBI policy news and tell me only if it matters.',
 ];
 
-function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIMessage[]; model: string | null }) {
+function ChatBody({ threadId, initial, model, onMessages }: { threadId: string; initial: UIMessage[]; model: string | null; onMessages: ((messages: UIMessage[]) => void) | undefined }) {
   const client = useQueryClient();
   // Only the new message travels; the server holds the history (no forged assistant or tool turns).
   const transport = useMemo(() => new DefaultChatTransport<UIMessage>({
@@ -98,6 +99,7 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
   const chat = useChat({ id: threadId, messages: initial, transport,
     // The assistant may have traded or edited the watchlist during the turn.
     onFinish: () => { for (const queryKey of [['agent', 'threads'], ['paper'], ['watchlist']]) void client.invalidateQueries({ queryKey }); } });
+  useEffect(() => { onMessages?.(chat.messages); }, [chat.messages, onMessages]);
   const [input, setInput] = useState('');
   const busy = chat.status === 'submitted' || chat.status === 'streaming';
   const submit = (e: SyntheticEvent) => {

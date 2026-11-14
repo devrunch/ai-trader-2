@@ -44,7 +44,7 @@ export function TerminalPage() {
     </div>
     <div className="flex shrink-0 items-center gap-1">
       <DeskRunningPill enabled />
-      <AiButton size="sm" className="mr-1 hidden md:inline-flex" onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval, panel: 'assistant' } }); }}>Ask AI</AiButton>
+      <AiButton size="sm" className="mr-1 hidden md:inline-flex" onClick={() => { void navigate({ to: '/agent', search: { symbol, interval } }); }}>Switch to agent</AiButton>
       <ConnectionIndicator /><Divider /><NotificationBell onOpenSymbol={chatActions.openSymbol} /><CompactNav /><ThemeToggle /></div>
   </div>;
   return <>

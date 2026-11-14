@@ -1,1 +1,1 @@
-export { AlertsPanel } from './alerts-panel';
+export { AlertsPanel, TaskList } from './alerts-panel';
