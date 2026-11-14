@@ -11,7 +11,7 @@ export interface UsFundamentals {
 export interface OverviewSource { fetch(ticker: string, signal: AbortSignal): Promise<Omit<UsFundamentals, 'symbol' | 'fetchedAt'> | null> }
 export interface TextCache { get(key: string): Promise<string | null>; set(key: string, value: string, ttlSec: number): Promise<void> }
 
-/** Figures change with quarterly results, and the vendor allows a few calls a day: one fetch per company every three days. */
+/** Figures change with quarterly results: one fetch per company every three days. */
 const TTL_SEC = 3 * 86_400;
 const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'BATS']);
 

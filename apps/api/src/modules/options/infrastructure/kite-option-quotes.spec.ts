@@ -19,12 +19,12 @@ describe('Kite option quotes', () => {
     expect(() => parseKiteQuotes({ status: 'error' })).toThrow();
     expect(() => parseKiteQuotes(null)).toThrow();
   });
-  it('batches 500 symbols per call and takes one token each', async () => {
+  it('batches 200 symbols per call and takes one token each', async () => {
     const getQuote = vi.fn((batch: string[]) => Promise.resolve(Object.fromEntries(batch.map(s => [s, { last_price: 1 }]))));
     const take = vi.fn(() => Promise.resolve());
     const source = new KiteOptionQuotes({ getAccessToken: () => Promise.resolve('t') }, { take }, () => ({ setAccessToken: vi.fn(), getQuote }));
     await source.quote(Array.from({ length: 1001 }, (_, i) => `NFO:X${String(i)}`), new AbortController().signal);
-    expect(getQuote.mock.calls.map(c => c[0].length)).toEqual([500, 500, 1]);
-    expect(take).toHaveBeenCalledTimes(3);
+    expect(getQuote.mock.calls.map(c => c[0].length)).toEqual([200, 200, 200, 200, 200, 1]);
+    expect(take).toHaveBeenCalledTimes(6);
   });
 });

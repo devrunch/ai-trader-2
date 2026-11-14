@@ -20,18 +20,19 @@ export class TurnBudget {
     this.tokens += usage.tokens;
     this.lastStep = usage.tokens;
     if (this.clock() - this.startedAt >= this.limits.maxMs) this.verdict = { exceeded: 'time' };
-    else if (this.rounds > this.limits.maxRounds) this.verdict = { exceeded: 'rounds' };
+    // One round of grace past the limit: the answer step that follows the last tool round must not be cut off.
+    else if (this.rounds > this.limits.maxRounds + 1) this.verdict = { exceeded: 'rounds' };
     else if (this.tokens > this.limits.maxTokens) this.verdict = { exceeded: 'tokens' };
     return this.verdict;
   }
 
   /**
-   * Close enough to a limit that the next step must be the answer: one round left, under a quarter of the time, or fewer tokens left than 15% of the
-   * budget or one and a half times the last step (each step re-reads the whole conversation, so it costs at least as much as the one before).
+   * Close enough to a limit that the next step must be the answer: two rounds left, under a quarter of the time, or fewer tokens left than 15% of the
+   * budget or two and a half times the last step. Each step re-reads the whole conversation, and the runner may ask before the last step is counted.
    */
   nearlySpent(): boolean {
     const left = this.remaining();
-    return left.rounds <= 1 || left.ms < this.limits.maxMs * 0.25 || left.tokens < Math.max(this.limits.maxTokens * 0.15, this.lastStep * 1.5);
+    return left.rounds <= 2 || left.ms < this.limits.maxMs * 0.25 || left.tokens < Math.max(this.limits.maxTokens * 0.15, this.lastStep * 2.5);
   }
 
   remaining(): { rounds: number; ms: number; tokens: number } {

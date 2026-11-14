@@ -75,7 +75,7 @@ export class MastraRunner implements AgentRunner {
           requestContext, abortSignal: abort.signal,
           prepareStep: () => (input.budget.nearlySpent() ? { activeTools: [], toolChoice: 'none' as const }
             : this.activeTools ? { activeTools: this.activeTools(input.ctx) } : {}),
-          maxSteps: input.budget.remaining().rounds + 1,
+          maxSteps: input.budget.remaining().rounds + 2,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
             tokens += used;

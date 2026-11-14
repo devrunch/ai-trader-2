@@ -13,7 +13,7 @@ import { UniversesModule } from '../instruments/universes.module';
 import { FundamentalsController } from './api/fundamentals.controller';
 import { FundamentalsService } from './application/fundamentals';
 import { UsFundamentalsService } from './application/us-fundamentals';
-import { ALPHAVANTAGE_OVERVIEW, AlphaVantageOverviewSource } from './infrastructure/sources/alphavantage-overview.source';
+import { FINNHUB_METRICS, FinnhubMetricsSource } from './infrastructure/sources/finnhub-metrics.source';
 import { NIFTY_500_LIST } from './application/ports/tokens';
 import type { Nifty500List } from './application/ports/fundamentals-store';
 import { DrizzleFundamentalsStore } from './infrastructure/drizzle-fundamentals.store';
@@ -33,8 +33,8 @@ const logger = new Logger('Fundamentals');
       return new FundamentalsService(new ScreenerInSource(client), new DrizzleFundamentalsStore(db), { now: Date.now, warn: (message, detail) => { logger.warn({ message, ...detail }); }, onResultsDate: (symbol, date) => calendar.recordCompanyResults(symbol, date) });
     } },
     { provide: UsFundamentalsService, inject: [APP_CONFIG, SourceClient, SourceRegistry, REDIS], useFactory: (config: AppConfig, client: SourceClient, registry: SourceRegistry, redis: Redis) => {
-      registry.register(ALPHAVANTAGE_OVERVIEW);
-      return new UsFundamentalsService(new AlphaVantageOverviewSource(client, config.ALPHAVANTAGE_API_KEY), {
+      registry.register(FINNHUB_METRICS);
+      return new UsFundamentalsService(new FinnhubMetricsSource(client, config.FINNHUB_API_KEY), {
         get: key => redis.get(key), set: async (key, value, ttlSec) => { await redis.set(key, value, 'EX', ttlSec); } });
     } },
     { provide: FundamentalsJob, inject: [JobScheduler, FundamentalsService, NIFTY_500_LIST], useFactory: (scheduler: JobScheduler, service: FundamentalsService, list: Nifty500List) => new FundamentalsJob(scheduler, service, list) },

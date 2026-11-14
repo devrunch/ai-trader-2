@@ -8,8 +8,8 @@ import type { OptionQuotes, QuotedLeg } from '../application/ports/options-ports
 interface KiteQuoteClient { setAccessToken(token: string): void; getQuote(instruments: string[]): Promise<unknown> }
 const reply = z.record(z.string(), z.unknown());
 const leg = z.object({ last_price: z.number(), oi: z.number().nullish(), volume: z.number().nullish() });
-/** Kite accepts up to 500 instruments per /quote call. */
-const BATCH = 500;
+/** Kite accepts up to 500 instruments per /quote call, but 500 long option symbols overflow the request line (HTTP 400); 200 fit. */
+const BATCH = 200;
 
 /** Parses a Kite /quote reply; a payload that is not a symbol map is an error, never an empty success. A single malformed entry is left out, not fatal. */
 export function parseKiteQuotes(payload: unknown): Map<string, QuotedLeg> {
@@ -22,7 +22,7 @@ export function parseKiteQuotes(payload: unknown): Map<string, QuotedLeg> {
   return out;
 }
 
-/** Kite /quote with open interest: one call per 500 symbols, on the shared 1 request/second quote bucket. */
+/** Kite /quote with open interest: one call per 200 symbols, on the shared 1 request/second quote bucket. */
 export class KiteOptionQuotes implements OptionQuotes {
   private readonly createClient: () => KiteQuoteClient;
   constructor(private readonly session: Pick<KiteSessionService, 'getAccessToken'>, private readonly bucket: Pick<RedisTokenBucket, 'take'>, client: string | (() => KiteQuoteClient)) {
