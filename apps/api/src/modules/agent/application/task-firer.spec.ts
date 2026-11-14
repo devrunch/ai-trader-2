@@ -23,14 +23,14 @@ describe('TaskFirer', () => {
     const { firer, chat, notifications, limiter } = setup({ error: null, reply: 'Bought.' });
     expect(await firer.fire(base, 'NSE:INFY price is 1505', signal)).toEqual({ error: null, outcome: 'ran' });
     expect(chat.runInBackground).toHaveBeenCalledWith('u1', 'th1', expect.stringContaining('buy'));
-    expect(notifications.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'task', title: 'Task "Breakout" ran', link: { threadId: 'th1' } }));
+    expect(notifications.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'task', title: '"Breakout" ran', link: { threadId: 'th1' } }));
     expect(limiter.take).not.toHaveBeenCalled();
   });
 
   it('a watch reply starting REPORT: notifies and asks for the email copy; SILENT: or anything else does not', async () => {
     const report = setup({ error: null, reply: 'REPORT: RBI cut the repo rate\nBanks should rally.' });
     expect(await report.firer.fire(watchTask, 'x', signal)).toEqual({ error: null, outcome: 'report' });
-    expect(report.notifications.notify).toHaveBeenCalledExactlyOnceWith({ userId: 'u1', kind: 'task', title: 'Watch: News: india (high+)', body: 'RBI cut the repo rate\nBanks should rally.', link: { threadId: 'th1' }, email: true });
+    expect(report.notifications.notify).toHaveBeenCalledExactlyOnceWith({ userId: 'u1', kind: 'task', title: 'News: india (high+)', body: 'RBI cut the repo rate\nBanks should rally.', link: { threadId: 'th1' }, email: true });
     const silent = setup({ error: null, reply: 'SILENT: routine' });
     expect(await silent.firer.fire(watchTask, 'x', signal)).toEqual({ error: null, outcome: 'silent' });
     expect(silent.notifications.notify).not.toHaveBeenCalled();

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Logger, Module } from '@nestjs/common';
 import type { Redis } from 'ioredis';
-import type { PineCheck } from '@aitrader/contracts';
+import type { AgentAction, PineCheck } from '@aitrader/contracts';
 import { UnavailableError, ValidationError } from '../../shared/errors';
 import { APP_CONFIG, type AppConfig } from '../../shared/config';
 import { DB, type Database } from '../../shared/database';
@@ -59,6 +59,8 @@ import { AgentMemory } from './application/agent-memory';
 import { DrizzleMemoryStore } from './infrastructure/drizzle-memory.store';
 import { MemoryController } from './api/memory.controller';
 import { buildTradePlanTools } from './application/trade-plan-tools';
+import { buildDeskTools } from './application/desk-tools';
+import { ToolLoader, buildLoadTools, gateTools } from './application/tool-groups';
 import { buildActionTools, buildIndicatorTools } from './application/action-tools';
 import { ChatService, type AgentRunner, type WindowLimiter } from './application/chat-service';
 import { DrawingService } from './application/drawing-service';
@@ -107,7 +109,7 @@ const toolLimit = (key: string): [number, number] => (key.startsWith('agent:conv
 
 interface ToolServices {
   quote: GetQuote; market: MarketDataService; search: SearchInstruments; portfolio: ReadPortfolio; indicators: IndicatorService; cards: ActionCards;
-  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies;
+  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies; desk: TradingDesk;
 }
 
 /** No AGENT_MODEL: the assistant is off and says so. A bad model setting fails at boot, naming the .env key. */
@@ -121,12 +123,16 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
       logger.log({ message: 'agent tool call', tool: entry.tool, userId: entry.userId, conversationId: entry.conversationId, turnId: entry.turnId, outcome: entry.outcome, ms: entry.ms });
     },
   };
-  const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
-    ...buildCalcTool(deps), ...buildTradePlanTools({ account: (userId, symbol) => services.trader.account(userId, symbol), propose: (userId, action) => services.cards.propose(userId, action), id: () => randomUUID() }, deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
+  const planDeps = { account: (userId: string, symbol: string) => services.trader.account(userId, symbol), propose: (userId: string, action: AgentAction) => services.cards.propose(userId, action), id: () => randomUUID() };
+  const loader = new ToolLoader();
+  const all = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
+    ...buildCalcTool(deps), ...buildTradePlanTools(planDeps, deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
     ...services.dataTools(deps), ...buildBacktestTools({ runner: services.runner, strategies: services.strategies }, deps,
-      (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); })];
+      (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); }),
+    ...buildDeskTools({ ...planDeps, run: (userId, request, signal) => services.desk.run(userId, request, signal) }, deps)];
+  const tools = [...gateTools(all, loader), ...buildLoadTools(loader, deps)];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
-  return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools });
+  return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools, activeTools: ctx => loader.active(ctx.turnId), endTurn: ctx => { loader.end(ctx.turnId); } });
 }
 
 /** The runtime's description of a script, or the error with its line; an unavailable runtime stays an error to the caller. */
@@ -187,10 +193,10 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
         ...buildUniverseTools(universes, deps),
         ...buildScreenerTools(scans, listPresets(), tasks, deps)] },
-    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS],
+    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS, TradingDesk],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
-        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools) =>
-        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, runner, strategies }, limiter) },
+        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools, desk: TradingDesk) =>
+        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, runner, strategies, desk }, limiter) },
     { provide: AgentMemory, inject: [DB], useFactory: (db: Database) => new AgentMemory(new DrizzleMemoryStore(db), { id: randomUUID }) },
     { provide: ChatService, inject: [RUNNER, PromptRegistry, DB, LIMITER, APP_CONFIG, AgentMemory],
       useFactory: (runner: AgentRunner | null, prompts: PromptRegistry, db: Database, limiter: WindowLimiter, config: AppConfig, memory: AgentMemory) =>

@@ -159,7 +159,7 @@ it('lists background tasks with what wakes them, and pauses one', async () => {
     http.post('/api/v1/agent/tasks/:id/:verb', ({ params }) => { verbs.push(String(params.verb)); return HttpResponse.json({ ...task, state: 'paused' }); }),
   );
   render(<Providers><ChatPanel /></Providers>);
-  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Promises' }));
   expect(await screen.findByText('EURUSD vs EMA 20')).toBeDefined();
   expect(screen.getByText(/on schedule \*\/5 \* \* \* \* \(Asia\/Kolkata\) · 1\/2 runs/)).toBeDefined();
   fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
@@ -175,7 +175,7 @@ it('words move and surprise watches in the tasks list', async () => {
   ];
   server.use(http.get('/api/v1/agent/tasks', () => HttpResponse.json(tasks)));
   render(<Providers><ChatPanel /></Providers>);
-  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Promises' }));
   expect(await screen.findByText(/when nifty50 move up 3% in 15 min/)).toBeDefined();
   expect(screen.getByText(/5 min after matching USD events \(surprise of 0.2\+, brief 30 min before\)/)).toBeDefined();
 });
@@ -190,7 +190,7 @@ it('shows which skill the assistant is following', async () => {
   render(<Providers><ChatPanel /></Providers>);
   await ask('trade RELIANCE intraday');
   const chip = await screen.findByText('Day trader');
-  expect(chip.parentElement?.textContent).toBe('Using skillDay traderv2');
+  expect(chip.parentElement?.textContent).toBe('FollowingDay traderv2');
 });
 
 const pineDefinition = { ref: 'pine:0123456789ab@1', id: 'pine0123456789ab', version: 1, name: 'My EMA cross', shortName: 'EMAX', overlay: true,
@@ -241,7 +241,7 @@ it('turns on auto-trade for a task with the default limits (paper only)', async 
     http.post('/api/v1/agent/tasks/:id/auto-trade', async ({ request }) => { bodies.push(await request.json()); return HttpResponse.json(task); }),
   );
   render(<Providers><ChatPanel /></Providers>);
-  fireEvent.click(await screen.findByRole('tab', { name: 'tasks' }));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Promises' }));
   const toggle = await screen.findByRole('switch', { name: /Auto-trade \(PAPER\)/ });
   expect(toggle.getAttribute('aria-checked')).toBe('false');
   fireEvent.click(toggle);

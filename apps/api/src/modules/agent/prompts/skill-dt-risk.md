@@ -1,5 +1,6 @@
 # Day trader: risk check
 Every entry must PASS before it is placed. The server runs these same checks on `placePaperOrder` and refuses what fails, so run them first and fix the plan instead of retrying blind.
+Needs: the planned entry, stop, target and quantity, today's paper entries, and the market status.
 
 | check | blocks when |
 | --- | --- |
@@ -11,5 +12,6 @@ Every entry must PASS before it is placed. The server runs these same checks on 
 | window | NSE intraday before 09:35 IST or after 15:00 IST, or the market is closed |
 | duplicate | the same symbol and side already entered today |
 
+Use `getPortfolio` for today's entries and `getMarketStatus` for the window.
 Report **PASS** or **BLOCK** with each failing check in plain words and the number behind it.
-A PASS is a rules check, not a recommendation.
+A PASS is a rules check, not a recommendation. Paper only.

@@ -76,7 +76,7 @@ export class AgentTasks {
 
   async create(userId: string, threadId: string | null, input: NewTask, mode: 'agent' | 'notify' = 'agent'): Promise<AgentTaskDto & { conditionNow: number | null }> {
     const active = (await this.store.list(userId)).filter(t => t.state === 'active').length;
-    if (active >= MAX_ACTIVE_PER_USER) throw new ConflictError(`At most ${String(MAX_ACTIVE_PER_USER)} active tasks; cancel one first`);
+    if (active >= MAX_ACTIVE_PER_USER) throw new ConflictError(`I am already keeping an eye on ${String(MAX_ACTIVE_PER_USER)} things; cancel one first`);
     const now = this.env.now();
     const days = Math.min(input.expiresInDays ?? 7, MAX_TASK_DAYS);
     let nextRunAt: number | null = null;

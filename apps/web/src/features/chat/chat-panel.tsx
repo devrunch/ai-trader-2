@@ -14,6 +14,7 @@ import { TasksList } from './tasks-list';
 const threadsSchema = z.array(ThreadSummarySchema);
 const messagesSchema = z.array(z.looseObject({ id: z.string(), role: z.enum(['user', 'assistant', 'system']), parts: z.array(z.looseObject({ type: z.string() })) }));
 const noContent = z.unknown();
+const LABELS = { chat: 'Chat', tasks: 'Promises', memory: 'Memory' } as const;
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
 export function ChatPanel({ actions }: { actions?: ChatActions }) {
@@ -31,7 +32,7 @@ export function ChatPanel({ actions }: { actions?: ChatActions }) {
   const body = <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
     <div role="tablist" aria-label="Assistant" className="flex gap-1 border-b">
       {(['chat', 'tasks', 'memory'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => { setView(v); }}
-        className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{v}</button>)}
+        className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{LABELS[v]}</button>)}
     </div>
     {view === 'memory' ? <div className="min-h-0 flex-1 overflow-auto"><MemoryList /></div>
       : view === 'tasks' ? <div className="min-h-0 flex-1 overflow-auto"><TasksList onOpenThread={id => { setThreadId(id); setView('chat'); }} /></div> : <>

@@ -121,6 +121,13 @@ export interface TaskDesk {
 }
 
 /** Background work: the assistant schedules itself, or waits for a price or indicator condition, then runs the instruction. */
+const PLAIN_PROMISE = 'Tell the user in plain words what you will do and until when, with the numbers and that it is paper, e.g. "If Reliance closes above 1,350, I will buy 120 shares on paper with a stop at 1,331, until Friday." Do not say task, watcher or desk run.';
+/** The result plus a reminder of how to say it, so the reply is a promise and not a description of the machinery. */
+async function withSay(pending: Promise<unknown>): Promise<unknown> {
+  const result = await pending;
+  return typeof result === 'object' && result !== null ? { ...result, say: PLAIN_PROMISE } : result;
+}
+
 export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
     guardedTool({ name: 'scheduleTask',
@@ -129,12 +136,12 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         + 'The instruction must be complete on its own: what to check and exactly what to do, e.g. which paper order to place.',
       input: z.strictObject({ title: z.string().min(1).max(120), instruction: z.string().min(1).max(2000), trigger: orJsonString(TaskTriggerSchema),
         maxRuns: z.number().int().min(1).max(500).optional(), expiresInDays: z.number().int().min(1).max(30).optional() }),
-      run: (input, ctx) => tasks.create(ctx.userId, ctx.conversationId, input) }, deps),
+      run: (input, ctx) => withSay(tasks.create(ctx.userId, ctx.conversationId, input)) }, deps),
     guardedTool({ name: 'createAlert',
       description: 'Set a plain alert for the user: a notification when a price or indicator condition crosses, with no assistant run. '
         + 'Prefer this over scheduleTask when the user only wants to be told ("alert me when NIFTY goes above 24,500"). repeat: every crossing for 30 days.',
       input: z.strictObject({ trigger: orJsonString(AlertCreateSchema.shape.trigger), repeat: z.boolean().default(false), note: z.string().max(200).optional() }),
-      run: (input, ctx) => tasks.createAlert(ctx.userId, input) }, deps),
+      run: (input, ctx) => withSay(tasks.createAlert(ctx.userId, input)) }, deps),
     guardedTool({ name: 'watchNews',
       description: 'Watch the news in the background and wake yourself when a matching headline arrives, then decide whether it is worth telling the user. '
         + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities, crypto or all; optional symbols and keywords; minImpact high, medium or low; optional minSentiment (0-1: only stories whose sentiment is at least that strong either way) and minSources (only when that many different outlets report the same story, e.g. 3). '
@@ -146,7 +153,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'news' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0]) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0]) }));
       } }, deps),
     guardedTool({ name: 'watchEvent',
       description: 'Watch the economic calendar and wake yourself shortly after a release ("tell me when RBI policy comes out", "watch US CPI"), then decide whether it is worth telling the user. '
@@ -160,7 +167,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'event' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) }));
       } }, deps),
     guardedTool({ name: 'watchMove',
       description: 'Watch instruments in the background and wake yourself when one moves sharply: "tell me if any NIFTY 50 stock moves 3% in 15 minutes", "watch NIFTY and BANKNIFTY for a 1% drop in an hour". '
@@ -173,7 +180,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         .refine(o => o.symbols.length > 0 || o.universe !== undefined, { message: 'give symbols or a universe', path: ['symbols'] }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'move' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0] ?? MOVE_DESK_PLACEHOLDER) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0] ?? MOVE_DESK_PLACEHOLDER) }));
       } }, deps),
     guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),
