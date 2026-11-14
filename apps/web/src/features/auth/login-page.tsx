@@ -46,13 +46,13 @@ export function LoginPage() {
         <p className="mt-2 text-[15px] text-muted-foreground">Live charts, paper trading and an assistant that reads the market with you.</p>
       </div>
       <form className="space-y-4 border bg-panel p-5 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.5)]" onSubmit={event => { void submit(event); }}>
-        <label className="block space-y-1.5 text-[13px] font-medium">Username
+        <label className="block space-y-1.5 text-base font-medium">Username
           <input autoComplete="username" required minLength={3} maxLength={32} value={username} onChange={event => { setUsername(event.target.value); }} className={field} />
         </label>
-        <label className="block space-y-1.5 text-[13px] font-medium">Password
+        <label className="block space-y-1.5 text-base font-medium">Password
           <input type="password" autoComplete="current-password" required value={password} onChange={event => { setPassword(event.target.value); }} className={field} />
         </label>
-        {error && <p role="alert" className="rounded border border-down/40 bg-down/10 px-3 py-2 text-[13px] text-down">{error}</p>}
+        {error && <p role="alert" className="rounded border border-down/40 bg-down/10 px-3 py-2 text-base text-down">{error}</p>}
         <Button type="submit" size="lg" className="h-11 w-full text-[15px]" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</Button>
       </form>
     </div>

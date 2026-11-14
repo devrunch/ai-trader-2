@@ -17,7 +17,7 @@ export function IndicatorPicker() {
   const add = useIndicatorStore(state => state.add);
   const openPine = usePineDialog(state => state.open);
   return <>
-    <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => { setOpen(true); }} disabled={!catalog.data}>
+    <Button variant="ghost" size="sm" className="h-7 px-2 text-sm" onClick={() => { setOpen(true); }} disabled={!catalog.data}>
       <ChartSpline />Indicators
     </Button>
     {open && <Dialog title="Indicators" description="Search and add an indicator to the chart" onClose={() => { setOpen(false); }}>
@@ -28,7 +28,7 @@ export function IndicatorPicker() {
           <CommandItem value="My scripts" onSelect={() => { openPine({ tab: 'scripts' }); setOpen(false); }}>My scripts</CommandItem>
           {catalog.data?.map(definition => <CommandItem key={definition.id} value={`${definition.name} ${definition.shortName}`}
             onSelect={() => { add(definition.id, defaultOf(presets.data, definition.id)?.inputs); setOpen(false); }}>
-            <span className="flex-1">{definition.name}</span><span className="text-[11px] text-muted-foreground">{definition.shortName}</span>
+            <span className="flex-1">{definition.name}</span><span className="text-xs text-muted-foreground">{definition.shortName}</span>
           </CommandItem>)}
         </CommandList>
       </Command>

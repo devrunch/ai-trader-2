@@ -38,8 +38,8 @@ export function StrategiesPage() {
     <PageHeader icon={FlaskIcon} title="Strategies"
       description="Write entry and exit rules, backtest them on real bars with costs, and compare in-sample with out-of-sample results. Every changed run counts as a variant: the more you try, the more likely a good result is luck." />
     <div className="grid grid-cols-1 gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
-    <aside aria-label="Saved strategies" className="self-start border bg-panel text-[12px]">
-      <div className="flex min-h-11 items-center justify-between border-b px-4"><h2 className="text-[14px] font-semibold">Saved</h2>
+    <aside aria-label="Saved strategies" className="self-start border bg-panel text-sm">
+      <div className="flex min-h-11 items-center justify-between border-b px-4"><h2 className="text-base font-semibold">Saved</h2>
         <Button size="xs" variant="outline" onClick={() => { setDraft(blank()); setProblem(null); run.reset(); }}>New</Button></div>
       <div className="p-3">
       {list.isPending ? <div className="space-y-1"><Skeleton className="h-8" /><Skeleton className="h-8" /></div>
@@ -48,7 +48,7 @@ export function StrategiesPage() {
         : <ul className={list.isFetching ? 'opacity-70' : ''}>{items.map(s => <li key={s.id} className="flex items-center gap-1 border-b py-1">
           <button type="button" className="min-w-0 flex-1 text-left hover:underline" onClick={() => { setDraft(draftOf(s)); setProblem(null); run.reset(); }}>
             <span className="block truncate font-semibold">{s.name}</span>
-            <span className="text-[11px] text-muted-foreground">{s.spec.symbol} · {s.spec.interval} · {s.variants} variants tried</span></button>
+            <span className="text-xs text-muted-foreground">{s.spec.symbol} · {s.spec.interval} · {s.variants} variants tried</span></button>
           <Button size="xs" variant="ghost" aria-label={`Delete ${s.name}`} disabled={remove.isPending} onClick={() => { onDelete(s.id); }}>×</Button>
         </li>)}</ul>}
       {remove.isError && <p role="alert" className="mt-1 text-down">{remove.error.message}</p>}
@@ -59,9 +59,9 @@ export function StrategiesPage() {
         <ul className="grid gap-2 sm:grid-cols-2">{STARTERS.map(t => <li key={t.name}>
           <button type="button" className="h-full w-full border p-3 text-left hover:border-link hover:bg-muted"
             onClick={() => { setDraft({ id: null, name: t.name, form: t.form(), advanced: null }); setProblem(null); run.reset(); }}>
-            <span className="block font-semibold">{t.name}</span><span className="mt-1 block text-[12px] text-muted-foreground">{t.summary}</span>
+            <span className="block font-semibold">{t.name}</span><span className="mt-1 block text-sm text-muted-foreground">{t.summary}</span>
           </button></li>)}</ul>
-        <p className="mt-3 text-[12px] text-muted-foreground">Templates are starting points to learn from, not recommendations. Change the symbol and rules, then run the backtest.</p>
+        <p className="mt-3 text-sm text-muted-foreground">Templates are starting points to learn from, not recommendations. Change the symbol and rules, then run the backtest.</p>
       </Panel>}
       <Panel title="Rules">
       <StrategyEditor draft={draft} onChange={setDraft} onSave={onSave} onRun={onRun} busy={run.isPending || save.isPending}

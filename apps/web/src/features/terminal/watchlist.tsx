@@ -21,8 +21,8 @@ export function Watchlist({ onAdd }: { onAdd: () => void }) {
       <button type="button" className="underline" onClick={() => { void list.refetch(); }}>Retry</button></p>;
   }
   const items = list.data.items;
-  return <div className="text-[12px]">
-    <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_auto_1rem] items-center gap-x-3 border-b bg-panel px-3 py-1.5 text-[11px] text-muted-foreground">
+  return <div className="text-sm">
+    <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto_auto_1rem] items-center gap-x-3 border-b bg-panel px-3 py-1.5 text-xs text-muted-foreground">
       <span>Symbol</span><span className="w-20 text-right">Last</span><span className="w-16 text-right">Chg%</span>
       <button type="button" aria-label="Add symbol" title="Add symbol" className="text-sm leading-none hover:text-foreground" onClick={onAdd}>+</button>
     </div>
@@ -59,7 +59,7 @@ function WatchRow({ symbol, quote, onRemove, drag }: { symbol: string; quote: Qu
     <button type="button" title={symbol} aria-label={symbol} aria-current={symbol === current ? 'true' : undefined}
       className="grid h-7 w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 pl-3 text-left"
       onClick={() => { void navigate({ to: '/terminal', search: { symbol, interval } }); }}>
-      <span className="truncate"><span className="font-semibold">{ticker}</span> <span className="text-[10px] text-muted-foreground">{split > 0 ? symbol.slice(0, split) : ''}</span></span>
+      <span className="truncate"><span className="font-semibold">{ticker}</span> <span className="text-[11px] text-muted-foreground">{split > 0 ? symbol.slice(0, split) : ''}</span></span>
       <span className="num w-20 text-right">{last === undefined ? '—' : formatPrice(last)}</span>
       <span className={`num w-16 text-right ${tone}`}>{pct === undefined ? '' : formatPct(pct)}</span>
     </button>

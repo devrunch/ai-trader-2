@@ -42,7 +42,7 @@ export function HomePage() {
 }
 
 function StatusPill({ open, label }: { open: boolean; label: string }) {
-  return <span className="inline-flex h-7 items-center gap-1.5 border bg-panel px-2.5 text-[12px] font-medium">
+  return <span className="inline-flex h-7 items-center gap-1.5 border bg-panel px-2.5 text-sm font-medium">
     <span aria-hidden="true" className={`size-2 rounded-full ${open ? 'bg-up' : 'bg-muted-foreground'}`} />{label}</span>;
 }
 
@@ -53,7 +53,7 @@ function HomeHeader({ onOpenTerminal, onOpenAssistant }: { onOpenTerminal: () =>
   return <header className="flex flex-wrap items-end gap-x-6 gap-y-3 pb-1">
     <div className="min-w-0 flex-1 basis-56">
       <h1 className="font-display text-[1.75rem] font-semibold leading-tight tracking-tight">{status.greeting}</h1>
-      <p className="num text-[13px] text-muted-foreground">{status.clock}</p>
+      <p className="num text-base text-muted-foreground">{status.clock}</p>
     </div>
     <div role="status" aria-label="Market status" className="flex flex-wrap items-center gap-2">
       <StatusPill open={status.nse.open} label={status.nse.label} /><StatusPill open={status.us.open} label={status.us.label} />
@@ -67,8 +67,8 @@ function HomeHeader({ onOpenTerminal, onOpenAssistant }: { onOpenTerminal: () =>
 
 function Card({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return <section aria-label={title} className="min-w-0 border bg-panel">
-    <header className="flex min-h-11 items-center justify-between gap-2 border-b px-4 py-1.5"><h2 className="text-[14px] font-semibold">{title}</h2>{action}</header>
-    <div className="p-4 text-[13px] leading-relaxed">{children}</div>
+    <header className="flex min-h-11 items-center justify-between gap-2 border-b px-4 py-1.5"><h2 className="text-base font-semibold">{title}</h2>{action}</header>
+    <div className="p-4 text-base leading-relaxed">{children}</div>
   </section>;
 }
 
@@ -79,7 +79,7 @@ function Brief() {
     {brief.isPending ? <div role="status" aria-label="Writing the brief" className="space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-4 w-3/5" /></div>
       : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief could not be written. Try again in a minute.'}</p>
       : brief.data ? <div className="space-y-2">{brief.data.error && <p role="alert" className="text-down">{brief.data.error}</p>}<ChatMarkdown text={brief.data.text} />
-        <p className="text-[11px] text-muted-foreground">Saved as a thread in the assistant; ask follow-ups there.</p></div>
+        <p className="text-xs text-muted-foreground">Saved as a thread in the assistant; ask follow-ups there.</p></div>
       : <p className="text-muted-foreground">Overnight markets, crude, gold, the dollar, today’s releases and the levels to watch, written by the assistant from live data (about a minute).</p>}
   </Card>;
 }
@@ -95,7 +95,7 @@ function Headlines() {
     {news.isPending ? <Skeleton className="h-24" /> : news.isError ? <p role="alert" className="text-down">Headlines could not be loaded. They update every 5 minutes; reload the page to try again.</p>
       : <ul className="divide-y">{news.data.items.map(n => <li key={n.id} className="py-2">
         <a href={n.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{n.title}</a>
-        <span className="block text-[11px] text-muted-foreground">{n.source} · {ago(n.publishedAt)}{n.symbols.length ? ` · ${n.symbols.slice(0, 4).join(', ')}` : ''}</span>
+        <span className="block text-xs text-muted-foreground">{n.source} · {ago(n.publishedAt)}{n.symbols.length ? ` · ${n.symbols.slice(0, 4).join(', ')}` : ''}</span>
       </li>)}</ul>}
   </Card>;
 }

@@ -25,11 +25,11 @@ function Results({ bt }: { bt: DeskBacktestDto }) {
       <dt>Max drawdown (R)</dt><dd className="num">{fixed(s.maxDrawdownR)}</dd></dl>}
     {bt.items.length === 0 ? (bt.status !== 'running' && <p className="text-muted-foreground">No scored dates.</p>)
       : <table aria-label="Backtest results" className="w-full text-left">
-        <thead className="text-[11px] text-muted-foreground"><tr><th>Date</th><th>Action</th><th>Entry</th><th>Stop</th><th>Target</th><th>Outcome</th><th>R</th></tr></thead>
+        <thead className="text-xs text-muted-foreground"><tr><th>Date</th><th>Action</th><th>Entry</th><th>Stop</th><th>Target</th><th>Outcome</th><th>R</th></tr></thead>
         <tbody>{bt.items.map(i => <tr key={i.asOf} className="border-t"><td>{i.asOf.slice(0, 10)}</td><td>{i.action}</td>
           <td className="num">{price(i.entry)}</td><td className="num">{price(i.stopLoss)}</td><td className="num">{price(i.target)}</td>
           <td>{i.outcome}</td><td className={`num ${tone(i.r)}`}>{fixed(i.r)}</td></tr>)}</tbody></table>}
-    <p className="text-[11px] text-muted-foreground">This scores the desk&apos;s decisions against what happened afterwards. Fills are pessimistic (the stop wins a tie) and there are no costs.</p>
+    <p className="text-xs text-muted-foreground">This scores the desk&apos;s decisions against what happened afterwards. Fills are pessimistic (the stop wins a tie) and there are no costs.</p>
   </div>;
 }
 
@@ -49,7 +49,7 @@ export function BacktestSection({ symbol }: { symbol: string }) {
   const onStart = () => { const body = request(); if (body) launch.mutate(body, { onSuccess: created => { setOpenId(created.id); } }); };
   const est = estimate.data;
   const shownError = start !== '' && end !== '' ? generated.error : null;
-  return <section aria-label="Desk backtest" className="space-y-2 text-[12px]">
+  return <section aria-label="Desk backtest" className="space-y-2 text-sm">
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1">Start date <input aria-label="Start date" type="date" className={box} value={start} onChange={e => { change(() => { setStart(e.target.value); }); }} /></label>
       <label className="flex items-center gap-1">End date <input aria-label="End date" type="date" className={box} value={end} onChange={e => { change(() => { setEnd(e.target.value); }); }} /></label>

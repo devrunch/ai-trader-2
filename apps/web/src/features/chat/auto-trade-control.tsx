@@ -27,9 +27,9 @@ export function AutoTradeControl({ task }: { task: AgentTaskDto }) {
     <div className="flex items-center gap-2">
       <button type="button" role="switch" aria-checked={on} aria-label="Auto-trade (PAPER)" disabled={save.isPending} onClick={toggle}
         className={`h-4 w-8 rounded-full border ${on ? 'bg-accent' : 'bg-muted'}`}><span className={`block h-3 w-3 rounded-full bg-white ${on ? 'ml-4' : 'ml-0.5'}`} /></button>
-      <span className="text-[12px]">Auto-trade (PAPER)</span>
+      <span className="text-sm">Auto-trade (PAPER)</span>
     </div>
-    {(open || saved) && <div className="space-y-1 text-[12px]">
+    {(open || saved) && <div className="space-y-1 text-sm">
       <div className="flex flex-wrap items-center gap-3">
         {number('Max risk % per trade', draft.maxRiskPct, 0, 5, 0.1, n => { setDraft({ ...draft, maxRiskPct: n }); })}
         {number('Max trades per day', draft.maxTradesPerDay, 1, 20, 1, n => { setDraft({ ...draft, maxTradesPerDay: Math.round(n) }); })}

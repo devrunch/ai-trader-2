@@ -13,7 +13,7 @@ const pctOrDash = (v: number | null): string => v === null ? '—' : `${signed(v
 export function ScorecardPanel({ title, country }: { title: string; country: string }) {
   const card = useQuery({ queryKey: ['calendar', 'scorecard', title, country], staleTime: 300_000,
     queryFn: ({ signal }) => apiFetch(`v1/calendar/scorecard?title=${encodeURIComponent(title)}&country=${country}&limit=8`, { schema: EventScorecardSchema, signal }) });
-  return <div aria-label={`${title} scorecard`} className="mt-2 border bg-background p-2 text-[12px]">
+  return <div aria-label={`${title} scorecard`} className="mt-2 border bg-background p-2 text-sm">
     {card.isPending ? <Skeleton className="h-16" />
       : card.isError ? <p role="alert" className="text-down">Scorecard unavailable. <Button variant="link" size="xs" onClick={() => { void card.refetch(); }}>Retry</Button></p>
       : card.data.releases.length === 0 ? <p className="text-muted-foreground">No past releases of this event are stored yet.</p>

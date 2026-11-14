@@ -10,7 +10,7 @@ const MODES: Array<{ id: ScreenMode; label: string }> = [{ id: 'preset', label: 
 export function ScreenFormFields({ form, universes, presets, onChange }: { form: ScreenForm; universes: UniverseInfo[]; presets: ScreenPreset[]; onChange: (patch: Partial<ScreenForm>) => void }) {
   const universe = universes.find(u => u.id === form.universe);
   const preset = presets.find(p => p.id === form.preset);
-  return <div className="space-y-3 text-[12px]">
+  return <div className="space-y-3 text-sm">
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1">Universe
         <select aria-label="Universe" className={box} value={form.universe} onChange={e => { onChange({ universe: universes.find(u => u.id === e.target.value)?.id ?? form.universe }); }}>

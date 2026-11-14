@@ -40,23 +40,23 @@ function Section({ id, title, intro, children }: { id?: string; title: string; i
 
 /** The public page for visitors who are not signed in. */
 export function LandingPage() {
-  return <div className="min-h-0 flex-1 overflow-y-auto bg-background text-[14px]">
+  return <div className="min-h-0 flex-1 overflow-y-auto bg-background text-base">
     <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 md:px-8">
         <Wordmark />
-        <nav aria-label="Page sections" className="ml-6 hidden gap-5 text-[13px] text-muted-foreground md:flex">
+        <nav aria-label="Page sections" className="ml-6 hidden gap-5 text-base text-muted-foreground md:flex">
           <a href="#markets" className="hover:text-foreground">Markets</a><a href="#desk" className="hover:text-foreground">The desk</a>
           <a href="#watch" className="hover:text-foreground">Watches</a><a href="#practice" className="hover:text-foreground">Paper trading</a>
         </nav>
         <span className="ml-auto flex items-center gap-2"><ThemeToggle />
-          <Link to="/login" search={{ redirect: undefined }} className="hidden h-9 items-center px-3 text-[13px] font-medium hover:text-link sm:inline-flex">Sign in</Link>
+          <Link to="/login" search={{ redirect: undefined }} className="hidden h-9 items-center px-3 text-base font-medium hover:text-link sm:inline-flex">Sign in</Link>
           <AiButton size="sm" asChild><Link to="/login" search={{ redirect: '/terminal' }}>Open the desk</Link></AiButton>
         </span>
       </div>
     </header>
 
     <section className="relative overflow-hidden border-b">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-40 size-[34rem] rounded-full opacity-[0.13] blur-3xl" style={{ backgroundImage: 'var(--ai-gradient)' }} />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-40 -top-40 size-[34rem] rounded-full opacity-[0.13] blur-3xl" style={{ background: 'var(--accent)' }} />
       <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-24 pt-16 md:px-8 lg:grid-cols-[1fr_1.05fr] lg:pt-24">
         <div>
           <h1 className="font-display text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.025em] sm:text-6xl lg:text-[4.1rem]">Eight analysts. One trade plan. You decide.</h1>
@@ -68,7 +68,7 @@ export function LandingPage() {
             <AiButton size="lg" asChild><Link to="/login" search={{ redirect: '/terminal' }}>Open the desk</Link></AiButton>
             <a href="#desk" className="inline-flex h-11 items-center border px-5 text-[15px] font-medium hover:bg-muted">See how it decides</a>
           </div>
-          <p className="mt-6 text-[12px] text-muted-foreground">Paper trading by default. Real orders stay switched off.</p>
+          <p className="mt-6 text-sm text-muted-foreground">Paper trading by default. Real orders stay switched off.</p>
         </div>
         <DeskPreview />
       </div>
@@ -78,7 +78,7 @@ export function LandingPage() {
       <ul className="grid gap-px overflow-hidden border bg-border sm:grid-cols-2 lg:grid-cols-5">
         {MARKETS.map(({ icon: MarketIcon, name, detail }) => <li key={name} className="bg-panel p-5">
           <MarketIcon weight="duotone" className="size-8 text-link" aria-hidden="true" />
-          <p className="mt-4 font-semibold">{name}</p><p className="mt-1 text-[13px] leading-snug text-muted-foreground">{detail}</p>
+          <p className="mt-4 font-semibold">{name}</p><p className="mt-1 text-base leading-snug text-muted-foreground">{detail}</p>
         </li>)}
       </ul>
     </Section>
@@ -93,10 +93,10 @@ export function LandingPage() {
               <span className="font-display ai-text text-[2.2rem] font-semibold leading-none">{i + 1}</span>
               <StepIcon weight="duotone" className="size-7 text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="mt-4 font-semibold">{title}</p><p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{body}</p>
+            <p className="mt-4 font-semibold">{title}</p><p className="mt-2 text-base leading-relaxed text-muted-foreground">{body}</p>
           </li>)}
         </ol>
-        <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3 border-t pt-6 text-[13px] text-muted-foreground">
+        <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3 border-t pt-6 text-base text-muted-foreground">
           <span className="inline-flex items-center gap-2"><ClockCounterClockwiseIcon weight="duotone" className="size-5" aria-hidden="true" />Replay any past date: the desk only sees what existed then.</span>
           <span className="inline-flex items-center gap-2"><ChartBarIcon weight="duotone" className="size-5" aria-hidden="true" />Score it over 30 past days before trusting it.</span>
         </div>
@@ -107,15 +107,15 @@ export function LandingPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
         <div className="flex items-start gap-4 border p-6">
           <BellRingingIcon weight="duotone" className="size-10 shrink-0 text-link" aria-hidden="true" />
-          <p className="text-[14px] leading-relaxed text-muted-foreground">
+          <p className="text-base leading-relaxed text-muted-foreground">
             Each watch runs in the background and keeps a record of every wake-up, including the ones it decided not to report.
             A daily cap keeps the cost bounded.
           </p>
         </div>
         <ul className="space-y-4">
           {WATCHES.map(({ ask, reply }) => <li key={ask} className="space-y-2">
-            <p className="ml-auto w-fit max-w-[85%] bg-muted px-3 py-2 text-[13px]">{ask}</p>
-            <p className="ai-border w-fit max-w-[85%] px-3 py-2 text-[13px]">{reply}</p>
+            <p className="ml-auto w-fit max-w-[85%] bg-muted px-3 py-2 text-base">{ask}</p>
+            <p className="ai-border w-fit max-w-[85%] px-3 py-2 text-base">{reply}</p>
           </li>)}
         </ul>
       </div>
@@ -132,8 +132,8 @@ export function LandingPage() {
           <div className="mt-8"><AiButton size="lg" asChild><Link to="/login" search={{ redirect: '/terminal' }}>Start on paper</Link></AiButton></div>
         </div>
         <div className="border bg-panel">
-          <div className="flex items-center gap-2 border-b px-4 py-3 text-[13px] font-semibold"><NotebookIcon weight="duotone" className="size-5 text-link" aria-hidden="true" />Trade journal</div>
-          <table className="w-full text-[12px]">
+          <div className="flex items-center gap-2 border-b px-4 py-3 text-base font-semibold"><NotebookIcon weight="duotone" className="size-5 text-link" aria-hidden="true" />Trade journal</div>
+          <table className="w-full text-sm">
             <thead className="text-left text-muted-foreground"><tr><th className="px-4 py-2 font-medium">Symbol</th><th className="px-2 py-2 font-medium">Why</th><th className="px-4 py-2 text-right font-medium">P&amp;L</th></tr></thead>
             <tbody className="num">
               <tr className="border-t"><td className="px-4 py-2.5 font-semibold">BANKNIFTY</td><td className="px-2 py-2.5 text-muted-foreground">Breakout after RBI held rates</td><td className="px-4 py-2.5 text-right text-up">+₹4,120</td></tr>
@@ -147,7 +147,7 @@ export function LandingPage() {
     </section>
 
     <footer className="border-t bg-panel">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-8 text-[12px] text-muted-foreground md:px-8">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-8 text-sm text-muted-foreground md:px-8">
         <Wordmark />
         <p className="max-w-[60ch]">Analysis, not investment advice. Trading carries risk of loss. The agent trades on paper unless real accounts are switched on in development.</p>
         <Link to="/login" search={{ redirect: undefined }} className="ml-auto font-medium text-foreground hover:text-link">Sign in</Link>

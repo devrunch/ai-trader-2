@@ -30,7 +30,7 @@ export function DeskPreview() {
       @media (prefers-reduced-motion: reduce) { .desk-candle, .desk-level, .desk-note { animation: none; } }
     `}</style>
     <div className="border bg-panel p-4 shadow-[0_30px_80px_-40px_rgb(0_0_0/0.6)]">
-      <div className="mb-3 flex items-baseline gap-3 text-[12px]">
+      <div className="mb-3 flex items-baseline gap-3 text-sm">
         <span className="font-semibold">RELIANCE</span><span className="text-muted-foreground">NSE · 5m · as of 11 Nov, 11:30</span>
         <span className="ml-auto num text-up">1,335.4</span>
       </div>
@@ -55,7 +55,7 @@ export function DeskPreview() {
 }
 
 function Note({ who, tone, delay, className, children }: { who: string; tone: string; delay: string; className: string; children: string }) {
-  return <p className={`desk-note ai-border absolute max-w-[15rem] px-3 py-2 text-[12px] leading-snug shadow-lg ${className}`} style={{ animationDelay: delay }}>
-    <span className={`block text-[11px] font-semibold ${tone}`}>{who}</span>{children}
+  return <p className={`desk-note ai-border absolute max-w-[15rem] px-3 py-2 text-sm leading-snug shadow-lg ${className}`} style={{ animationDelay: delay }}>
+    <span className={`block text-xs font-semibold ${tone}`}>{who}</span>{children}
   </p>;
 }

@@ -8,7 +8,7 @@ export function OhlcLegend({ symbol, interval, bar, previousClose }: { symbol: s
   const tone = bar && bar.close >= bar.open ? 'text-up' : 'text-down';
   const change = bar && previousClose !== undefined ? bar.close - previousClose : undefined;
   const pct = change !== undefined && previousClose ? (change / previousClose) * 100 : undefined;
-  return <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]" data-testid="ohlc-legend">
+  return <div className="flex flex-wrap items-baseline gap-x-2 text-sm" data-testid="ohlc-legend">
     <span className="font-semibold">{symbol}</span><span className="text-muted-foreground">· {interval}</span>
     {bar && <span className="num flex gap-x-2">
       {(['open', 'high', 'low', 'close'] as const).map(key => <span key={key}><span className="text-muted-foreground">{key[0]?.toUpperCase()}</span>{' '}

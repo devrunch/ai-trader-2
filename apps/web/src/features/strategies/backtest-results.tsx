@@ -21,13 +21,13 @@ function MetricList({ title, metrics }: { title: string; metrics: Metrics | unde
 }
 
 export function BacktestResults({ result, variants }: { result: BacktestResult; variants: number | null }) {
-  return <div className="space-y-3 text-[12px]">
+  return <div className="space-y-3 text-sm">
     <div className="flex flex-wrap items-baseline gap-x-3">
       <span className="font-semibold">{result.sample.symbol} · {result.sample.bars} bars</span>
       {variants !== null && <span>{variants} variants tried</span>}
       <span className="text-muted-foreground">costs {result.costs.commissionPct}% + {result.costs.slippagePct}% slippage</span>
     </div>
-    {variants !== null && <p className="text-[11px] text-muted-foreground">More variants tried means a higher risk the result is overfit; judge by out-of-sample.</p>}
+    {variants !== null && <p className="text-xs text-muted-foreground">More variants tried means a higher risk the result is overfit; judge by out-of-sample.</p>}
     <MetricList title="Whole sample" metrics={result.metrics} />
     <div className="flex flex-wrap gap-2">
       <MetricList title="In-sample" metrics={result.inSample?.metrics} />

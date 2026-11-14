@@ -54,10 +54,10 @@ export function RunPanel({ symbol, runId, onSymbol, onOpenRun }:
           : runs.isError ? <p role="alert" className="p-4 text-down">Past runs are unavailable right now. {runs.error.message}</p>
           : items.length === 0 ? <p className="p-4 text-muted-foreground">No runs yet for this symbol.</p>
           : <ul className={runs.isFetching ? 'opacity-70' : ''}>{items.map(r => <li key={r.id} className="border-t first:border-t-0">
-            <button type="button" className={`grid w-full grid-cols-[auto_1fr_auto] items-center gap-x-3 px-4 py-2 text-left text-[12px] hover:bg-muted ${shown?.id === r.id ? 'bg-muted' : ''}`} onClick={() => { onOpenRun(r.id, r.symbol); }}>
+            <button type="button" className={`grid w-full grid-cols-[auto_1fr_auto] items-center gap-x-3 px-4 py-2 text-left text-sm hover:bg-muted ${shown?.id === r.id ? 'bg-muted' : ''}`} onClick={() => { onOpenRun(r.id, r.symbol); }}>
               <span className={`w-14 font-semibold ${r.status === 'running' ? 'ai-text' : actionTone(r.decision.action)}`}>{r.status === 'running' ? 'Working' : r.decision.action}</span>
-              <span className="min-w-0"><span className="block truncate">{time(r.createdAt)}</span><span className="block truncate text-[11px] text-muted-foreground">as of {time(r.asOf)}</span></span>
-              <span className="num text-right"><span className="block">{percent(r.decision.confidence)}</span><span className="block text-[11px] text-muted-foreground">{r.tokens} tokens</span></span>
+              <span className="min-w-0"><span className="block truncate">{time(r.createdAt)}</span><span className="block truncate text-xs text-muted-foreground">as of {time(r.asOf)}</span></span>
+              <span className="num text-right"><span className="block">{percent(r.decision.confidence)}</span><span className="block text-xs text-muted-foreground">{r.tokens} tokens</span></span>
             </button></li>)}</ul>}
       </Panel>
     </div>
@@ -65,7 +65,7 @@ export function RunPanel({ symbol, runId, onSymbol, onOpenRun }:
       {(run.isPending || (runId !== undefined && opened.isPending)) && <Panel ai title="Starting the desk"><Skeleton className="h-40" /></Panel>}
       {opened.isError && <p role="alert" className="border p-4 text-down">This run could not be loaded. {opened.error.message}</p>}
       {shown && <RunView run={shown} />}
-      {!run.isPending && runId === undefined && <div className="grid h-full min-h-60 place-items-center border border-dashed p-8 text-center text-[13px]">
+      {!run.isPending && runId === undefined && <div className="grid h-full min-h-60 place-items-center border border-dashed p-8 text-center text-base">
         <div className="max-w-sm space-y-3">
           <p className="font-semibold">No run open</p>
           <p className="text-muted-foreground">Ask the desk about {symbol} now, or replay a past moment with the time machine. Past runs are listed on the left.</p>

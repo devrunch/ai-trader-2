@@ -13,12 +13,12 @@ export function PineScriptsList({ onOpen, onAdd }: { onOpen: (detail: PineScript
   const run = (id: string, then: (detail: PineScriptDetail) => void) => { opener.mutate({ id }, { onSuccess: then }); };
 
   if (list.isPending) return <div className="space-y-2" aria-label="Loading scripts"><Skeleton className="h-8" /><Skeleton className="h-8" /></div>;
-  if (list.isError) return <p role="alert" className="text-[12px] text-destructive">Your scripts could not be loaded. <Button size="xs" variant="outline" onClick={() => { void list.refetch(); }}>Retry</Button></p>;
+  if (list.isError) return <p role="alert" className="text-sm text-destructive">Your scripts could not be loaded. <Button size="xs" variant="outline" onClick={() => { void list.refetch(); }}>Retry</Button></p>;
   return <div>
-    {list.data.scripts.length === 0 && <p className="text-[12px] text-muted-foreground">No saved scripts yet. Write one in the Editor tab and press Save to keep it here.</p>}
-    {opener.isError && <p role="alert" className="mb-2 text-[12px] text-destructive">That script could not be opened.</p>}
-    {remove.isError && <p role="alert" className="mb-2 text-[12px] text-destructive">That script could not be deleted.</p>}
-    <ul className="divide-y divide-border">{list.data.scripts.map(script => <li key={script.id} className="flex items-center gap-2 py-1.5 text-[12px]">
+    {list.data.scripts.length === 0 && <p className="text-sm text-muted-foreground">No saved scripts yet. Write one in the Editor tab and press Save to keep it here.</p>}
+    {opener.isError && <p role="alert" className="mb-2 text-sm text-destructive">That script could not be opened.</p>}
+    {remove.isError && <p role="alert" className="mb-2 text-sm text-destructive">That script could not be deleted.</p>}
+    <ul className="divide-y divide-border">{list.data.scripts.map(script => <li key={script.id} className="flex items-center gap-2 py-1.5 text-sm">
       <span className="flex-1 truncate font-medium">{script.name}</span>
       <span className="num text-muted-foreground">v{script.currentVersion} · {script.sourceHash.slice(0, 8)}</span>
       <Button size="xs" variant="ghost" aria-label={`Open ${script.name}`} onClick={() => { run(script.id, onOpen); }}>Open</Button>

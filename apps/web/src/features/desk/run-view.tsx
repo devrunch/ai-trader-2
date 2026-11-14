@@ -8,7 +8,7 @@ function Decision({ run }: { run: DeskRunDto }) {
     <h4 className="mb-2 font-semibold">Final decision <span className="font-normal text-muted-foreground">(paper only)</span></h4>
     {d.vetoed && <div role="alert" className="mb-1 rounded border border-down p-1.5 text-down">
       Risk manager blocked this trade: {d.vetoReasons.join('; ') || 'no reason given'}</div>}
-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&_dt]:text-[11px] [&_dt]:text-muted-foreground [&_dd]:text-[15px] [&_dd]:font-semibold">
+    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4 [&_dt]:text-xs [&_dt]:text-muted-foreground [&_dd]:text-[15px] [&_dd]:font-semibold">
       <dt>Entry</dt><dd className="num">{price(d.entry)}</dd><dt>Stop</dt><dd className="num">{price(d.stopLoss)}</dd>
       <dt>Target</dt><dd className="num">{price(d.target)}</dd><dt>Quantity (paper)</dt><dd className="num">{d.quantity ?? '—'}</dd>
     </dl>
@@ -29,11 +29,11 @@ function stageOf(run: DeskRunDto): number {
 
 function Progress({ run }: { run: DeskRunDto }) {
   const at = stageOf(run);
-  return <section role="status" aria-label="Desk progress" className="ai-border p-4">
+  return <section role="status" aria-label="Desk progress" className="ai-border ai-working p-4">
     <p className="mb-3 font-semibold">The desk is working on {run.symbol}. You can leave this page; the header shows when it is done.</p>
     <ol className="grid grid-cols-4 gap-2">{STAGES.map((stage, i) => <li key={stage} className="space-y-1.5">
-      <span className={`block h-1 ${i < at ? 'ai-gradient' : i === at ? 'animate-pulse bg-[var(--ai-2)]/60' : 'bg-muted'}`} />
-      <span className={`block text-[11px] ${i <= at ? 'text-foreground' : 'text-muted-foreground'}`}>{stage}{i < at ? ' ✓' : i === at ? '…' : ''}</span>
+      <span className={`block h-1 ${i < at ? 'ai-gradient' : i === at ? 'animate-pulse bg-[var(--link)]/60' : 'bg-muted'}`} />
+      <span className={`block text-xs ${i <= at ? 'text-foreground' : 'text-muted-foreground'}`}>{stage}{i < at ? ' ✓' : i === at ? '…' : ''}</span>
     </li>)}</ol>
   </section>;
 }
@@ -41,13 +41,13 @@ function Progress({ run }: { run: DeskRunDto }) {
 export function RunView({ run }: { run: DeskRunDto }) {
   const { trail } = run;
   const running = run.status === 'running';
-  return <div className="space-y-4 text-[12px]">
+  return <div className="space-y-4 text-sm">
     <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       {running ? <span className="font-display ai-text text-[2rem] font-semibold leading-none">Working…</span> : <>
         <span aria-label="Decision action" className={`font-display text-[2rem] font-semibold leading-none ${actionTone(run.decision.action)}`}>{run.decision.action}</span>
         <span className="num">{percent(run.decision.confidence)} confidence</span></>}
       <span>as of {time(run.asOf)}</span>
-      {!run.live && <span className="rounded bg-muted px-1.5 text-[11px]">time machine</span>}
+      {!run.live && <span className="rounded bg-muted px-1.5 text-xs">time machine</span>}
       <span className="text-muted-foreground">{run.symbol} · {run.tokens} tokens · {run.calls} calls</span>
     </header>
     {run.status === 'budget' && <p role="alert" className="text-down">This run was stopped by the token budget, so the answer below may be incomplete.</p>}

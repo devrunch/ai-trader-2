@@ -44,10 +44,10 @@ export function TasksList({ onOpenThread }: { onOpenThread: (threadId: string) =
         <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" onClick={() => { onOpenThread(task.threadId); }}>{task.title}</button>
         <span className={task.state === 'active' ? 'text-up' : 'text-muted-foreground'}>{task.state}</span>
       </div>
-      <p className="text-[12px] text-muted-foreground">Runs {describeTrigger(task)} · {task.runs}/{task.maxRuns} runs
+      <p className="text-sm text-muted-foreground">Runs {describeTrigger(task)} · {task.runs}/{task.maxRuns} runs
         {task.nextRunAt && task.state === 'active' ? ` · next ${time.format(Date.parse(task.nextRunAt))}` : ''}
         {task.lastRunAt ? ` · last ${time.format(Date.parse(task.lastRunAt))}` : ''}</p>
-      {task.lastError && <p className="text-[12px] text-down">Last run failed: {task.lastError}</p>}
+      {task.lastError && <p className="text-sm text-down">Last run failed: {task.lastError}</p>}
       {task.state === 'active' && <AutoTradeControl task={task} />}
       {(task.state === 'active' || task.state === 'paused') && <div className="flex gap-1">
         <Button size="xs" variant="outline" disabled={change.isPending}

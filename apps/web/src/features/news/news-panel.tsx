@@ -25,7 +25,7 @@ function SentimentBadge({ sentiment }: { sentiment: Sentiment | null | undefined
 function Moves({ item }: { item: NewsItemFull }) {
   if (item.moves.length === 0) return null;
   const arrow = item.direction ? ARROW[item.direction] : null;
-  return <p className="text-[11px] text-muted-foreground">
+  return <p className="text-xs text-muted-foreground">
     <span>Moves: {item.moves.map(moveLabel).join(', ')}</span>
     {arrow && <span role="img" aria-label={arrow[1]} className={`ml-1 ${arrow[2]}`}>{arrow[0]}</span>}
   </p>;
@@ -39,7 +39,7 @@ export function NewsPanel({ symbol, onOpenSymbol }: { symbol: string; onOpenSymb
     queryFn: ({ signal }) => apiFetch(`/v1/news?limit=60&hours=72${scope === 'crowd' ? '&crowd=true' : '&clustered=true'}${scope === 'symbol' ? `&symbol=${encodeURIComponent(symbol)}` : ''}${highOnly ? '&minImpact=high' : ''}`, { schema: NewsResponseSchema, signal }) });
   const now = news.dataUpdatedAt;
   const rows = news.data?.clusters ? news.data.clusters.map(c => ({ item: c.lead, sources: c.sourceCount, sentiment: c.sentiment })) : (news.data?.items ?? []).map(item => ({ item, sources: 1, sentiment: item.sentiment }));
-  return <div className="flex h-full flex-col text-[12px]">
+  return <div className="flex h-full flex-col text-sm">
     <div role="tablist" aria-label="News scope" className="flex shrink-0 gap-1 border-b px-2">
       {(['all', 'symbol', 'crowd'] as const).map(s => <button key={s} type="button" role="tab" aria-selected={scope === s} onClick={() => { setScope(s); }}
         className={`h-8 border-b-2 px-2 ${scope === s ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
@@ -51,9 +51,9 @@ export function NewsPanel({ symbol, onOpenSymbol }: { symbol: string; onOpenSymb
       {news.isPending && <p className="p-3 text-muted-foreground">Loading headlines…</p>}
       {news.isError && <p role="alert" className="p-3 text-down">Headlines are unavailable right now.</p>}
       {news.data && rows.length === 0 && <p className="p-3 text-muted-foreground">{scope === 'crowd' ? 'No crowd chatter yet; Reddit is read every 10 minutes.' : scope === 'symbol' ? `No recent headlines mention ${short(symbol)}.` : 'No headlines yet; feeds refresh every 5 minutes.'}</p>}
-      {scope === 'crowd' && rows.length > 0 && <p className="border-b px-3 py-1.5 text-[11px] text-muted-foreground">Crowd chatter from Reddit: opinion from traders, not reporting.</p>}
+      {scope === 'crowd' && rows.length > 0 && <p className="border-b px-3 py-1.5 text-xs text-muted-foreground">Crowd chatter from Reddit: opinion from traders, not reporting.</p>}
       <ul>{rows.map(({ item, sources, sentiment }) => <li key={item.id} className="space-y-1 border-b px-3 py-2 hover:bg-muted/50">
-        <div className="flex gap-2 text-[11px] text-muted-foreground"><span>{item.source}</span><span>·</span><time dateTime={item.publishedAt}>{ago(item.publishedAt, now)}</time>
+        <div className="flex gap-2 text-xs text-muted-foreground"><span>{item.source}</span><span>·</span><time dateTime={item.publishedAt}>{ago(item.publishedAt, now)}</time>
           {sources > 1 && <><span>·</span><span className="font-semibold text-foreground">{sources} sources</span></>}
           {item.crowd && <><span>·</span><span className="border px-1">Crowd</span></>}
           {sentiment && <><span>·</span><SentimentBadge sentiment={sentiment} /></>}</div>
@@ -64,7 +64,7 @@ export function NewsPanel({ symbol, onOpenSymbol }: { symbol: string; onOpenSymb
         <Moves item={item} />
         {item.summary && <p className="line-clamp-2 text-muted-foreground">{item.summary}</p>}
         {item.symbols.length > 0 && <div className="flex flex-wrap gap-1">{item.symbols.map(s => <button key={s} type="button" onClick={() => { onOpenSymbol(s); }}
-          className="border px-1.5 text-[11px] text-link hover:bg-muted">{short(s)}</button>)}</div>}
+          className="border px-1.5 text-xs text-link hover:bg-muted">{short(s)}</button>)}</div>}
       </li>)}</ul>
     </div>
   </div>;

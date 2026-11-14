@@ -24,7 +24,7 @@ export function ReplayControls({ target, at }: { target: ReplayTarget; at: numbe
     return () => { clearInterval(timer); };
   }, [playing, speed, target]);
   const button = 'grid size-7 place-items-center rounded hover:bg-muted';
-  return <div role="toolbar" aria-label="Bar replay" className="pointer-events-auto flex items-center gap-1 rounded border bg-panel px-2 py-1 text-[12px] shadow">
+  return <div role="toolbar" aria-label="Bar replay" className="pointer-events-auto flex items-center gap-1 rounded border bg-panel px-2 py-1 text-sm shadow">
     <span className="mr-1 font-semibold">Replay</span>
     <button type="button" aria-label="Step back" className={button} onClick={() => { setPlaying(false); setShown(target.step(-1)); }}><SkipBack className="size-4" /></button>
     <button type="button" aria-label={playing ? 'Pause' : 'Play'} className={button} onClick={() => { setPlaying(p => !p); }}>

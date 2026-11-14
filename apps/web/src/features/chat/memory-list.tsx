@@ -19,7 +19,7 @@ export function MemoryList() {
   return <ul aria-label="What the assistant remembers" className="space-y-1">
     {memory.data.notes.map(n => <li key={n.id} className="flex items-start gap-2 border p-2">
       <span className="min-w-0 flex-1">{n.note}</span>
-      <span className="shrink-0 text-[11px] text-muted-foreground">{day.format(Date.parse(n.createdAt))}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">{day.format(Date.parse(n.createdAt))}</span>
       <Button size="xs" variant="ghost" aria-label={`Forget: ${n.note}`} disabled={forget.isPending} onClick={() => { forget.mutate(n.id); }}>×</Button>
     </li>)}
   </ul>;

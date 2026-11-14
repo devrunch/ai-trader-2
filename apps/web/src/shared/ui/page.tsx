@@ -14,7 +14,7 @@ export function PageHeader({ icon: HeaderIcon, title, description, actions }: { 
       <h1 className="font-display flex items-center gap-2.5 text-[1.75rem] font-semibold leading-tight tracking-tight">
         {HeaderIcon && <HeaderIcon weight="duotone" className="size-7 text-link" aria-hidden="true" />}{title}
       </h1>
-      {description && <p className="mt-1.5 max-w-[70ch] text-[13px] leading-relaxed text-muted-foreground">{description}</p>}
+      {description && <p className="mt-1.5 max-w-[70ch] text-base leading-relaxed text-muted-foreground">{description}</p>}
     </div>
     {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
   </header>;
@@ -25,14 +25,14 @@ export function Panel({ title, action, children, ai = false, className, bodyClas
   { title?: ReactNode; action?: ReactNode; children: ReactNode; ai?: boolean; className?: string; bodyClassName?: string }) {
   return <section aria-label={typeof title === 'string' ? title : undefined} className={cn('min-w-0', ai ? 'ai-border' : 'border bg-panel', className)}>
     {(title !== undefined || action) && <header className="flex min-h-11 items-center justify-between gap-2 border-b px-4 py-2">
-      {typeof title === 'string' ? <h2 className="text-[14px] font-semibold">{title}</h2> : title}{action}
+      {typeof title === 'string' ? <h2 className="text-base font-semibold">{title}</h2> : title}{action}
     </header>}
-    <div className={cn('p-4 text-[13px] leading-relaxed', bodyClassName)}>{children}</div>
+    <div className={cn('p-4 text-base leading-relaxed', bodyClassName)}>{children}</div>
   </section>;
 }
 
 /** A labelled form field with the label above, as on the sign-in page. */
-export const fieldClass = 'h-9 w-full min-w-0 border bg-background px-2.5 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30';
+export const fieldClass = 'h-9 w-full min-w-0 border bg-background px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30';
 export function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
-  return <label className={cn('flex min-w-0 flex-col gap-1 text-[12px] font-medium text-muted-foreground', className)}>{label}{children}</label>;
+  return <label className={cn('flex min-w-0 flex-col gap-1 text-sm font-medium text-muted-foreground', className)}>{label}{children}</label>;
 }

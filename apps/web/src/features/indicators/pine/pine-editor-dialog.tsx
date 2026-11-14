@@ -20,20 +20,20 @@ export default function PineEditorDialog({ target }: { target: PineDialogTarget 
       <TabsContent value="editor" className="space-y-2">
         <div className="flex items-center gap-2">
           <input aria-label="Script name" value={editor.name} maxLength={80} onChange={e => { editor.setName(e.target.value); }}
-            className="h-8 flex-1 rounded border border-input bg-background px-2 text-[12px]" />
+            className="h-8 flex-1 rounded border border-input bg-background px-2 text-sm" />
           {editor.saved && <>
             <select aria-label="Version" value={editor.saved.shownVersion} onChange={e => { void editor.openVersion(Number(e.target.value)); }}
-              className="h-8 rounded border border-input bg-background px-1 text-[12px]">
+              className="h-8 rounded border border-input bg-background px-1 text-sm">
               {editor.saved.versions.map(v => <option key={v.version} value={v.version}>v{v.version}</option>)}
             </select>
-            <span className="num text-[11px] text-muted-foreground" data-testid="pine-saved">v{editor.saved.shownVersion} · {editor.saved.sourceHash.slice(0, 8)}</span>
+            <span className="num text-xs text-muted-foreground" data-testid="pine-saved">v{editor.saved.shownVersion} · {editor.saved.sourceHash.slice(0, 8)}</span>
           </>}
         </div>
         <div className="h-72 overflow-hidden rounded border border-border">
           <LazyPineEditor value={editor.source} onChange={editor.setSource} {...(editor.checker.problem ? { problem: editor.checker.problem } : {})} label="Pine source" />
         </div>
         <PineCheckSummary definition={editor.checker.definition} problem={editor.checker.problem} pending={editor.checker.pending} />
-        {editor.saveError && <p role="alert" className="text-[12px] text-destructive">{editor.saveError}</p>}
+        {editor.saveError && <p role="alert" className="text-sm text-destructive">{editor.saveError}</p>}
         <div className="flex justify-end gap-2">
           <Button size="sm" variant="outline" disabled={editor.busy} onClick={() => { void editor.check(); }}>Check</Button>
           <Button size="sm" variant="outline" disabled={editor.busy || editor.name.trim() === ''} onClick={() => { void editor.save(); }}>Save</Button>

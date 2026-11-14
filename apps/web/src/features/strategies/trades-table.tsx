@@ -9,12 +9,12 @@ export function TradesTable({ trades }: { trades: BacktestResult['trades'] }) {
   const rows = [...trades].reverse().slice(0, MAX_ROWS);
   return <div>
     <table aria-label="Trades" className="w-full text-left">
-      <thead className="text-[11px] text-muted-foreground"><tr><th>Entry</th><th>Exit</th><th>Entry price</th><th>Exit price</th><th>P&amp;L</th><th>Exit reason</th></tr></thead>
+      <thead className="text-xs text-muted-foreground"><tr><th>Entry</th><th>Exit</th><th>Entry price</th><th>Exit price</th><th>P&amp;L</th><th>Exit reason</th></tr></thead>
       <tbody>{rows.map(t => <tr key={`${String(t.entryTime)}-${String(t.exitTime)}`} className="border-t">
         <td>{when.format(t.entryTime)}</td><td>{when.format(t.exitTime)}</td>
         <td className="num">{t.entryPrice.toFixed(2)}</td><td className="num">{t.exitPrice.toFixed(2)}</td>
         <td className={`num ${tone(t.pnl)}`}>{t.pnl.toFixed(2)}</td><td>{t.exitReason}</td></tr>)}</tbody>
     </table>
-    {trades.length > MAX_ROWS && <p className="mt-1 text-[11px] text-muted-foreground">Showing the newest {MAX_ROWS} of {trades.length} trades.</p>}
+    {trades.length > MAX_ROWS && <p className="mt-1 text-xs text-muted-foreground">Showing the newest {MAX_ROWS} of {trades.length} trades.</p>}
   </div>;
 }

@@ -17,7 +17,7 @@ export function TerminalGuide() {
   const [open, setOpen] = useState(() => !seen());
   if (!open) return null;
   const close = () => { try { localStorage.setItem(KEY, '1'); } catch { /* private mode: it just shows again next time */ } setOpen(false); };
-  return <aside aria-label="How the terminal works" className="flex shrink-0 items-start gap-3 border-b bg-panel px-3 py-2 text-[12px]">
+  return <aside aria-label="How the terminal works" className="flex shrink-0 items-start gap-3 border-b bg-panel px-3 py-2 text-sm">
     <ul className="flex min-w-0 flex-1 flex-wrap gap-x-5 gap-y-1">
       {TIPS.map(({ icon: TipIcon, text }) => <li key={text} className="flex items-center gap-1.5 text-muted-foreground"><TipIcon className="size-3.5 shrink-0 text-link" aria-hidden="true" />{text}</li>)}
     </ul>

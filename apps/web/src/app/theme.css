@@ -1,21 +1,26 @@
 @import "tailwindcss";
 
+/*
+  One palette for the whole product: the original ai-trader colours (ink navy, indigo-violet brand), with a light mode
+  tuned from the same roles. The assistant has no colour of its own; it is marked by violet glass and a moving shine.
+*/
 :root {
   color-scheme: light;
-  --background: #f5f7fa;
-  --foreground: #18283d;
+  --background: #f5f6fa;
+  --foreground: #161a24;
   --panel: #ffffff;
-  --panel-foreground: #18283d;
-  --muted: #e8edf4;
-  --muted-foreground: #52647b;
-  --border: #d5dde7;
-  --accent: #245fc9;
+  --panel-foreground: #161a24;
+  --sidebar: #eef0f5;
+  --muted: #eceef4;
+  --muted-foreground: #5d6273;
+  --border: #d9dce5;
+  --accent: #5b4bd6;
   --accent-foreground: #ffffff;
-  --link: #245fc9;
-  --up: #08785c;
-  --down: #bd263b;
-  --warning: #886000;
-  --ring: #245fc9;
+  --link: #4f3fd0;
+  --up: #0b8a5b;
+  --down: #d63a46;
+  --warning: #8a6100;
+  --ring: #5b4bd6;
   --card: var(--panel);
   --card-foreground: var(--panel-foreground);
   --popover: var(--panel);
@@ -28,11 +33,10 @@
   --input: var(--border);
   /* Square corners, as in the original terminal. */
   --radius: 0rem;
-  /* The agent's colour: saffron, rose, violet. Used only on AI surfaces, so the agent is the one thing that glows. */
-  --ai-1: #ff9a3c;
-  --ai-2: #ff4f7b;
-  --ai-3: #7c5cff;
-  --ai-gradient: linear-gradient(105deg, var(--ai-1) 0%, var(--ai-2) 48%, var(--ai-3) 100%);
+  /* The assistant's glass: a violet tint over the surface, a brighter violet edge, and the shine that sweeps across it. */
+  --ai-tint: color-mix(in srgb, var(--accent) 9%, var(--panel));
+  --ai-edge: color-mix(in srgb, var(--accent) 45%, transparent);
+  --ai-shine: color-mix(in srgb, #ffffff 55%, transparent);
   --font-display: 'Bricolage Grotesque Variable', 'IBM Plex Sans', system-ui, sans-serif;
   --ind-blue: #2962ff;
   --ind-orange: #ff6d00;
@@ -46,20 +50,24 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-  --background: #0b0e14;
-  --foreground: #e8e6f0;
-  --panel: #12151c;
-  --panel-foreground: #e8e6f0;
-  --muted: #1a1e28;
-  --muted-foreground: #8b8a9e;
-  --border: #232733;
-  --accent: #3e8bff;
-  --accent-foreground: #ffffff;
-  --link: #6ea8ff;
-  --up: #16c784;
-  --down: #f0525d;
-  --warning: #eac16c;
-  --ring: #3e8bff;
+    --background: #0b0e14;
+    --foreground: #e8e6f0;
+    --panel: #12151c;
+    --panel-foreground: #e8e6f0;
+    --sidebar: #0e1118;
+    --muted: #1a1e28;
+    --muted-foreground: #8b8a9e;
+    --border: #232733;
+    --accent: #6c5ce7;
+    --accent-foreground: #ffffff;
+    --link: #8b7cf0;
+    --up: #16c784;
+    --down: #f0525d;
+    --warning: #eac16c;
+    --ring: #6c5ce7;
+    --ai-tint: color-mix(in srgb, var(--accent) 14%, var(--panel));
+    --ai-edge: color-mix(in srgb, var(--accent) 60%, transparent);
+    --ai-shine: color-mix(in srgb, #ffffff 22%, transparent);
   }
 }
 :root[data-theme="dark"] {
@@ -68,22 +76,27 @@
   --foreground: #e8e6f0;
   --panel: #12151c;
   --panel-foreground: #e8e6f0;
+  --sidebar: #0e1118;
   --muted: #1a1e28;
   --muted-foreground: #8b8a9e;
   --border: #232733;
-  --accent: #3e8bff;
+  --accent: #6c5ce7;
   --accent-foreground: #ffffff;
-  --link: #6ea8ff;
+  --link: #8b7cf0;
   --up: #16c784;
   --down: #f0525d;
   --warning: #eac16c;
-  --ring: #3e8bff;
+  --ring: #6c5ce7;
+  --ai-tint: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  --ai-edge: color-mix(in srgb, var(--accent) 60%, transparent);
+  --ai-shine: color-mix(in srgb, #ffffff 22%, transparent);
 }
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-panel: var(--panel);
   --color-panel-foreground: var(--panel-foreground);
+  --color-sidebar: var(--sidebar);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -107,23 +120,47 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
+  /* One type scale in px, so the same class reads the same size on every page (TradingView-like density). */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 22px;
+  --text-xl: 18px;
+  --text-xl--line-height: 24px;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 28px;
 }
 @layer components {
-  .ai-gradient { background-image: var(--ai-gradient); color: #fff; }
-  .ai-text { background-image: var(--ai-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  /* A gradient hairline around an element, for AI-generated content. */
-  .ai-border { border: 1px solid transparent; background: linear-gradient(var(--panel), var(--panel)) padding-box, var(--ai-gradient) border-box; }
-  .ai-button { position: relative; isolation: isolate; overflow: hidden; background-image: var(--ai-gradient); color: #fff; box-shadow: 0 6px 20px -8px color-mix(in srgb, var(--ai-2) 70%, transparent); }
-  .ai-button::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(105deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%); transform: translateX(-100%); }
-  .ai-button:hover::after { transition: transform 700ms ease; transform: translateX(100%); }
-  .ai-button:hover { filter: saturate(1.15) brightness(1.05); }
+  /* The assistant: violet glass with a moving shine. Only its buttons, replies and working states use these. */
+  .ai-glass { background: var(--ai-tint); border: 1px solid var(--ai-edge); box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent); backdrop-filter: blur(6px); }
+  .ai-border { background: var(--ai-tint); border: 1px solid var(--ai-edge); }
+  .ai-text { color: var(--link); }
+  .ai-gradient { background: var(--accent); color: var(--accent-foreground); }
+  .ai-button { position: relative; isolation: isolate; overflow: hidden; background: var(--accent); color: var(--accent-foreground);
+    border: 1px solid color-mix(in srgb, #ffffff 18%, var(--accent)); box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 80%, transparent), inset 0 1px 0 color-mix(in srgb, #ffffff 20%, transparent); }
+  /* The shine wipe: a soft band sweeps across every few seconds, and at once on hover. */
+  .ai-button::after, .ai-shine::after { content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%, var(--ai-shine) 50%, transparent 65%); transform: translateX(-120%); animation: ai-wipe 4.5s ease-in-out infinite; }
+  .ai-button > * { position: relative; z-index: 1; }
+  .ai-button:hover::after { animation-duration: 900ms; }
+  .ai-button:hover { filter: brightness(1.08); }
+  .ai-shine { position: relative; overflow: hidden; }
+  /* While the assistant is working: the shimmer runs continuously. */
+  .ai-working::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(105deg, transparent 30%, var(--ai-shine) 50%, transparent 70%); transform: translateX(-120%); animation: ai-wipe 1.6s linear infinite; }
+  .ai-working { position: relative; overflow: hidden; }
   .font-display { font-family: var(--font-display); font-optical-sizing: auto; }
-  @media (prefers-reduced-motion: reduce) { .ai-button::after { display: none; } }
+  @keyframes ai-wipe { 0% { transform: translateX(-120%); } 35%, 100% { transform: translateX(120%); } }
+  @media (prefers-reduced-motion: reduce) { .ai-button::after, .ai-shine::after, .ai-working::after { animation: none; display: none; } }
 }
 @layer base {
   * { border-color: var(--border); }
-  html { font-size: 13px; }
-  body { margin: 0; background: var(--background); color: var(--foreground); font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.4; }
+  html { font-size: 14px; }
+  body { margin: 0; background: var(--background); color: var(--foreground); font-family: 'IBM Plex Sans', system-ui, sans-serif; line-height: 1.45; }
   /* Numbers line up and never jitter while prices tick. */
   .num { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
   :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

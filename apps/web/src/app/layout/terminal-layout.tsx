@@ -27,7 +27,7 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets, requestedWidge
   const [bottomOpen, setBottomOpen] = useState(true);
   if (!desktop) return <PhoneLayout toolbar={toolbar} chart={chart} bottom={bottom} widgets={widgets} />;
   const active = WIDGETS.find(w => w.id === widget);
-  const strip = <div className="flex h-7 shrink-0 items-center gap-2 border-t bg-panel px-2 text-[12px]">
+  const strip = <div className="flex h-7 shrink-0 items-center gap-2 border-t bg-panel px-2 text-sm">
     <span className="font-semibold">Paper trading</span>
     <button type="button" className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
       aria-label={bottomOpen ? 'Collapse trading panel' : 'Expand trading panel'} onClick={() => { setBottomOpen(open => !open); }}>
@@ -62,7 +62,7 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets, requestedWidge
           <ResizableHandle />
           <ResizablePanel id="widget" defaultSize="24%" minSize="16%" maxSize="45%">
             <section data-testid="region-side" aria-label={active.label} className="flex h-full flex-col border-l bg-panel">
-              <h2 className="flex h-8 shrink-0 items-center border-b px-3 text-[12px] font-semibold">{active.label}</h2>
+              <h2 className="flex h-8 shrink-0 items-center border-b px-3 text-sm font-semibold">{active.label}</h2>
               <div className="min-h-0 flex-1 overflow-auto">{widgets[active.id]}</div>
             </section>
           </ResizablePanel>
@@ -72,7 +72,7 @@ export function TerminalLayout({ toolbar, chart, bottom, widgets, requestedWidge
         {WIDGETS.map(({ id, label, icon: Icon }) => <Tooltip key={id}><TooltipTrigger asChild>
           <button type="button" aria-label={label} aria-pressed={widget === id}
             className={id === 'assistant'
-              ? `ai-button grid size-8 place-items-center rounded-full ${widget === id ? 'ring-2 ring-[color-mix(in_srgb,var(--ai-3)_45%,transparent)] ring-offset-2 ring-offset-panel' : ''}`
+              ? `ai-button grid size-8 place-items-center rounded-full ${widget === id ? 'ring-2 ring-[color-mix(in_srgb,var(--accent)_45%,transparent)] ring-offset-2 ring-offset-panel' : ''}`
               : `grid size-8 place-items-center rounded ${widget === id ? 'bg-muted text-link' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
             onClick={() => { setWidget(current => (current === id ? null : id)); }}><Icon className="size-4" /></button>
         </TooltipTrigger><TooltipContent side="left">{label}</TooltipContent></Tooltip>)}
@@ -95,7 +95,7 @@ function PhoneLayout({ toolbar, chart, bottom, widgets }: Props) {
     <section aria-label={PHONE_TABS.find(t => t.id === tab)?.label} className={`min-h-0 flex-1 ${tab === 'chart' ? '' : 'overflow-auto bg-panel'}`}>{content}</section>
     <div role="tablist" aria-label="Sections" className="grid shrink-0 grid-cols-8 border-t bg-panel">
       {PHONE_TABS.map(t => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id}
-        className={`h-11 min-w-0 truncate text-[11px] ${t.id === 'assistant' ? `ai-text font-semibold ${tab === t.id ? 'underline underline-offset-4' : ''}` : tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
+        className={`h-11 min-w-0 truncate text-xs ${t.id === 'assistant' ? `ai-text font-semibold ${tab === t.id ? 'underline underline-offset-4' : ''}` : tab === t.id ? 'text-link' : 'text-muted-foreground'}`} onClick={() => { setTab(t.id); }}>{t.label}</button>)}
     </div>
   </div>;
 }

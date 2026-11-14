@@ -13,7 +13,7 @@ const field = 'h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm';
 export function IndicatorTemplatesMenu() {
   const [open, setOpen] = useState(false);
   return <>
-    <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => { setOpen(true); }}><LayoutTemplate />Templates</Button>
+    <Button variant="ghost" size="sm" className="h-7 px-2 text-sm" onClick={() => { setOpen(true); }}><LayoutTemplate />Templates</Button>
     {open && <TemplatesDialog onClose={() => { setOpen(false); }} />}
   </>;
 }
@@ -47,7 +47,7 @@ function TemplatesDialog({ onClose }: { onClose: () => void }) {
             onClick={() => { favourite.mutate({ id: template.id, favourite: !template.favourite }); }}><Star className={template.favourite ? 'fill-current' : ''} /></Button>
           <Button variant="ghost" className="h-7 flex-1 justify-start px-2 text-sm" aria-label={`Apply ${template.name}`} onClick={() => { apply(template); }}>
             <span className="truncate">{template.name}</span>
-            <span className="ml-auto text-[11px] text-muted-foreground">{template.items.length} indicator{template.items.length === 1 ? '' : 's'}</span>
+            <span className="ml-auto text-xs text-muted-foreground">{template.items.length} indicator{template.items.length === 1 ? '' : 's'}</span>
           </Button>
           <Button size="icon-xs" variant="ghost" aria-label={`Delete ${template.name}`} onClick={() => { remove.mutate(template.id); }}><X /></Button>
         </li>)}

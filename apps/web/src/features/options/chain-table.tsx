@@ -19,7 +19,7 @@ function Cells({ leg, max, side }: { leg: Leg | null; max: number; side: 'ce' | 
 /** Calls on the left, puts on the right, the strike nearest spot highlighted; bars scale to the largest open interest shown. */
 export function ChainTable({ chain }: { chain: OptionChain }) {
   const max = Math.max(0, ...chain.rows.flatMap(r => [r.ce?.oi ?? 0, r.pe?.oi ?? 0]));
-  return <table className="w-full text-[11px] tabular-nums">
+  return <table className="w-full text-xs tabular-nums">
     <thead className="text-muted-foreground"><tr>
       <th colSpan={4} className="px-1 text-center font-normal">Calls</th><th className="px-1 font-normal">Strike</th><th colSpan={4} className="px-1 text-center font-normal">Puts</th></tr>
     <tr>{['OI', 'OI chg', 'IV', 'LTP'].map(h => <th key={`c${h}`} className="px-1 text-right font-normal">{h}</th>)}<th />

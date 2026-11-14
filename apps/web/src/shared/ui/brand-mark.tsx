@@ -3,7 +3,7 @@ function BrandMark({ className = 'size-6' }: { className?: string }) {
   return <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false" className={className}>
     <defs>
       <linearGradient id="brand-ai" x1="0" y1="1" x2="1" y2="0">
-        <stop offset="0" stopColor="var(--ai-1)" /><stop offset="0.5" stopColor="var(--ai-2)" /><stop offset="1" stopColor="var(--ai-3)" />
+        <stop offset="0" stopColor="var(--accent)" /><stop offset="0.5" stopColor="var(--link)" /><stop offset="1" stopColor="var(--accent)" />
       </linearGradient>
     </defs>
     <path d="M7 6v20" stroke="currentColor" strokeWidth="1.6" opacity="0.45" /><rect x="4.5" y="11" width="5" height="10" rx="1" fill="currentColor" opacity="0.45" />

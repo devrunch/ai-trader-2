@@ -33,7 +33,7 @@ export function AlertsPanel({ symbol, interval, onOpenSymbol }: { symbol: string
   const past = shown.filter(t => t.state !== 'active' && t.state !== 'paused').slice(0, 10);
   const count = (mode: 'notify' | 'agent') => all.filter(t => t.mode === mode && (t.state === 'active' || t.state === 'paused')).length;
 
-  return <div className="flex h-full flex-col text-[12px]">
+  return <div className="flex h-full flex-col text-sm">
     <NewAlert symbol={symbol} interval={interval} pending={create.isPending} error={create.error}
       onCreate={body => { create.mutate(body); }} last={create.data?.conditionNow ?? null} />
     <div role="tablist" aria-label="Show" className="flex gap-1 border-b px-3 py-1.5">
@@ -50,18 +50,18 @@ export function AlertsPanel({ symbol, interval, onOpenSymbol }: { symbol: string
             : 'Set a price, indicator, news or event condition above. You get a notification in the bell when it triggers.'}</p></div>
         : <ul aria-label="Alerts">{[...live, ...past].map(a => <li key={a.id} className="space-y-1 border-b px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className={`shrink-0 px-1.5 py-px text-[10px] font-semibold ${a.mode === 'agent' ? 'ai-gradient' : 'border text-muted-foreground'}`}>{a.mode === 'agent' ? 'Task' : 'Alert'}</span>
+            <span className={`shrink-0 px-1.5 py-px text-[11px] font-semibold ${a.mode === 'agent' ? 'ai-gradient' : 'border text-muted-foreground'}`}>{a.mode === 'agent' ? 'Task' : 'Alert'}</span>
             <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" title={a.instruction || a.title}
               onClick={() => { const s = openable(a.trigger); if (s) onOpenSymbol(s); }}>{a.title}</button>
             <span className={STATE_TONE[a.state]}>{a.runState === 'running' ? 'waking now…' : a.runState === 'queued' ? 'queued' : a.state}</span>
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {describeTrigger(a)}{a.desk ? ' · asks the trading desk' : ''}
             {a.maxRuns > 1 ? ` · fired ${String(a.runs)}` : a.runs > 0 ? ' · fired' : ''}
             {a.lastRunAt ? ` · last ${time.format(Date.parse(a.lastRunAt))}` : ''}
             {a.lastOutcome ? ` · ${OUTCOME[a.lastOutcome]}` : ''}
           </p>
-          {a.lastError && <p className="text-[11px] text-down">Last run failed: {a.lastError}</p>}
+          {a.lastError && <p className="text-xs text-down">Last run failed: {a.lastError}</p>}
           {a.mode === 'agent' && a.state === 'active' && <AutoTradeControl task={a} />}
           {(a.state === 'active' || a.state === 'paused') && <div className="flex gap-1">
             <Button size="xs" variant="ghost" disabled={change.isPending} onClick={() => { change.mutate({ id: a.id, verb: a.state === 'active' ? 'pause' : 'resume' }); }}>

@@ -34,7 +34,7 @@ export function TradingPanel({ symbol, onTrade }: { symbol: string; onTrade: (si
     { id: 'journal', label: 'Trade journal' },
   ];
 
-  return <div className="flex h-full flex-col text-[13px]">
+  return <div className="flex h-full flex-col text-base">
     <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b px-3 py-2" aria-label="Paper account">
       {all.length > 1 && <div role="radiogroup" aria-label="Account currency" className="flex gap-0.5">
         {all.map(x => <button key={x.currency} type="button" role="radio" aria-checked={x.currency === a?.currency}
@@ -81,12 +81,12 @@ export function OrderDialog({ symbol, side, onClose }: { symbol: string; side: P
 const short = (symbol: string): string => symbol.slice(symbol.indexOf(':') + 1);
 
 function Stat({ label, value, className = '' }: { label: string; value: string; className?: string }) {
-  return <div className="flex flex-col"><span className="text-[11px] text-muted-foreground">{label}</span><span className={`num font-semibold ${className}`}>{value}</span></div>;
+  return <div className="flex flex-col"><span className="text-xs text-muted-foreground">{label}</span><span className={`num font-semibold ${className}`}>{value}</span></div>;
 }
 
 function Table({ head, children }: { head: string[]; children: ReactNode }) {
-  return <table className="w-full border-collapse text-[13px]">
-    <thead className="sticky top-0 bg-panel text-[11px] text-muted-foreground"><tr>
+  return <table className="w-full border-collapse text-base">
+    <thead className="sticky top-0 bg-panel text-xs text-muted-foreground"><tr>
       {head.map((h, i) => <th key={h} scope="col" className={`h-7 px-3 font-normal ${i === 0 ? 'text-left' : 'text-right'}`}>{h}</th>)}
     </tr></thead>
     <tbody className="[&_td]:h-8 [&_td]:px-3 [&_td]:text-right [&_td:first-child]:text-left [&_tr]:border-t [&_tr:hover]:bg-muted/60">{children}</tbody>

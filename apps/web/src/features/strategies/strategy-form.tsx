@@ -7,7 +7,7 @@ const num = (v: string, fallback: number): number => (v.trim() !== '' && Number.
 export function StrategyFormFields({ form, onChange }: { form: StrategyForm; onChange: (form: StrategyForm) => void }) {
   const options = [...BAR_FIELDS, ...form.indicators.map(i => i.name).filter(Boolean)];
   const patch = (p: Partial<StrategyForm>) => { onChange({ ...form, ...p }); };
-  return <div className="space-y-3 text-[12px]">
+  return <div className="space-y-3 text-sm">
     <div className="flex flex-wrap items-center gap-2">
       <label className="flex items-center gap-1">Symbol <input aria-label="Symbol" className={`${box} w-32`} value={form.symbol} onChange={e => { patch({ symbol: e.target.value }); }} /></label>
       <label className="flex items-center gap-1">Interval <select aria-label="Interval" className={box} value={form.interval} onChange={e => { patch({ interval: INTERVALS.find(i => i === e.target.value) ?? form.interval }); }}>

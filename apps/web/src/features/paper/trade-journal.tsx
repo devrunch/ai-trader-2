@@ -19,7 +19,7 @@ export function TradeJournal({ rows }: { rows: AgentTradeDto[] }) {
       {t.skipped !== null ? <div className="flex flex-wrap items-baseline gap-x-3">
         <span className="font-semibold">{t.symbol}</span>
         <span className="text-muted-foreground">Skipped: {t.skipped}</span>
-        <span className="ml-auto text-[11px] text-muted-foreground">PAPER · {time.format(Date.parse(t.createdAt))}</span>
+        <span className="ml-auto text-xs text-muted-foreground">PAPER · {time.format(Date.parse(t.createdAt))}</span>
       </div> : <div className="flex flex-wrap items-baseline gap-x-3">
         <span className="font-semibold">{t.symbol}</span>
         <span className={t.side === 'buy' ? 'text-up' : 'text-down'}>{t.side === 'buy' ? 'Buy' : 'Sell'} {t.quantity}</span>
@@ -27,10 +27,10 @@ export function TradeJournal({ rows }: { rows: AgentTradeDto[] }) {
         <span className="num text-muted-foreground">risk {price(t.riskAmount, t.currency)}</span>
         {t.pnl !== null && <span className={`num ${tone(t.pnl)}`}>{formatPnl(t.pnl, t.currency)}</span>}
         <span className="text-muted-foreground">{t.status ?? 'pending'}</span>
-        <span className="ml-auto text-[11px] text-muted-foreground">PAPER · {time.format(Date.parse(t.createdAt))}</span>
+        <span className="ml-auto text-xs text-muted-foreground">PAPER · {time.format(Date.parse(t.createdAt))}</span>
       </div>}
       <p className="line-clamp-2">{t.rationale}</p>
-      <p className="text-[11px] text-muted-foreground">{t.skill ? `via ${t.skill} · ` : ''}{t.trigger}</p>
+      <p className="text-xs text-muted-foreground">{t.skill ? `via ${t.skill} · ` : ''}{t.trigger}</p>
     </li>)}
   </ul>;
 }

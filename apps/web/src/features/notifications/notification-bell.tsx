@@ -23,9 +23,9 @@ function EmailToggle() {
     {address
       ? <label className="flex items-center gap-2"><input type="checkbox" checked={reports} disabled={save.isPending} onChange={e => { save.mutate({ reports: e.target.checked }); }} />Email me the assistant's reports</label>
       : <form className="flex gap-1.5" onSubmit={e => { e.preventDefault(); if (valid) save.mutate({ reports: true, address: draft.trim() }); }}>
-        <input type="email" aria-label="Email for reports" placeholder="Email me reports at…" value={draft} onChange={e => { setDraft(e.target.value); }} className="h-7 min-w-0 flex-1 border bg-background px-2 text-[12px]" />
-        <button type="submit" disabled={!valid || save.isPending} className="border px-2 text-[12px] disabled:opacity-50">Turn on</button></form>}
-    <p className="text-[11px] text-muted-foreground">{address ? `Sent to ${address}, at most one every 10 minutes.` : 'Only reports the assistant decides are worth your attention.'}{address && !available ? ' Mail is not set up on this server yet.' : ''}{save.isError ? ' Could not save; check the address and try again.' : ''}</p>
+        <input type="email" aria-label="Email for reports" placeholder="Email me reports at…" value={draft} onChange={e => { setDraft(e.target.value); }} className="h-7 min-w-0 flex-1 border bg-background px-2 text-sm" />
+        <button type="submit" disabled={!valid || save.isPending} className="border px-2 text-sm disabled:opacity-50">Turn on</button></form>}
+    <p className="text-xs text-muted-foreground">{address ? `Sent to ${address}, at most one every 10 minutes.` : 'Only reports the assistant decides are worth your attention.'}{address && !available ? ' Mail is not set up on this server yet.' : ''}{save.isError ? ' Could not save; check the address and try again.' : ''}</p>
   </div>;
 }
 
@@ -51,9 +51,9 @@ export function NotificationBell({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
       className="relative grid size-7 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
       onClick={() => { setOpen(o => !o); if (!open && unread > 0) read.mutate(); }}>
       <Bell className="size-4" />
-      {unread > 0 && <span className="num absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-[10px] leading-4 text-accent-foreground">{unread > 99 ? '99+' : unread}</span>}
+      {unread > 0 && <span className="num absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-accent px-1 text-[11px] leading-4 text-accent-foreground">{unread > 99 ? '99+' : unread}</span>}
     </button>
-    {open && <div role="dialog" aria-label="Notifications" className="absolute right-0 top-8 z-50 max-h-[70vh] w-80 overflow-auto border bg-popover text-[12px] shadow-lg">
+    {open && <div role="dialog" aria-label="Notifications" className="absolute right-0 top-8 z-50 max-h-[70vh] w-80 overflow-auto border bg-popover text-sm shadow-lg">
       <div className="sticky top-0 border-b bg-popover px-3 py-2 font-semibold">Notifications</div>
       {feed.isError && <p role="alert" className="p-3 text-down">Notifications are unavailable right now.</p>}
       {feed.data?.items.length === 0 && <p className="p-3 text-muted-foreground">Nothing yet. Fills, stops, targets and background task runs show up here.</p>}
@@ -62,7 +62,7 @@ export function NotificationBell({ onOpenSymbol }: { onOpenSymbol: (symbol: stri
           onClick={() => { if (n.link?.symbol) { onOpenSymbol(n.link.symbol); setOpen(false); } }}>
           <div className="font-semibold">{n.title}</div>
           {n.body && <div className="whitespace-pre-wrap text-muted-foreground">{n.body}</div>}
-          <time className="text-[11px] text-muted-foreground" dateTime={n.createdAt}>{time.format(Date.parse(n.createdAt))}</time>
+          <time className="text-xs text-muted-foreground" dateTime={n.createdAt}>{time.format(Date.parse(n.createdAt))}</time>
         </button>
       </li>)}</ul>
       <EmailToggle />

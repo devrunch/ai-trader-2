@@ -44,19 +44,19 @@ export function ScreenerPage({ onOpen }: { onOpen: (symbol: string, interval: Sc
       {draft.form
         ? <ScreenFormFields form={draft.form} universes={universes.data?.items ?? []} presets={presets.data?.items ?? []}
           onChange={patch => { setDraft(d => (d.form ? { ...d, form: { ...d.form, ...patch } } : d)); }} />
-        : <div className="text-[12px]"><p className="mb-1 text-muted-foreground">This screen uses nested rules or a mix the simple form cannot show. It can be run and saved as is.</p>
-          <pre aria-label="Advanced JSON" className="max-h-80 overflow-auto rounded border p-2 text-[11px]">{JSON.stringify(draft.advanced, null, 2)}</pre>
+        : <div className="text-sm"><p className="mb-1 text-muted-foreground">This screen uses nested rules or a mix the simple form cannot show. It can be run and saved as is.</p>
+          <pre aria-label="Advanced JSON" className="max-h-80 overflow-auto rounded border p-2 text-xs">{JSON.stringify(draft.advanced, null, 2)}</pre>
           <Button size="xs" variant="outline" className="mt-1" onClick={() => { setDraft({ form: emptyForm(), advanced: null }); scan.reset(); }}>Start a new screen</Button></div>}
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4 text-[12px]">
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-4 text-sm">
         <Button className="h-9 rounded-none px-5" disabled={scan.isPending} onClick={() => { withSpec(spec => { scan.mutate(spec); }); }}>{scan.isPending ? 'Scanning…' : 'Run'}</Button>
         <input aria-label="Screen name" className={`${fieldClass} !w-48`} value={name} onChange={e => { setName(e.target.value); }} />
         <Button variant="outline" className="h-9 rounded-none" disabled={actions.create.isPending} onClick={() => { withSpec(spec => { actions.create.mutate({ name, spec }); }); }}>Save this screen</Button>
       </div>
       </Panel>
-      {error && <p role="alert" className="text-[12px] text-down">{error}</p>}
+      {error && <p role="alert" className="text-sm text-down">{error}</p>}
       {scan.isPending && <Skeleton className="h-40" />}
       {scan.data && <Panel title="Results" bodyClassName="p-0"><ScanResults result={scan.data} refreshing={scan.isPending} onOpen={symbol => { onOpen(symbol, scan.data.interval); }} /></Panel>}
-      {!scan.data && !scan.isPending && <div className="border border-dashed p-6 text-center text-[13px] text-muted-foreground">Pick a universe and a screen above, then Run. Results show each match with its values and a sparkline.</div>}
+      {!scan.data && !scan.isPending && <div className="border border-dashed p-6 text-center text-base text-muted-foreground">Pick a universe and a screen above, then Run. Results show each match with its values and a sparkline.</div>}
     </section>
     </div>
   </Page>;

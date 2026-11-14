@@ -25,7 +25,7 @@ export function ChatPanel({ actions }: { actions?: ChatActions }) {
   const [view, setView] = useState<'chat' | 'tasks' | 'memory'>('chat');
   if (status.isPending) return <p className="text-sm text-muted-foreground">Loading assistant…</p>;
   if (status.isError) return <div role="alert" className="space-y-2 text-sm"><p className="text-down">The assistant cannot be reached right now. Retrying every few seconds.</p>
-    <button type="button" className="border px-2 py-1 text-[12px] hover:bg-muted" onClick={() => { void status.refetch(); }}>Try again now</button></div>;
+    <button type="button" className="border px-2 py-1 text-sm hover:bg-muted" onClick={() => { void status.refetch(); }}>Try again now</button></div>;
   if (!status.data.enabled) {
     return <div className="space-y-2 text-sm"><h2 className="font-medium">Assistant</h2>
       <p className="text-muted-foreground">The assistant is not configured on this server. An admin sets <code>AGENT_MODEL</code> and its provider key in <code>apps/api/.env</code>.</p></div>;
@@ -112,13 +112,13 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
       {chat.messages.length === 0 && <li className="space-y-3">
         <p className="text-muted-foreground">Ask about a symbol, a setup, the news or your paper positions. Trade ideas come back as a card you can draw on the chart, alert on, or place on paper after you confirm.</p>
         <ul aria-label="Try asking" className="flex flex-col gap-1.5">{SUGGESTIONS.map(q => <li key={q}>
-          <button type="button" disabled={busy} className="ai-border w-full px-3 py-2 text-left text-[12px] hover:bg-muted" onClick={() => { void chat.sendMessage({ text: q }); }}>{q}</button></li>)}</ul>
+          <button type="button" disabled={busy} className="ai-border w-full px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => { void chat.sendMessage({ text: q }); }}>{q}</button></li>)}</ul>
       </li>}
       {chat.messages.map((m, i) => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
         <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} role={m.role} />
         {m.role === 'assistant' && !(busy && i === chat.messages.length - 1) && <ReplyFeedback threadId={threadId} turnIndex={chat.messages.slice(0, i).filter(x => x.role === 'assistant').length} />}
       </li>)}
-      {chat.status === 'submitted' && <li className="text-muted-foreground">Thinking…</li>}
+      {chat.status === 'submitted' && <li className="ai-border ai-working w-fit px-3 py-1.5 text-muted-foreground">Thinking…</li>}
     </ol>
     {chat.error && <p role="alert" className="text-down">{errorText(chat.error)} <button type="button" className="underline" onClick={() => { chat.clearError(); void chat.regenerate(); }}>Retry</button></p>}
     <form onSubmit={submit} className="flex gap-2">

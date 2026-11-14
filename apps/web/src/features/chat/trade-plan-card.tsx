@@ -26,7 +26,7 @@ function RiskRewardBar({ plan }: { plan: TradePlanDto }) {
       ...plan.targets.map((t, i) => ({ p: t, label: `T${String(i + 1)}`, cls: 'text-up', below: i % 2 === 0 }))].map(m =>
       <span key={m.label} className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: pos(m.p) }}>
         <span className={`block h-4 w-0.5 ${m.label === 'Entry' ? 'bg-foreground' : 'bg-current'} ${m.cls}`} />
-        <span className={`num absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold ${m.cls} ${m.below ? 'top-5' : 'bottom-5'}`}>{m.label} {fmt(m.p)}</span>
+        <span className={`num absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold ${m.cls} ${m.below ? 'top-5' : 'bottom-5'}`}>{m.label} {fmt(m.p)}</span>
       </span>)}
   </div>;
 }
@@ -51,13 +51,13 @@ export function TradePlanCard({ plan }: { plan: TradePlanDto }) {
     await make(buy ? 'above' : 'below', t1, `${plan.symbol} reached target 1`);
   } });
   const pct = Math.round(plan.confidence * 100);
-  return <article className="ai-border space-y-3 p-3 text-[12px]" aria-label={`Trade plan: ${plan.side} ${plan.symbol}`}>
+  return <article className="ai-border space-y-3 p-3 text-sm" aria-label={`Trade plan: ${plan.side} ${plan.symbol}`}>
     <header className="flex flex-wrap items-center gap-2">
-      <Sparkles className="size-3.5 text-[var(--ai-2)]" aria-hidden="true" />
+      <Sparkles className="size-3.5 text-[var(--link)]" aria-hidden="true" />
       <span className="font-semibold">{plan.symbol.split(':')[1] ?? plan.symbol}</span>
-      <span className={`px-1.5 py-0.5 text-[10px] font-bold uppercase ${buy ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>{plan.side}</span>
+      <span className={`px-1.5 py-0.5 text-[11px] font-bold uppercase ${buy ? 'bg-up/15 text-up' : 'bg-down/15 text-down'}`}>{plan.side}</span>
       <span className="text-muted-foreground">{plan.interval} · {plan.horizon}</span>
-      {plan.skill && <span className="ml-auto border px-1.5 py-0.5 text-[10px] text-muted-foreground">{plan.skill}</span>}
+      {plan.skill && <span className="ml-auto border px-1.5 py-0.5 text-[11px] text-muted-foreground">{plan.skill}</span>}
     </header>
     <div className="flex items-center gap-2" title="How sure the assistant is">
       <span className="text-muted-foreground">Confidence</span>

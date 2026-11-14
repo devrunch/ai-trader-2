@@ -20,8 +20,8 @@ export function DeskPage({ symbol, runId, onSymbol, onOpenRun }:
     <ol aria-label="How the desk decides" className="grid gap-px border bg-border sm:grid-cols-2 lg:grid-cols-4">
       {STEPS.map(({ icon: StepIcon, title, body }, i) => <li key={title} className="flex gap-3 bg-panel p-3">
         <span className="font-display ai-text text-[1.4rem] font-semibold leading-none">{i + 1}</span>
-        <span className="min-w-0"><span className="flex items-center gap-1.5 text-[13px] font-semibold"><StepIcon weight="duotone" className="size-4 text-muted-foreground" aria-hidden="true" />{title}</span>
-          <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">{body}</span></span>
+        <span className="min-w-0"><span className="flex items-center gap-1.5 text-base font-semibold"><StepIcon weight="duotone" className="size-4 text-muted-foreground" aria-hidden="true" />{title}</span>
+          <span className="mt-0.5 block text-sm leading-snug text-muted-foreground">{body}</span></span>
       </li>)}
     </ol>
     <RunPanel symbol={symbol} runId={runId} onSymbol={onSymbol} onOpenRun={onOpenRun} />
