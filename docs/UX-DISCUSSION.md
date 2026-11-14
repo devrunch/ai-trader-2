@@ -129,7 +129,14 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
    - **A Tasks tab** lists them all, with what each one is watching, its state (watching, running now, paused, done, failed), when it last ran, and what it did.
    - The user can **stop, pause, resume and delete** any task from that tab.
    - A task that is **running right now** is shown as running, wherever the user is in the app.
-   - The wording stays plain (each task reads as a promise: "If Reliance closes above 1,350, I'll buy 120 shares on paper"), but the list itself is called Tasks and shows everything.
+   - The tab is called **Tasks** (decided). Each task has a plain title, written for the customer, that says what it is doing right now. For example:
+     - "Watching RELIANCE: will buy above 1,350"
+     - "Gathering news for INR"
+     - "Waiting for the RBI decision at 10:00"
+     - "Running the AI Desk on NIFTY"
+     - "In a trade: RELIANCE, stop 1,331, target 1,368"
+   - The title changes as the task moves on (watching, then in a trade, then done), so the list always reads as what the assistant is doing.
+   - Not "Promises", not "watchers". On-screen names stay words a trader knows: Tasks, Alerts, Positions, Orders, Watchlist.
 2. **AI Desk history is missing.**
    - The user cannot find previous desk runs: there is no history to browse.
    - Today's page only lists past runs for the symbol currently typed in. Runs on other symbols, and runs started by watches, are not findable.
