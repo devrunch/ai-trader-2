@@ -81,10 +81,8 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
 
 ### When nothing is set up (empty)
 
-- **Proposed:** the assistant does **not** trade on the user's behalf without a reason the user has seen.
-  - It still writes What to watch and offers each item as "Want me to follow this?"
-  - It trades only what the user has accepted (from What to watch or from chat).
-- **Open:** should the assistant also run **its own paper book**? That would be separate money, trading its own ideas with no user input, purely to build a track record we can judge it by. This fits "paper is our test of the AI".
+- **Decided (owner, 14 Nov):** there is **no separate paper book**. The assistant trades only through tasks the user can see.
+- **Proposed:** with no tasks, it does not trade. It still writes What to watch and offers each item as "Want me to follow this?"; accepting an item creates a task.
 
 ### When it starts
 
@@ -119,7 +117,20 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
 
 ### Open questions
 
-1. Should the assistant run its own paper book (its own ideas, its own money) in addition to following the user's accepted items?
+1. ~~Should the assistant run its own paper book?~~ Decided: no.
 2. Do followed items expire? For example at the end of the day, after N days, or when the reason no longer holds.
 3. Should it carry positional (multi-day) trades, or only intraday for now?
 4. Is the no-new-trades window around high-impact releases right, and how long should it be?
+
+## Decisions and notes (owner, 14 Nov 2026)
+
+1. **Everything the assistant does is a task, and every task is visible.**
+   - Anything it watches, follows or will act on is a task: a symbol it is watching, a price or event it is waiting for, an auto-trade, a scheduled check, a desk run.
+   - **A Tasks tab** lists them all, with what each one is watching, its state (watching, running now, paused, done, failed), when it last ran, and what it did.
+   - The user can **stop, pause, resume and delete** any task from that tab.
+   - A task that is **running right now** is shown as running, wherever the user is in the app.
+   - The wording stays plain (each task reads as a promise: "If Reliance closes above 1,350, I'll buy 120 shares on paper"), but the list itself is called Tasks and shows everything.
+2. **AI Desk history is missing.**
+   - The user cannot find previous desk runs: there is no history to browse.
+   - Today's page only lists past runs for the symbol currently typed in. Runs on other symbols, and runs started by watches, are not findable.
+   - Needed: a history of every desk run (any symbol, started by the user or by a task), with its decision, time and outcome, openable from the Tasks tab and from the symbol.
