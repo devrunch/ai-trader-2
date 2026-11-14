@@ -27,10 +27,10 @@ describe('TaskFirer', () => {
     expect(limiter.take).not.toHaveBeenCalled();
   });
 
-  it('a watch reply starting REPORT: notifies; SILENT: or anything else does not', async () => {
+  it('a watch reply starting REPORT: notifies and asks for the email copy; SILENT: or anything else does not', async () => {
     const report = setup({ error: null, reply: 'REPORT: RBI cut the repo rate\nBanks should rally.' });
     expect(await report.firer.fire(watchTask, 'x', signal)).toEqual({ error: null, outcome: 'report' });
-    expect(report.notifications.notify).toHaveBeenCalledExactlyOnceWith({ userId: 'u1', kind: 'task', title: 'Watch: News: india (high+)', body: 'RBI cut the repo rate\nBanks should rally.', link: { threadId: 'th1' } });
+    expect(report.notifications.notify).toHaveBeenCalledExactlyOnceWith({ userId: 'u1', kind: 'task', title: 'Watch: News: india (high+)', body: 'RBI cut the repo rate\nBanks should rally.', link: { threadId: 'th1' }, email: true });
     const silent = setup({ error: null, reply: 'SILENT: routine' });
     expect(await silent.firer.fire(watchTask, 'x', signal)).toEqual({ error: null, outcome: 'silent' });
     expect(silent.notifications.notify).not.toHaveBeenCalled();

@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { SourceClient, SourceRegistry, type SourceDescriptor, type SourceHealth } from '../../../../shared/sources';
+import { SourceClient, SourceRegistry, type SourceDescriptor, type SourceHealth } from './index';
 
 /** A real SourceClient over a canned response: it exercises registry, size cap and health recording without a network or Redis. */
 export function clientReturning(descriptors: SourceDescriptor[], body: string | (() => string), env: Record<string, string> = {}) {

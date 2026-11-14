@@ -1,10 +1,10 @@
-import type { EconomicEvent, NewsItem, ScanResult } from '@aitrader/contracts';
+import type { EconomicEvent, NewsItemFull, ScanResult } from '@aitrader/contracts';
 import { describe, expect, it } from 'vitest';
 import { tickWatch, afterRun, type AgentTask } from './agent-task';
 import { describeWatch, screenOutcome, dueBriefs, dueEvents, eventReason, freshNews, newsMatches, parseWatchReply, type EventWatch, type NewsWatch } from './watch';
 
 const t0 = Date.parse('2026-11-12T04:00:00Z');
-const news = (patch: Partial<NewsItem> = {}): NewsItem => ({ id: 'n1', source: 'ET', title: 'RBI cuts repo rate by 25 bps', url: 'https://x.test/1', summary: null,
+const news = (patch: Partial<NewsItemFull> = {}): NewsItemFull => ({ id: 'n1', source: 'ET', title: 'RBI cuts repo rate by 25 bps', url: 'https://x.test/1', summary: null,
   publishedAt: new Date(t0 + 60_000).toISOString(), symbols: [], impact: 'high', moves: ['NSE:NIFTY', 'FX:USDINR'], direction: 'up', ...patch });
 const watch = (patch: Partial<NewsWatch> = {}): NewsWatch => ({ kind: 'news', markets: ['all'], symbols: [], keywords: [], minImpact: 'medium', ...patch });
 const task = { createdAt: t0, seen: [] as string[] };
@@ -187,5 +187,27 @@ describe('describeWatch for move and event options', () => {
     expect(describeWatch({ kind: 'move', symbols: [], universe: 'nifty50', minutes: 15, minPct: 3, direction: 'up' })).toBe('Move: nifty50 up 3% in 15 min');
     expect(describeWatch({ kind: 'move', symbols: ['NSE:TCS'], minutes: 60, minPct: 1, direction: 'either' })).toBe('Move: NSE:TCS 1% in 60 min');
     expect(describeWatch(watchEvent({ title: 'CPI', countries: ['USD'], minSurprise: 0.2, briefMinutes: 30 }))).toBe('Event: CPI (USD, high+, 5 min after, surprise >= 0.2, brief 30 min before)');
+  });
+});
+
+describe('news watch sentiment and source filters (FR-HM-2)', () => {
+  const story = (sourceCount: number, score: number) => news({ sourceCount, sentiment: { label: score > 0 ? 'bullish' : 'bearish', score, by: 'llm' } });
+  it('minSources fires only when that many outlets report the story', () => {
+    expect(newsMatches(watch({ minSources: 3 }), story(2, 0.5))).toBe(false);
+    expect(newsMatches(watch({ minSources: 3 }), story(3, 0.5))).toBe(true);
+    expect(newsMatches(watch({ minSources: 2 }), news())).toBe(false);
+  });
+  it('minSentiment fires on a strong score in either direction and not on an unscored story', () => {
+    expect(newsMatches(watch({ minSentiment: 0.6 }), story(1, -0.7))).toBe(true);
+    expect(newsMatches(watch({ minSentiment: 0.6 }), story(1, 0.5))).toBe(false);
+    expect(newsMatches(watch({ minSentiment: 0.6 }), news())).toBe(false);
+  });
+  it('combines with market and describes the extra conditions', () => {
+    expect(newsMatches(watch({ markets: ['india'], minSources: 3 }), { ...story(3, 0.1), markets: ['india'] })).toBe(true);
+    expect(newsMatches(watch({ markets: ['crypto'] }), news({ markets: ['crypto'] }))).toBe(true);
+    expect(describeWatch(watch({ markets: ['india'], keywords: ['inr'], minSources: 3 }))).toBe('News: india "inr" (medium+, 3+ sources)');
+  });
+  it('lists the source count and sentiment in the wake-up', () => {
+    expect(freshNews(task, watch(), [story(3, 0.5)])?.reason).toContain('(ET, 3 sources) [bullish 0.5]');
   });
 });

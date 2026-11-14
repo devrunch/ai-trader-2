@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, EventScorecard, NewsItem, ScanResult, ScreenSpec, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
+import type { AgentTaskDto, AlertCreate, AutoTrade, DeskTask, EconomicEvent, EventScorecard, NewsItemFull, ScanResult, ScreenSpec, TaskOutcome, TaskTrigger } from '@aitrader/contracts';
 import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors';
 import { afterRun, MAX_TASK_DAYS, nextScheduled, tick, tickWatch, TaskRuleError, type AgentTask, type Fresh, type Tick } from '../domain/agent-task';
 import { briefKey, briefReason, formatReactions, type HeldPosition } from '../domain/event-brief';
@@ -18,7 +18,7 @@ type Condition = Extract<TaskTrigger, { kind: 'price' | 'indicator' }>;
 export interface ConditionReader { read(trigger: Condition): Promise<number | undefined> }
 /** What the news and the calendar hold for news and event watches. `changes` formats each instrument's move for the wake-up text. */
 export interface WatchReader {
-  news(): Promise<NewsItem[]>;
+  news(): Promise<NewsItemFull[]>;
   events(): Promise<EconomicEvent[]>;
   changes(symbols: string[]): Promise<string[]>;
   /** Runs a screen for a user on stored bars; absent when screening is not wired. */
@@ -164,7 +164,7 @@ export class AgentTasks {
       cache.set(key, value);
       return value;
     };
-    let news: Promise<NewsItem[]> | undefined;
+    let news: Promise<NewsItemFull[]> | undefined;
     let events: Promise<EconomicEvent[]> | undefined;
     // One scan per (user, spec) per pass, however many tasks watch it.
     const scans = new Map<string, Promise<ScanResult | null>>();

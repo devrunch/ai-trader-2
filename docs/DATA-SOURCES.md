@@ -54,15 +54,15 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | nasdaq-trader | instruments | symbol directory | US | none | daily | live |
 | nse-indices | instruments | NIFTY 50/100/500 constituents (NSE index CSVs) | India | none | daily | live (AG-7) |
 | twelve-data | market-data, calendar | quotes where feeds lack them; US earnings dates | US, forex, commodities | TWELVE_DATA_API_KEY | 8/min | built AG-8 (earnings calendar is not on the free plan; unverified live) |
-| rss-* (ET, Mint, BS, CNBC-TV18, BusinessLine, Investing, Yahoo index) | news | headlines | India, global | none | 5 min | live |
-| yahoo-ticker-rss | news | per-ticker headlines | US, watched symbols | none | 5 min | build AG-9 |
+| rss-* (ET, Mint, BS, CNBC-TV18, BusinessLine, Investing, Yahoo index) | news | headlines | India, US | none | 5 min | live |
+| rss-* (Investing forex and commodities, FXStreet, OilPrice, CoinDesk, Cointelegraph, CNBC Markets, MarketWatch) | news | headlines for thin markets | forex, commodities, crypto, US | none | 5 min | built AG-9 (fixtures hand-written; verify each URL live) |
+| yahoo-ticker-rss | news | per-ticker headlines | US, watched symbols | none | 5 min | built AG-9 |
 | newsapi | news | global macro headlines | global | NEWS_API_KEY | 100/day | live |
-| newsdata | news | headlines by market | global, India | NEWSDATA_API_KEY | 200/day | build AG-9 |
-| alphavantage-news | news | headlines + vendor sentiment | US, forex, crypto | ALPHAVANTAGE_API_KEY | 25/day | build AG-9 |
-| forex/crypto/commodity RSS | news | market-specific headlines | forex, crypto, commodities | none | 5 min | build AG-9 (terms checked per feed) |
-| reddit | news | crowd chatter (labelled crowd) | India, forex, US, crypto | none | 60/min | build AG-9 |
-| llm-sentiment | news | sentiment scoring (cheap model) | all | AGENT_MODEL / DESK_MODEL | NEWS_LLM_DAILY | build AG-9 |
-| finbert | news | sentiment fallback | all | HF_API_TOKEN, FINBERT_MODEL | HF free tier | build AG-9 |
+| newsdata | news | wire headlines | global | NEWSDATA_API_KEY | 200/day | built AG-9 |
+| alphavantage-news | news | headlines (vendor sentiment not used) | US, forex, crypto | ALPHAVANTAGE_API_KEY | 25/day | built AG-9 |
+| reddit | news | crowd chatter (labelled crowd) | India, forex, US, crypto | none | 20 per 10 min | built AG-9 |
+| llm-sentiment | news | sentiment scoring (cheap model) | all | AGENT_MODEL / DESK_MODEL | NEWS_LLM_DAILY | built AG-9 |
+| finbert | news | sentiment fallback | all | HF_API_TOKEN, FINBERT_MODEL | HF free tier | built AG-9 |
 | ff-weekly | calendar | schedule, forecast, previous (no actual) | global FX | none | 3 h | live |
 | ff-event-specs | calendar | what each event measures, beat direction (29 inverted), notes | global FX | none (vendored JSON, 693 events) | static | live (AG-8) |
 | rbi, mospi | calendar | India policy and data release dates; actuals from press releases | India | none | daily | live (dates); MoSPI calendar auto-discovered and RBI actuals live (AG-8); MoSPI actuals skipped (PDF only) |
@@ -70,7 +70,7 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | nse-corporate | calendar | results / board meetings for the NIFTY 500 | India | none | polite | skipped (AG-8): not stably reachable without bot-protection workarounds |
 | eia | calendar | crude inventory schedule + actuals | commodities | none | weekly | live (AG-8): schedule only, actuals need an EIA key |
 | screener-in | fundamentals | ratios, results, growth, shareholding | India | none | <= 1 request / 3 s; `/company/<SYMBOL>/` only (robots.txt) | live (AG-7; fixtures hand-written, verify against the live site) |
-| tavily | research | web search for the agent | all | TAVILY_API_KEY | AGENT_WEB_SEARCH_DAILY | build AG-9 |
+| tavily | research | web search for the agent | all | TAVILY_API_KEY | AGENT_WEB_SEARCH_DAILY | built AG-9 |
 | ff-history | calendar | actuals history from 2007 (old product's 66 MB export) | global FX | none | static | lost: rebuild from FRED history + our own captured actuals |
 
 ## Agent tool catalog (the only door to data)
@@ -82,7 +82,7 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | getMarketStatus | market-data | sessions, holidays, next open/close |
 | searchInstruments, listUniverse | instruments | |
 | scanUniverse, watchScreen | screener | price + fundamental conditions |
-| getNews, getSentiment, getCrowd | news | clusters, source count, `asOf` |
+| getNews, getSentiment, getCrowd | news | clusters, source count; `asOf` on getSentiment (headline lists use the desk's `asOf` path) |
 | getEconomicCalendar, getEventScorecard | calendar | specs, actuals, surprise, reaction history |
 | getFundamentals | fundamentals | NSE stocks |
 | webSearch | research | capped, cited |

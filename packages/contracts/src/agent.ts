@@ -89,7 +89,7 @@ export type TradePlanDto = z.infer<typeof TradePlanSchema>;
 /** Apply with the fields as the user edited them; the kind cannot change. */
 export const ActionApplyRequestSchema = z.strictObject({ action: AgentActionSchema.optional() });
 
-export const WATCH_MARKETS = ['forex', 'india', 'us', 'commodities', 'all'] as const;
+export const WATCH_MARKETS = ['forex', 'india', 'us', 'commodities', 'crypto', 'all'] as const;
 /** When a background task wakes the assistant: on a schedule, when a price or indicator condition becomes true, on a matching headline, or after a calendar release. */
 export const TaskTriggerSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('schedule'), cron: z.string().min(9).max(60), tz: z.string().max(40).default('Asia/Kolkata') }),
@@ -97,8 +97,10 @@ export const TaskTriggerSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('indicator'), symbol: SymbolId, interval: z.enum(INTERVALS), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/),
     inputs: IndicatorInputValuesSchema.default({}), plot: z.string().max(40).optional(), op: z.enum(['above', 'below']), value: z.number() }),
   /** Fires once per matching headline (each headline id at most once). Empty symbols and keywords match any headline in the markets. */
-  z.strictObject({ kind: z.literal('news'), markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(5).default(['all']), symbols: z.array(SymbolId).max(10).default([]),
-    keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(NEWS_IMPACTS).default('medium') }),
+  z.strictObject({ kind: z.literal('news'), markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(6).default(['all']), symbols: z.array(SymbolId).max(10).default([]),
+    keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(NEWS_IMPACTS).default('medium'),
+    /** Fire only when the sentiment is at least this strong either way (0..1), and/or when this many distinct sources report the story. */
+    minSentiment: z.number().min(0).max(1).optional(), minSources: z.number().int().min(2).max(20).optional() }),
   /** Fires once per matching calendar event, `afterMinutes` after its release so the market's reaction is visible. */
   z.strictObject({ kind: z.literal('event'), countries: z.array(z.string().regex(/^[A-Z]{3}$/)).max(5).default([]), title: z.string().trim().min(2).max(80).optional(),
     minImpact: z.enum(['High', 'Medium', 'Low']).default('High'), afterMinutes: z.number().int().min(0).max(120).default(5),

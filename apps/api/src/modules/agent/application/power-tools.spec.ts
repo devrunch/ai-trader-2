@@ -121,14 +121,31 @@ describe('watchlist tools', () => {
   });
 });
 
-describe('news tool', () => {
-  it('passes minImpact to the desk, rejects unknown levels and returns the desk output', async () => {
-    const item = { id: 'n1', title: 'RBI cuts repo rate', impact: 'high', moves: ['NSE:NIFTY'], direction: 'up' };
-    const news = { list: vi.fn().mockResolvedValue([item]) };
+describe('news tools', () => {
+  const trend = { scope: 'NSE:INFY', asOf: '2026-11-12T00:00:00.000Z', windows: [{ hours: 24, items: 2, score: 0.3, bullish: 2, bearish: 0, neutral: 0 }] };
+  const desk = () => ({ list: vi.fn().mockResolvedValue([{ id: 'c1' }]), clusters: vi.fn().mockResolvedValue([{ id: 'n1', sourceCount: 3 }]), sentiment: vi.fn().mockResolvedValue(trend) });
+  it('getNews returns stories with their source count, passes filters, and rejects unknown levels', async () => {
+    const news = desk();
     const tool = byName(buildNewsTools(news, deps), 'getNews');
-    expect(await tool?.call(ctx, { minImpact: 'high' })).toMatchObject({ ok: true, data: [item] });
-    expect(news.list).toHaveBeenCalledWith({ minImpact: 'high', hours: 24, limit: 15 });
+    expect(await tool?.call(ctx, { minImpact: 'high', market: 'forex' })).toMatchObject({ ok: true, data: { source: 'news feeds', clusters: [{ id: 'n1', sourceCount: 3 }] } });
+    expect(news.clusters).toHaveBeenCalledWith({ minImpact: 'high', market: 'forex', hours: 24, limit: 15 });
+    expect(await tool?.call(ctx, { clustered: false })).toMatchObject({ ok: true, data: { items: [{ id: 'c1' }] } });
     expect(await tool?.call(ctx, { minImpact: 'huge' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+  it('getSentiment takes a symbol or a market, never both or neither, and cites its source', async () => {
+    const news = desk();
+    const tool = byName(buildNewsTools(news, deps), 'getSentiment');
+    expect(await tool?.call(ctx, { symbol: 'NSE:INFY' })).toMatchObject({ ok: true, data: { source: 'news feeds', windows: [{ hours: 24, score: 0.3 }] } });
+    expect(news.sentiment).toHaveBeenCalledWith({ symbol: 'NSE:INFY' }, undefined);
+    expect(await tool?.call(ctx, { market: 'crypto', asOf: '2026-11-12T00:00:00Z' })).toMatchObject({ ok: true });
+    expect(news.sentiment).toHaveBeenLastCalledWith({ market: 'crypto' }, Date.parse('2026-11-12T00:00:00Z'));
+    expect(await tool?.call(ctx, {})).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+    expect(await tool?.call(ctx, { symbol: 'NSE:INFY', market: 'india' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+  it('getCrowd asks only for crowd chatter and labels it as such', async () => {
+    const news = desk();
+    expect(await byName(buildNewsTools(news, deps), 'getCrowd')?.call(ctx, { market: 'us' })).toMatchObject({ ok: true, data: { source: 'reddit (crowd chatter, not news)' } });
+    expect(news.list).toHaveBeenCalledWith({ market: 'us', hours: 24, limit: 15, crowd: true });
   });
 });
 

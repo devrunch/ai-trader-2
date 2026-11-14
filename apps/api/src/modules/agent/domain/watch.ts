@@ -1,4 +1,4 @@
-import type { EconomicEvent, NewsItem, ScanResult, TaskTrigger } from '@aitrader/contracts';
+import { marketsFor, type EconomicEvent, type NewsItem, type NewsItemFull, type ScanResult, type TaskTrigger } from '@aitrader/contracts';
 import { MAX_SEEN, type AgentTask, type Fresh } from './agent-task';
 import { branchInstruction, briefKey, figuresOf, specLine, surpriseText } from './event-brief';
 import type { MoveWatch } from './move-watch';
@@ -14,22 +14,13 @@ const MAX_LISTED = 5;
 
 export const isWatch = (trigger: TaskTrigger): trigger is Watch => trigger.kind === 'news' || trigger.kind === 'event' || trigger.kind === 'screen' || trigger.kind === 'move';
 
-/** The markets a headline touches, from the instruments it names and the asset classes it moves. */
-function marketsOf(item: Pick<NewsItem, 'symbols' | 'moves'>): Set<string> {
-  const out = new Set<string>();
-  for (const s of [...item.symbols, ...item.moves]) {
-    const [exchange = '', ticker = ''] = s.split(':');
-    if (exchange === 'NSE' || exchange === 'BSE') out.add('india');
-    else if (exchange === 'MCX') { out.add('india'); out.add('commodities'); }
-    else if (exchange === 'NASDAQ' || exchange === 'NYSE' || s === 'US stocks') out.add('us');
-    else if (exchange === 'FX') { out.add('forex'); if (ticker.includes('INR')) out.add('india'); }
-    else if (exchange === 'OANDA') out.add(/^X(AU|AG|PT)|^(WTI|BCO)/.test(ticker) ? 'commodities' : 'forex');
-  }
-  return out;
-}
+/** The markets a headline touches: the ones stored with it, else read from the instruments it names and the asset classes it moves. */
+const marketsOf = (item: Pick<NewsItem, 'symbols' | 'moves'> & { markets?: string[] | undefined }): Set<string> => new Set([...(item.markets ?? []), ...marketsFor(item.symbols, item.moves)]);
 
-export function newsMatches(trigger: NewsWatch, item: NewsItem): boolean {
+export function newsMatches(trigger: NewsWatch, item: NewsItemFull): boolean {
   if (NEWS_RANK[item.impact] < NEWS_RANK[trigger.minImpact]) return false;
+  if (trigger.minSources !== undefined && (item.sourceCount ?? 1) < trigger.minSources) return false;
+  if (trigger.minSentiment !== undefined && Math.abs(item.sentiment?.score ?? 0) < trigger.minSentiment) return false;
   if (!trigger.markets.includes('all')) {
     const markets = marketsOf(item);
     if (!trigger.markets.some(m => markets.has(m))) return false;
@@ -43,11 +34,11 @@ export function newsMatches(trigger: NewsWatch, item: NewsItem): boolean {
 }
 
 /** New matching headlines: published after the task was made and never reported by it before. One wake-up carries all of them. */
-export function freshNews(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: NewsWatch, items: NewsItem[]): Fresh | null {
+export function freshNews(task: Pick<AgentTask, 'createdAt' | 'seen'>, trigger: NewsWatch, items: NewsItemFull[]): Fresh | null {
   const hits = items.filter(i => Date.parse(i.publishedAt) >= task.createdAt && !task.seen.includes(i.id) && newsMatches(trigger, i))
     .sort((a, b) => Date.parse(a.publishedAt) - Date.parse(b.publishedAt));
   if (hits.length === 0) return null;
-  const lines = hits.slice(0, MAX_LISTED).map(h => `- [${h.impact}] ${h.title} (${h.source})${h.moves.length ? `; likely moves ${h.moves.join(', ')}` : ''}${h.direction ? `, ${h.direction}` : ''}`);
+  const lines = hits.slice(0, MAX_LISTED).map(h => `- [${h.impact}] ${h.title} (${h.source}${h.sourceCount && h.sourceCount > 1 ? `, ${String(h.sourceCount)} sources` : ''})${h.sentiment ? ` [${h.sentiment.label} ${String(h.sentiment.score)}]` : ''}${h.moves.length ? `; likely moves ${h.moves.join(', ')}` : ''}${h.direction ? `, ${h.direction}` : ''}`);
   const more = hits.length > MAX_LISTED ? `\n- and ${String(hits.length - MAX_LISTED)} more` : '';
   return { ids: hits.map(h => h.id), reason: `${String(hits.length)} new headline${hits.length === 1 ? '' : 's'}:\n${lines.join('\n')}${more}` };
 }
@@ -126,7 +117,8 @@ export function describeWatch(trigger: Watch): string {
     return `Event: ${trigger.title ?? 'releases'} (${who}, ${trigger.minImpact.toLowerCase()}+, ${String(trigger.afterMinutes)} min after${trigger.minSurprise !== undefined ? `, surprise >= ${String(trigger.minSurprise)}` : ''}${trigger.minSurpriseZ !== undefined ? `, z >= ${String(trigger.minSurpriseZ)}` : ''}${trigger.briefMinutes !== undefined ? `, brief ${String(trigger.briefMinutes)} min before` : ''})`;
   }
   const scope = [trigger.markets.join('/'), ...trigger.symbols, ...trigger.keywords.map(k => `"${k}"`)].join(' ');
-  return `News: ${scope} (${trigger.minImpact}+)`;
+  const extra = `${trigger.minSources === undefined ? '' : `, ${String(trigger.minSources)}+ sources`}${trigger.minSentiment === undefined ? '' : `, sentiment >= ${String(trigger.minSentiment)}`}`;
+  return `News: ${scope} (${trigger.minImpact}+${extra})`;
 }
 
 const istDay = (ms: number): string => new Date(ms + 330 * 60_000).toISOString().slice(0, 10);

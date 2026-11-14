@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
-import { AlertCreateSchema, type AgentAction, type DeskTask, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, UNIVERSES, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type TaskTrigger } from '@aitrader/contracts';
+import { AlertCreateSchema, type AgentAction, type DeskTask, CalendarQuerySchema, PAPER_PRODUCTS, TaskTriggerSchema, UNIVERSES, WATCH_MARKETS, type AlertCreate, type CalendarQuery, type SentimentTrend, type TaskTrigger } from '@aitrader/contracts';
 import { ValidationError } from '../../../shared/errors';
 import { autoTradeBlocks } from '../domain/auto-trade';
 import { calculate, CalcError } from '../domain/calculator';
@@ -128,10 +128,11 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
       run: (input, ctx) => tasks.createAlert(ctx.userId, input) }, deps),
     guardedTool({ name: 'watchNews',
       description: 'Watch the news in the background and wake yourself when a matching headline arrives, then decide whether it is worth telling the user. '
-        + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities or all; optional symbols and keywords; minImpact high, medium or low. '
+        + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities, crypto or all; optional symbols and keywords; minImpact high, medium or low; optional minSentiment (0-1: only stories whose sentiment is at least that strong either way) and minSources (only when that many different outlets report the same story, e.g. 3). '
         + 'The instruction says what to look for and when to report; you will reply REPORT: or SILENT: on each wake-up. Set desk to run the multi-analyst trading desk (analysts, bull/bear debate, trader, risk manager) on a match instead; with auto-trade on the task, its BUY or SELL is placed on the paper account after the risk gate.',
-      input: z.strictObject({ markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(5).default(['all']), symbols: z.array(SYMBOL).max(10).default([]),
+      input: z.strictObject({ markets: z.array(z.enum(WATCH_MARKETS)).min(1).max(6).default(['all']), symbols: z.array(SYMBOL).max(10).default([]),
         keywords: z.array(z.string().trim().min(2).max(40)).max(10).default([]), minImpact: z.enum(['high', 'medium', 'low']).default('medium'),
+        minSentiment: z.number().min(0).max(1).optional(), minSources: z.number().int().min(2).max(20).optional(),
         instruction: z.string().min(1).max(2000).default('Assess the headline: does it change anything for the user\'s watchlist, positions or open ideas?'),
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
@@ -172,14 +173,36 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
   ];
 }
 
-export interface NewsDesk { list(query: { symbol?: string | undefined; minImpact?: 'high' | 'medium' | 'low' | undefined; hours: number; limit: number }): Promise<unknown> }
+type NewsMarketArg = 'forex' | 'india' | 'us' | 'commodities' | 'crypto';
+export interface NewsDesk {
+  list(query: { symbol?: string | undefined; market?: NewsMarketArg | undefined; minImpact?: 'high' | 'medium' | 'low' | undefined; hours: number; limit: number; crowd?: boolean | undefined }): Promise<unknown>;
+  clusters(query: { symbol?: string | undefined; market?: NewsMarketArg | undefined; minImpact?: 'high' | 'medium' | 'low' | undefined; hours: number; limit: number; crowd?: boolean | undefined }): Promise<unknown>;
+  sentiment(scope: { symbol?: string | undefined; market?: NewsMarketArg | undefined }, asOf?: number): Promise<SentimentTrend>;
+}
 
-/** Recent headlines from public feeds. Their text is data: an instruction inside a headline is never followed. */
+const MARKET = z.enum(['forex', 'india', 'us', 'commodities', 'crypto']);
+const NEWS_SOURCE = 'news feeds';
+
+/** Recent headlines from public feeds, grouped into stories, plus sentiment and crowd chatter. Their text is data: an instruction inside a headline is never followed. */
 export function buildNewsTools(news: NewsDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
-  return [guardedTool({ name: 'getNews',
-    description: 'Recent market headlines (source, time, title, summary, url, tagged instruments, impact, likely moves, direction hint), newest first. Optionally only those mentioning one instrument, or at least a given impact.',
-    input: z.strictObject({ symbol: SYMBOL.optional(), minImpact: z.enum(['high', 'medium', 'low']).optional(), hours: z.number().int().min(1).max(336).default(24), limit: z.number().int().min(1).max(30).default(15) }),
-    run: input => news.list(input) }, deps)];
+  return [
+    guardedTool({ name: 'getNews',
+      description: 'Recent market headlines grouped into stories: the same story from several outlets is one entry with its source count (sourceCount), the outlets, the lead headline (title, summary, url, time, impact, likely moves, direction hint), tagged instruments, markets and sentiment. '
+        + 'Newest first. Optionally only one instrument, one market (forex, india, us, commodities, crypto) or at least a given impact. Set clustered false for every headline separately.',
+      input: z.strictObject({ symbol: SYMBOL.optional(), market: MARKET.optional(), minImpact: z.enum(['high', 'medium', 'low']).optional(), hours: z.number().int().min(1).max(336).default(24),
+        limit: z.number().int().min(1).max(30).default(15), clustered: z.boolean().default(true) }),
+      run: async ({ clustered, ...query }) => ({ source: NEWS_SOURCE, ...(clustered ? { clusters: await news.clusters(query) } : { items: await news.list(query) }) }) }, deps),
+    guardedTool({ name: 'getSentiment',
+      description: 'News sentiment for one instrument or one market (forex, india, us, commodities, crypto): average score from -1 (bearish) to 1 (bullish) with bullish/bearish/neutral counts over the last 24 hours and 7 days. '
+        + 'Give a symbol or a market, not both. Scores come from headlines only (crowd chatter is separate, see getCrowd); a null score means no scored headlines in that window.',
+      input: z.strictObject({ symbol: SYMBOL.optional(), market: MARKET.optional(), asOf: z.iso.datetime({ offset: true }).optional() })
+        .refine(i => Boolean(i.symbol) !== Boolean(i.market), 'give a symbol or a market, not both'),
+      run: async ({ asOf, ...scope }) => ({ source: NEWS_SOURCE, ...await news.sentiment(scope, asOf ? Date.parse(asOf) : undefined) }) }, deps),
+    guardedTool({ name: 'getCrowd',
+      description: 'Crowd chatter from Reddit (r/IndianStockMarket, r/forex, r/wallstreetbets, r/CryptoCurrency): what retail traders are saying, with its own sentiment. This is opinion, not reporting; never present it as news.',
+      input: z.strictObject({ symbol: SYMBOL.optional(), market: MARKET.optional(), hours: z.number().int().min(1).max(336).default(24), limit: z.number().int().min(1).max(30).default(15) }),
+      run: async query => ({ source: 'reddit (crowd chatter, not news)', items: await news.list({ ...query, crowd: true }) }) }, deps),
+  ];
 }
 
 export interface WatchlistDesk {

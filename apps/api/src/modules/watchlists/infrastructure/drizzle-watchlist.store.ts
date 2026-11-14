@@ -12,6 +12,11 @@ export class DrizzleWatchlistStore implements WatchlistStore {
     return row?.items ?? null;
   }
 
+  async allSymbols(): Promise<string[]> {
+    const rows = await withTimeout(() => this.db.select({ items: watchlists.items }).from(watchlists), 5000);
+    return [...new Set(rows.flatMap(r => r.items))];
+  }
+
   async save(userId: string, items: string[]): Promise<void> {
     await withTimeout(() => this.db.insert(watchlists).values({ userId, items })
       .onConflictDoUpdate({ target: watchlists.userId, set: { items, updatedAt: sql`now()` } }), 5000);
