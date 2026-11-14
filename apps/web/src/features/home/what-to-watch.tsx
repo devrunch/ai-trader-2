@@ -46,7 +46,7 @@ function Item({ item, onFollow, following }: { item: WatchItem; onFollow: () => 
 export function WhatToWatchCard() {
   const client = useQueryClient();
   const watch = useQuery({ queryKey: KEY, queryFn: ({ signal }) => apiFetch('/v1/what-to-watch', { schema: WhatToWatchResponseSchema, signal }) });
-  const refresh = useMutation({ retry: 0, mutationFn: () => apiFetch('/v1/what-to-watch/refresh', { method: 'POST', schema: WhatToWatchResponseSchema }),
+  const refresh = useMutation({ retry: 0, mutationFn: () => apiFetch('/v1/what-to-watch/refresh', { method: 'POST', schema: WhatToWatchResponseSchema, timeoutMs: 120_000 }),
     onSuccess: data => { client.setQueryData(KEY, data); } });
   const follow = useMutation({ mutationFn: (id: string) => apiFetch(`/v1/what-to-watch/items/${id}/follow`, { method: 'POST', schema: WhatToWatchResponseSchema }),
     onSuccess: data => { client.setQueryData(KEY, data); void client.invalidateQueries({ queryKey: ['agent', 'tasks'] }); } });

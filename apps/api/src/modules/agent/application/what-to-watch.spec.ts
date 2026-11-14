@@ -36,6 +36,11 @@ describe('What to watch', () => {
     expect(String((model.draft.mock.calls[0] as unknown[])[1])).toContain('Crude stocks fall');
   });
 
+  it('drops a follow level that sits on the current price, since it would trigger on noise', async () => {
+    const { service } = setup({ items: [item({ follow: { symbol: 'NSE:RELIANCE', op: 'below', value: 1340.5 } })] });
+    expect((await service.refresh('u1')).list?.items[0]?.follow).toBeNull();
+  });
+
   it('keeps a list younger than 30 minutes unless forced', async () => {
     const { service, model, advance } = setup({ items: [item()] });
     await service.refresh('u1');

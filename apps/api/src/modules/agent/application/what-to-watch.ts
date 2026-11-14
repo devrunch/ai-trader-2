@@ -30,9 +30,13 @@ const SYSTEM = 'You write "What to watch" for one trader: the few things most li
   + 'Each item: a plain title of at most 12 words a trader understands at a glance; "why" in one or two sentences with the numbers from the data; '
   + 'the direction you expect (up, down, volatile, or watch when there is no clear side); how sure you are (0 to 1); today or this week; '
   + 'and, when there is a clear level, a follow level on one of the item\'s symbols that the user can watch. Give your real view; do not hedge every item. '
+  + 'Every item is about what may happen NEXT (the next session or the coming days) and why; the moves so far are only the reason, never the item itself. '
+  + 'A follow level must be a meaningful level away from the current price (a round number, a recent high or low, a level the news or event points to), never the current price. '
   + 'Order the items by how much they matter. Reply with the JSON object only.';
 
 const ticker = (s: string): string => s.split(':')[1] ?? s;
+/** A level within 0.2% of the current price is not worth watching: it would trigger on noise. */
+const farEnough = (level: number, price: number | undefined): boolean => price === undefined || Math.abs(level - price) / price >= 0.002;
 const pct = (n: number | null): string => (n === null ? 'n/a' : `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`);
 
 /** "What to watch": the assistant's list of what is likely to move the user's markets today, each item followable and judged afterwards. */
@@ -64,7 +68,7 @@ export class WhatToWatch {
     ].join('\n');
     const draft = WatchDraftSchema.parse(await this.model.draft(SYSTEM, prompt));
     const items: WatchItem[] = draft.items
-      .map(d => ({ ...d, symbols: d.symbols.filter(s => known.has(s)), follow: d.follow && known.has(d.follow.symbol) ? d.follow : null }))
+      .map(d => ({ ...d, symbols: d.symbols.filter(s => known.has(s)), follow: d.follow && known.has(d.follow.symbol) && farEnough(d.follow.value, quotes.get(d.follow.symbol)?.price) ? d.follow : null }))
       .filter(d => d.symbols.length > 0)
       .map(d => ({ ...d, id: this.env.id(), refPrices: Object.fromEntries(d.symbols.flatMap(s => { const q = quotes.get(s); return q ? [[s, q.price]] : []; })),
         outcome: 'open' as const, movePct: null, resolvedAt: null, taskId: null }));

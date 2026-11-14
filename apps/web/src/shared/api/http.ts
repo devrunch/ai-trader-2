@@ -1,7 +1,8 @@
 import { ErrorBodySchema, type ErrorCode } from '@aitrader/contracts';
 import { z } from 'zod';
 import { ApiError } from './api-error';
-type Options<T> = { schema: z.ZodType<T>; method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal };
+/** `timeoutMs` (default 15 s) is for the few calls that wait on a model, such as writing What to watch. */
+type Options<T> = { schema: z.ZodType<T>; method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; signal?: AbortSignal; timeoutMs?: number };
 function statusCode(status: number): ErrorCode {
   switch (status) {
     case 404: return 'NOT_FOUND';
@@ -29,7 +30,7 @@ export const API_HEADERS = { 'X-Requested-With': 'aitrader' } as const;
 export const SESSION_EXPIRED = 'aitrader:session-expired';
 
 export async function apiFetch<T>(path: string, opts: Options<T>): Promise<T> {
-  const timeout = AbortSignal.timeout(15_000);
+  const timeout = AbortSignal.timeout(opts.timeoutMs ?? 15_000);
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   let response: Response;
   try {

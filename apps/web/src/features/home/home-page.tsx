@@ -23,7 +23,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const open = (symbol: string) => { void navigate({ to: '/terminal', search: { symbol, interval: '5' } }); };
   return <div className="min-h-0 flex-1 overflow-y-auto"><div className="mx-auto w-full max-w-7xl min-w-0 space-y-4 px-3 py-5 md:px-6 md:py-7">
-    <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} onOpenAssistant={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }} />
+    <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} onOpenAssistant={() => { void navigate({ to: '/agent', search: { symbol: 'NSE:NIFTY', interval: '5' } }); }} />
     <div className="grid min-w-0 gap-3 lg:grid-cols-12">
       <div className="min-w-0 space-y-3 lg:col-span-8">
         <WhatToWatchCard />
