@@ -3,7 +3,7 @@ import { guardedTool, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 /** Always on: the daily reads, the trade card, the desk, memory and the loader. Everything else waits for `loadTools`. */
 export const CORE_TOOLS = ['getQuote', 'getBars', 'searchInstruments', 'getIndicator', 'listIndicators', 'getNews', 'getEconomicCalendar', 'getMarketStatus', 'getPortfolio',
-  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'loadTools'] as const;
+  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'updateProfile', 'loadTools'] as const;
 
 export const TOOL_GROUPS = {
   screening: ['scanUniverse', 'watchScreen', 'listUniverse', 'getWatchlist', 'addToWatchlist', 'removeFromWatchlist'],
@@ -23,7 +23,7 @@ const GROUP_PURPOSE: Record<ToolGroup, string> = {
   chart: 'chart indicators, drawings, Pine scripts', strategies: 'backtests and saved strategies', research: 'fundamentals, order book, web search',
 };
 
-const groupOf = (name: string): ToolGroup | undefined => GROUP_NAMES.find(g => (TOOL_GROUPS[g] as readonly string[]).includes(name));
+export const groupOf = (name: string): ToolGroup | undefined => GROUP_NAMES.find(g => (TOOL_GROUPS[g] as readonly string[]).includes(name));
 
 /** Which groups each turn has loaded; a group stays loaded until the turn ends. */
 export class ToolLoader {

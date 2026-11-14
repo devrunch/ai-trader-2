@@ -26,6 +26,7 @@ export const agentTurns = pgTable('agent_turns', {
   tokens: integer('tokens'),
   startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }).notNull(),
   finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'string' }),
+  tools: text('tools').array().notNull().default([]),
 }, table => [index('agent_turns_prompt').on(table.promptKey, table.promptVersion)]);
 
 export const agentActions = pgTable('agent_actions', {
@@ -134,3 +135,20 @@ export const deskBacktests = pgTable('desk_backtests', {
   finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'string' }),
   error: text('error'),
 }, table => [index('desk_backtests_user_created').on(table.userId, table.createdAt.desc())]);
+
+export const agentProfile = pgTable('agent_profile', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  data: jsonb('data').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});
+
+/** One thing the user did with an answer (card applied or dismissed, thumbs); `event_key` makes recording it twice a no-op. */
+export const agentSignals = pgTable('agent_signals', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  eventKey: text('event_key').notNull(),
+  kind: text('kind').notNull(),
+  topic: text('topic').notNull(),
+  tools: text('tools').array().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, table => [uniqueIndex('agent_signals_event').on(table.userId, table.eventKey)]);

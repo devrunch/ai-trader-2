@@ -11,7 +11,7 @@ const MAX_MESSAGES = 200;
 export class DrizzleTurnStore implements TurnStore {
   constructor(private readonly db: Database) {}
   async start(turn: TurnStart): Promise<void> { await withTimeout(() => this.db.insert(agentTurns).values(turn), 5000); }
-  async finish(id: string, result: { outcome: string; tokens: number; finishedAt: string }): Promise<void> {
+  async finish(id: string, result: { outcome: string; tokens: number; finishedAt: string; tools: string[] }): Promise<void> {
     await withTimeout(() => this.db.update(agentTurns).set(result).where(eq(agentTurns.id, id)), 5000);
   }
 }

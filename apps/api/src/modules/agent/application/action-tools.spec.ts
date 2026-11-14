@@ -128,3 +128,19 @@ describe('indicator tools', () => {
     for (const name of names) expect(name).not.toMatch(/order|cancel|place|buy|sell|trade|broker|login|token/i);
   });
 });
+
+describe('card decisions as signals', () => {
+  it('reports an applied or dismissed card once, with a key per card and outcome', async () => {
+    const store = memoryStore();
+    const signal = vi.fn().mockResolvedValue(undefined);
+    let n = 0;
+    const cards = new ActionCards(store, { indicators: () => [rsi], draw, checkPine: vi.fn(), savePine: vi.fn(), submitOrder: vi.fn(), signal },
+      { now: () => Date.parse('2026-11-10T10:00:00Z'), id: () => `00000000-0000-4000-8000-00000000000${String(++n)}` });
+    const a = await cards.propose('u1', { kind: 'add-indicator', indicatorId: 'rsi', inputs: {} });
+    const b = await cards.propose('u1', { kind: 'add-indicator', indicatorId: 'rsi', inputs: {} });
+    await cards.apply('u1', a.id);
+    await cards.dismiss('u1', b.id);
+    expect(signal.mock.calls.map(c => [(c[1] as { eventKey: string }).eventKey, (c[1] as { kind: string }).kind])).toEqual([
+      [`card:${a.id}:applied`, 'card-applied'], [`card:${b.id}:dismissed`, 'card-dismissed']]);
+  });
+});
