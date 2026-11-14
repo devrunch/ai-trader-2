@@ -55,7 +55,7 @@ export function TaskList({ onOpenSymbol, initial = 'all' }: { onOpenSymbol: (sym
         : shown.length === 0 ? <div className="space-y-1 p-3 text-muted-foreground">
           <p>{show === 'agent' ? 'Nothing is being watched yet.' : 'No alerts yet.'}</p>
           <p>{show === 'agent' ? 'Ask the assistant, for example “watch INR news with high impact and tell me if it matters”. It wakes on a match and decides whether to tell you.'
-            : 'Set a price, indicator, news or event condition above. You get a notification in the bell when it triggers.'}</p></div>
+            : 'Set one from the Alerts widget in the terminal, or ask the assistant. You get a notification in the bell when it triggers.'}</p></div>
         : <ul aria-label="Alerts">{[...live, ...past].map(a => <li key={a.id} className="space-y-1 border-b px-3 py-2">
           <div className="flex items-center gap-2">
             <span className={`shrink-0 px-1.5 py-px text-[11px] font-semibold ${a.mode === 'agent' ? 'ai-gradient' : 'border text-muted-foreground'}`}>{a.mode === 'agent' ? 'Task' : 'Alert'}</span>

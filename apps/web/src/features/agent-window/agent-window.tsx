@@ -54,7 +54,7 @@ export function AgentWindow({ symbol, interval, onOpenSymbol }: { symbol: string
         <DeskHistory />
       </aside>
       <main className="flex min-h-0 flex-col p-3 md:p-4"><div className="mx-auto flex h-full w-full max-w-3xl min-h-0 flex-col">
-        <ChatPanel actions={actions} onMessages={onMessages} />
+        <ChatPanel actions={actions} onMessages={onMessages} showTasks={false} />
       </div></main>
       <aside aria-label="Stocks in focus" className="hidden min-h-0 overflow-y-auto border-l bg-panel xl:block">
         <h2 className="border-b px-3 py-2 text-sm font-semibold">In focus</h2>

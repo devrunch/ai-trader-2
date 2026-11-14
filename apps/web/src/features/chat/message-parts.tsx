@@ -15,8 +15,41 @@ const isTool = (part: Part): part is Part & ToolLike => part.type.startsWith('to
 const isNotice = (part: Part): part is Part & NoticeLike => part.type === 'data-notice';
 
 /** Text, the data the assistant used (tool cards), and budget notices. */
+const PLAIN: Record<string, string> = {
+  getQuote: 'price', getBars: 'chart', getIndicator: 'indicators', getNews: 'news', getSentiment: 'mood', getCrowd: 'crowd chatter', getFundamentals: 'fundamentals',
+  getEconomicCalendar: 'calendar', getEventScorecard: 'past reactions', getDepth: 'order book', getMarketStatus: 'market hours', getPortfolio: 'your positions',
+  getWatchlist: 'your watchlist', searchInstruments: 'symbol search', listUniverse: 'market lists', scanUniverse: 'scan', webSearch: 'web search', calculate: 'calculations',
+  runBacktest: 'backtest', getOptionChain: 'options', getOptionsSummary: 'options', listIndicators: 'indicators',
+};
+const HIDDEN = new Set(['loadTools', 'listSkills']);
+
+/** The data the assistant looked at for one answer, in one line that opens to the detail. */
+function ToolTrail({ parts }: { parts: Array<Part & ToolLike> }) {
+  const counts = new Map<string, number>();
+  for (const p of parts) { const name = p.type.replace(/^tool-/, ''); if (HIDDEN.has(name)) continue; const label = PLAIN[name] ?? name; counts.set(label, (counts.get(label) ?? 0) + 1); }
+  const working = parts.some(p => p.state !== 'output-available' && p.state !== 'output-error');
+  const failed = parts.filter(p => p.state === 'output-error' || (typeof p.output === 'object' && p.output !== null && 'ok' in p.output && p.output.ok === false)).length;
+  const summary = [...counts].map(([label, n]) => (n > 1 && (label === 'calculations' || label === 'indicators') ? `${String(n)} ${label}` : label)).join(', ');
+  if (summary === '') return null;
+  return <details className={`text-xs text-muted-foreground ${working ? 'ai-working' : ''}`}>
+    <summary className="cursor-pointer list-none">{working ? 'Checking ' : 'Checked '}{summary}{failed ? ` \u00b7 ${String(failed)} unavailable` : ''} {'\u25b8'}</summary>
+    <div className="mt-1 space-y-1">{parts.filter(p => !HIDDEN.has(p.type.replace(/^tool-/, ''))).map((p, i) => <ToolCard key={i} part={p} />)}</div>
+  </details>;
+}
+
+const isPlainTool = (part: Part): part is Part & ToolLike => isTool(part) && part.type !== 'tool-useSkill' && part.type !== 'tool-presentTradePlan' && part.type !== 'tool-askDesk'
+  && part.type !== 'tool-proposeChartAction' && part.type !== 'tool-proposeDrawing';
+
 export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role: UIMessage['role'] }) {
-  return <div className="space-y-2">{parts.map((part, i) => {
+  // Runs of plain data lookups become one trail; everything the user acts on (cards, text, notices) stays as it is.
+  const groups: Array<Part | Array<Part & ToolLike>> = [];
+  for (const part of parts) {
+    const last = groups.at(-1);
+    if (isPlainTool(part)) { if (Array.isArray(last)) last.push(part); else groups.push([part]); } else groups.push(part);
+  }
+  return <div className="min-w-0 space-y-2">{groups.map((group, i) => {
+    if (Array.isArray(group)) return <ToolTrail key={i} parts={group} />;
+    const part = group;
     if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
     if (isTool(part) && part.type === 'tool-useSkill') return <SkillChip key={i} part={part} />;

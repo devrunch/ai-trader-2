@@ -19,7 +19,7 @@ const LABELS = { chat: 'Chat', tasks: 'Tasks', memory: 'About you' } as const;
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
 /** `onMessages` lets a host (the agent window) follow the conversation, for example to show the stocks it is about. */
-export function ChatPanel({ actions, onMessages }: { actions?: ChatActions; onMessages?: (messages: UIMessage[]) => void }) {
+export function ChatPanel({ actions, onMessages, showTasks = true }: { actions?: ChatActions; onMessages?: (messages: UIMessage[]) => void; showTasks?: boolean }) {
   const status = useQuery({ queryKey: ['agent', 'status'], queryFn: ({ signal }) => apiFetch('/v1/agent/status', { schema: AgentStatusSchema, signal }),
     refetchInterval: query => (query.state.status === 'error' ? 5000 : false) });
   const [threadId, setThreadId] = useState<string>(() => crypto.randomUUID());
@@ -33,7 +33,7 @@ export function ChatPanel({ actions, onMessages }: { actions?: ChatActions; onMe
   }
   const body = <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
     <div role="tablist" aria-label="Assistant" className="flex gap-1 border-b">
-      {(['chat', 'tasks', 'memory'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => { setView(v); }}
+      {(showTasks ? ['chat', 'tasks', 'memory'] as const : ['chat', 'memory'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => { setView(v); }}
         className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{LABELS[v]}</button>)}
     </div>
     {view === 'memory' ? <div className="min-h-0 flex-1 overflow-auto"><Knowledge /></div>
@@ -110,7 +110,7 @@ function ChatBody({ threadId, initial, model, onMessages }: { threadId: string; 
     setInput('');
   };
   return <>
-    <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-auto">
+    <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden">
       {chat.messages.length === 0 && <li className="space-y-3">
         <p className="text-muted-foreground">Ask about a symbol, a setup, the news or your paper positions. Trade ideas come back as a card you can draw on the chart, alert on, or place on paper after you confirm.</p>
         <ul aria-label="Try asking" className="flex flex-col gap-1.5">{SUGGESTIONS.map(q => <li key={q}>
