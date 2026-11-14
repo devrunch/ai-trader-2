@@ -94,6 +94,9 @@ import { buildWhatToWatchTools } from './application/what-to-watch-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
 import { WhatToWatchJob } from './infrastructure/what-to-watch.job';
 import { WhatToWatchController } from './api/what-to-watch.controller';
+import { AssistantPrefsController } from './api/assistant-prefs.controller';
+import { AssistantPrefsService } from './application/assistant-prefs';
+import { DrizzleAssistantPrefsStore } from './infrastructure/drizzle-assistant-prefs.store';
 import { users as usersTable } from '../../shared/database/schema';
 import { WatchDraftSchema } from '@aitrader/contracts';
 import { DrizzleDeskBacktestStore, DrizzleDeskRunStore } from './infrastructure/drizzle-desk.stores';
@@ -163,7 +166,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
-  controllers: [WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
+  controllers: [AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -191,16 +194,17 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
             return clientOrderId;
           } }, { now: Date.now, id: randomUUID });
       } },
-    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar, ScanService, MinuteBars, Universes, EventScorecards, ReadPortfolio],
+    { provide: AssistantPrefsService, inject: [DB, APP_CONFIG], useFactory: (db: Database, config: AppConfig) => new AssistantPrefsService(new DrizzleAssistantPrefsStore(db), config.ASSISTANT_AUTONOMY === 'on') },
+    { provide: AgentTasks, inject: [DB, GetQuote, IndicatorService, NewsService, EconomicCalendar, ScanService, MinuteBars, Universes, EventScorecards, ReadPortfolio, AssistantPrefsService],
       useFactory: (db: Database, quote: GetQuote, indicators: IndicatorService, news: NewsService, calendar: EconomicCalendar, scans: ScanService, minutes: MinuteBars, universes: Universes,
-        scorecards: EventScorecards, portfolio: ReadPortfolio) =>
+        scorecards: EventScorecards, portfolio: ReadPortfolio, prefs: AssistantPrefsService) =>
         new AgentTasks(new DrizzleTaskStore(db), new MarketConditionReader(quote, indicators), new FeedWatchReader(news, calendar, quote, (spec, userId) => scans.scan(userId, spec), {
           moves: (symbols, minutesBack, now) => minutes.changePct(symbols, minutesBack, now),
           members: async (universe, userId) => (await universes.members(universe, userId)).map(m => m.symbol),
           scorecard: event => scorecards.get({ title: event.title, country: event.country, limit: 12 }),
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
-        }), { now: Date.now, id: randomUUID }) },
+        }), { now: Date.now, id: randomUUID }, prefs) },
     { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService, WhatToWatch],
       useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService, watch: WhatToWatch): DataTools => deps => [
         ...buildWhatToWatchTools(watch, deps),

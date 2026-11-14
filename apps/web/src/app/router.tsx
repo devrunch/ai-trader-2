@@ -7,9 +7,10 @@ import { strategiesRoute } from './routes/strategies-route';
 import { deskRoute } from './routes/desk-route';
 import { agentRoute } from './routes/agent-route';
 import { portfolioRoute } from './routes/portfolio-route';
+import { settingsRoute } from './routes/settings-route';
 import { screenerRoute } from './routes/screener-route';
 import { adminRoute, zerodhaCallbackRoute } from './routes/admin-route';
-const routeTree = rootRoute.addChildren([homeRoute, terminalRoute, agentRoute, portfolioRoute, strategiesRoute, screenerRoute, deskRoute, loginRoute, adminRoute, zerodhaCallbackRoute]);
+const routeTree = rootRoute.addChildren([homeRoute, terminalRoute, agentRoute, portfolioRoute, settingsRoute, strategiesRoute, screenerRoute, deskRoute, loginRoute, adminRoute, zerodhaCallbackRoute]);
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, ...(history ? { history } : {}),
     parseSearch: (search) => Object.fromEntries(new URLSearchParams(search)),

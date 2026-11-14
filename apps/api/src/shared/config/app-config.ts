@@ -58,6 +58,8 @@ export const AppConfigSchema = z.object({
   DESK_DAILY_RUNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(1000)).default(60),
   // Assistant and desk runs fired by background tasks are queued and run this many at a time.
   AGENT_RUN_CONCURRENCY: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(20)).default(2),
+  /** Admin kill switch: off makes every user's assistant ask before any trade, whatever their setting. */
+  ASSISTANT_AUTONOMY: z.enum(['on', 'off']).default('on'),
   AGENT_WATCH_DAILY_RUNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(1000)).default(40),
   AGENT_DAILY_TURNS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(10_000)).default(200),
   // News: public RSS feeds need no key; NEWS_API_KEY adds newsapi.org global macro headlines.

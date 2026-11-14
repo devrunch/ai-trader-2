@@ -62,7 +62,8 @@ const dto = (t: AgentTask): AgentTaskDto => ({ id: t.id, threadId: t.threadId, m
 /** Background work for the assistant: scheduled runs and wake-on-condition (owner request 2026-11-10). */
 export class AgentTasks {
   constructor(private readonly store: TaskStore, private readonly conditions: ConditionReader,
-    private readonly watches: WatchReader, private readonly env: { now: () => number; id: () => string }) {}
+    private readonly watches: WatchReader, private readonly env: { now: () => number; id: () => string },
+    private readonly prefs: { autoTradeFor(userId: string): Promise<AutoTrade | null> } = { autoTradeFor: () => Promise.resolve(null) }) {}
 
   /** A user alert: no model runs; each fire is an in-app notification. Repeating alerts fire on every fresh crossing for 30 days. */
   async createAlert(userId: string, input: AlertCreate): Promise<AgentTaskDto & { conditionNow: number | null }> {
@@ -91,7 +92,7 @@ export class AgentTasks {
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
     const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
-      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade ?? null, desk: input.desk ?? null, runState: 'idle', runStateAt: null, pendingFire: null, seen: [],
+      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade !== undefined ? input.autoTrade : mode === 'agent' ? await this.prefs.autoTradeFor(userId) : null, desk: input.desk ?? null, runState: 'idle', runStateAt: null, pendingFire: null, seen: [],
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);
     return { ...dto(task), conditionNow };

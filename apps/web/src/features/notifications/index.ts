@@ -1,1 +1,1 @@
-export { NotificationBell } from './notification-bell';
+export { NotificationBell, EmailToggle } from './notification-bell';

@@ -20,6 +20,7 @@ function MainNav() {
     <Link to="/portfolio" className={link} activeProps={active}>Portfolio</Link>
     <Link to="/strategies" className={link} activeProps={active}>Strategies</Link>
     <Link to="/screener" className={link} activeProps={active}>Screener</Link>
+    <Link to="/settings" className={link} activeProps={active}>Settings</Link>
     <Link to="/admin" search={{ tab: undefined, notice: undefined }} className={link} activeProps={active}>Admin</Link>
   </nav>;
 }

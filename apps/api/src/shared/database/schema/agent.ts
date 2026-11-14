@@ -1,4 +1,4 @@
-import { boolean, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, doublePrecision, index, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 export const agentThreads = pgTable('agent_threads', {
@@ -161,3 +161,12 @@ export const whatToWatch = pgTable('what_to_watch', {
   items: jsonb('items').notNull(),
   open: boolean('open').notNull().default(true),
 }, t => [index('what_to_watch_user_created').on(t.userId, t.createdAt)]);
+
+/** How much the assistant may do on its own for one user (Settings). */
+export const assistantPrefs = pgTable('assistant_prefs', {
+  userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  mode: text('mode').notNull(),
+  maxRiskPct: real('max_risk_pct').notNull(),
+  maxTradesPerDay: integer('max_trades_per_day').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+});

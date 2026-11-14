@@ -10,7 +10,7 @@ const key = ['notifications'] as const;
 const EmailPref = z.object({ reports: z.boolean(), address: z.string().nullable(), available: z.boolean() });
 
 /** Opt in to getting the assistant's reports by email, at an address the user types once. */
-function EmailToggle() {
+export function EmailToggle() {
   const [draft, setDraft] = useState('');
   const client = useQueryClient();
   const pref = useQuery({ queryKey: ['notifications', 'email'], queryFn: ({ signal }) => apiFetch('/v1/notifications/email', { schema: EmailPref, signal }) });
