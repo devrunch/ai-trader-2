@@ -152,3 +152,12 @@ export const agentSignals = pgTable('agent_signals', {
   tools: text('tools').array().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 }, table => [uniqueIndex('agent_signals_event').on(table.userId, table.eventKey)]);
+
+/** "What to watch" lists per user; items (with their outcomes) live in one JSON column. `open` is false once every item is judged. */
+export const whatToWatch = pgTable('what_to_watch', {
+  id: uuid('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull(),
+  items: jsonb('items').notNull(),
+  open: boolean('open').notNull().default(true),
+}, t => [index('what_to_watch_user_created').on(t.userId, t.createdAt)]);

@@ -24,3 +24,4 @@ export * from './fundamentals.js';
 export * from './screener.js';
 export * from './sources.js';
 export * from './options.js';
+export * from './what-to-watch.js';

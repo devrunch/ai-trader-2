@@ -89,6 +89,13 @@ import { TradingDesk, type DeskModel } from './application/trading-desk';
 import { DeskController } from './api/desk.controller';
 import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
+import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
+import { buildWhatToWatchTools } from './application/what-to-watch-tools';
+import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
+import { WhatToWatchJob } from './infrastructure/what-to-watch.job';
+import { WhatToWatchController } from './api/what-to-watch.controller';
+import { users as usersTable } from '../../shared/database/schema';
+import { WatchDraftSchema } from '@aitrader/contracts';
 import { DrizzleDeskBacktestStore, DrizzleDeskRunStore } from './infrastructure/drizzle-desk.stores';
 import { AgentTaskJob } from './infrastructure/agent-task.job';
 import { AgentRunQueue } from './infrastructure/agent-run-queue';
@@ -156,7 +163,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
-  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
+  controllers: [WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -194,8 +201,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
         }), { now: Date.now, id: randomUUID }) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService): DataTools => deps => [
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService, WhatToWatch],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService, watch: WhatToWatch): DataTools => deps => [
+        ...buildWhatToWatchTools(watch, deps),
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
         ...buildMarketStatusTools(deps),
@@ -242,6 +250,26 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
     { provide: AgentRunQueue, inject: [APP_CONFIG, DB, TaskFirer],
       useFactory: (config: AppConfig, db: Database, firer: TaskFirer) => new AgentRunQueue(config.REDIS_URL, new RunProcessor(new DrizzleTaskStore(db), firer, { now: Date.now }), config.AGENT_RUN_CONCURRENCY) },
     { provide: RUN_QUEUE, useExisting: AgentRunQueue },
+    { provide: WhatToWatch, inject: [DB, APP_CONFIG, GetQuote, NewsService, EconomicCalendar, Watchlists, AgentTasks],
+      useFactory: (db: Database, config: AppConfig, quote: GetQuote, news: NewsService, calendar: EconomicCalendar, watchlist: Watchlists, tasks: AgentTasks) => {
+        const spec = config.DESK_MODEL ?? config.AGENT_MODEL;
+        const model = spec ? new AiDeskModel(createLanguageModel(parseModelSpec(spec), config), 90_000) : null;
+        const DEFAULTS = ['NSE:NIFTY', 'NSE:BANKNIFTY', 'FX:USDINR', 'MCX:CRUDEOIL1!', 'MCX:GOLD1!'];
+        return new WhatToWatch(new DrizzleWhatToWatchStore(db), {
+          symbols: async userId => [...new Set([...(await watchlist.get(userId)).items.slice(0, 12), ...DEFAULTS])],
+          quotes: async symbols => new Map((await Promise.all(symbols.map(async s => {
+            try { const q = await quote.execute(s); return q.price === null ? null : [s, { price: q.price, changePct: q.changePct }] as [string, WatchQuote]; } catch { return null; }
+          }))).filter((x): x is [string, WatchQuote] => x !== null)),
+          headlines: async () => (await news.clusters({ hours: 18, limit: 80 })).sort((a, b) => b.sourceCount - a.sourceCount).slice(0, 12)
+            .map(c => ({ title: c.lead.title, sources: c.sourceCount, sentiment: c.sentiment?.label ?? null, symbols: c.symbols })),
+          events: async () => { const now = Date.now(); return (await calendar.list({ days: 2, impact: 'Medium' })).filter(e => { const at = Date.parse(e.at); return at >= now && at <= now + 86_400_000; })
+            .map(e => ({ title: e.title, country: e.country, at: e.at, impact: e.impact, forecast: e.forecast, previous: e.previous, moves: e.moves })); },
+        }, { draft: (system, prompt) => (model ? model.generate({ role: 'macro', system, prompt, schema: WatchDraftSchema }, AbortSignal.timeout(90_000)).then(r => r.data)
+          : Promise.reject(new UnavailableError('What to watch is off: set DESK_MODEL or AGENT_MODEL'))) },
+        { create: (userId, input) => tasks.create(userId, null, input, 'agent') }, { now: Date.now, id: randomUUID });
+      } },
+    { provide: WhatToWatchJob, inject: [JobScheduler, WhatToWatch, DB],
+      useFactory: (scheduler: JobScheduler, watch: WhatToWatch, db: Database) => new WhatToWatchJob(scheduler, watch, async () => (await db.select({ id: usersTable.id }).from(usersTable)).map(u => u.id)) },
     { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, AgentRunQueue, Notifications],
       useFactory: (scheduler: JobScheduler, tasks: AgentTasks, queue: AgentRunQueue, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, queue, notifications) },
   ],

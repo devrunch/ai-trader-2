@@ -3,7 +3,7 @@ import { guardedTool, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 /** Always on: the daily reads, the trade card, the desk, memory and the loader. Everything else waits for `loadTools`. */
 export const CORE_TOOLS = ['getQuote', 'getBars', 'searchInstruments', 'getIndicator', 'listIndicators', 'getNews', 'getEconomicCalendar', 'getMarketStatus', 'getPortfolio',
-  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'updateProfile', 'loadTools'] as const;
+  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'updateProfile', 'getWhatToWatch', 'loadTools'] as const;
 
 export const TOOL_GROUPS = {
   screening: ['scanUniverse', 'watchScreen', 'listUniverse', 'getWatchlist', 'addToWatchlist', 'removeFromWatchlist'],

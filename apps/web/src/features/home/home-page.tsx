@@ -1,20 +1,18 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { LineChart } from 'lucide-react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { AgentTaskSchema, NewsResponseSchema, PaperAccountsResponseSchema, WatchlistSchema } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
-import { ApiError } from '../../shared/api/api-error';
 import { Button } from '../../shared/ui/button';
 import { AiButton } from '../../shared/ui/ai-button';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { CalendarEvents } from '../calendar';
-import { ChatMarkdown } from '../chat';
 import { marketStatus } from './market-status';
+import { WhatToWatchCard } from './what-to-watch';
 import { formatPct, formatPrice, useQuotes } from '../terminal';
 
-const BriefSchema = z.strictObject({ threadId: z.string(), text: z.string(), error: z.string().nullable() });
 const ago = (iso: string): string => {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
   return minutes < 60 ? `${String(minutes)}m` : minutes < 1440 ? `${String(Math.round(minutes / 60))}h` : `${String(Math.round(minutes / 1440))}d`;
@@ -28,7 +26,7 @@ export function HomePage() {
     <HomeHeader onOpenTerminal={() => { open('NSE:NIFTY'); }} onOpenAssistant={() => { void navigate({ to: '/terminal', search: { symbol: 'NSE:NIFTY', interval: '5', panel: 'assistant' } }); }} />
     <div className="grid min-w-0 gap-3 lg:grid-cols-12">
       <div className="min-w-0 space-y-3 lg:col-span-8">
-        <Brief />
+        <WhatToWatchCard />
         <Calendar />
         <Headlines />
       </div>
@@ -70,18 +68,6 @@ function Card({ title, action, children }: { title: string; action?: ReactNode; 
     <header className="flex min-h-11 items-center justify-between gap-2 border-b px-4 py-1.5"><h2 className="text-base font-semibold">{title}</h2>{action}</header>
     <div className="p-4 text-base leading-relaxed">{children}</div>
   </section>;
-}
-
-function Brief() {
-  const brief = useMutation({ retry: 0, mutationFn: () => apiFetch('v1/agent/brief', { method: 'POST', schema: BriefSchema }) });
-  return <Card title="Pre-market brief" action={<AiButton size="sm" disabled={brief.isPending} onClick={() => { brief.mutate(); }}>
-    {brief.isPending ? 'Writing…' : brief.data ? 'Refresh' : 'Write today’s brief'}</AiButton>}>
-    {brief.isPending ? <div role="status" aria-label="Writing the brief" className="space-y-2"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-1/2" /><Skeleton className="h-4 w-3/5" /></div>
-      : brief.isError ? <p role="alert" className="text-down">{brief.error instanceof ApiError ? brief.error.message : 'The brief could not be written. Try again in a minute.'}</p>
-      : brief.data ? <div className="space-y-2">{brief.data.error && <p role="alert" className="text-down">{brief.data.error}</p>}<ChatMarkdown text={brief.data.text} />
-        <p className="text-xs text-muted-foreground">Saved as a thread in the assistant; ask follow-ups there.</p></div>
-      : <p className="text-muted-foreground">Overnight markets, crude, gold, the dollar, today’s releases and the levels to watch, written by the assistant from live data (about a minute).</p>}
-  </Card>;
 }
 
 function Calendar() {

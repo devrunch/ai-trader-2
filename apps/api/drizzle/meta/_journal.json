@@ -274,6 +274,13 @@
       "when": 1794300041000,
       "tag": "0041_option_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794300042000,
+      "tag": "0042_what_to_watch",
+      "breakpoints": true
     }
   ]
 }
