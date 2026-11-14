@@ -5,8 +5,9 @@ import { AiButton } from '../../shared/ui/ai-button';
 import { Skeleton } from '../../shared/ui/skeleton';
 import { generateDates } from './desk-dates';
 import { price, time, tone } from './desk-format';
-import { box } from './run-panel';
 import { useBacktestActions, useDeskBacktest, useDeskBacktests } from './use-desk';
+
+const box = 'h-7 min-w-0 rounded border bg-background px-1.5';
 
 const fixed = (v: number | null, digits = 2): string => (v === null ? '—' : v.toFixed(digits));
 

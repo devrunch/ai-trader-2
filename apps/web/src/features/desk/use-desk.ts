@@ -1,12 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DeskBacktestListSchema, DeskBacktestSchema, DeskEstimateSchema, DeskRunListSchema, DeskRunSchema, type DeskBacktestDto, type DeskBacktestRequest, type DeskRunDto } from '@aitrader/contracts';
+import { DeskBacktestListSchema, DeskBacktestSchema, DeskEstimateSchema, DeskRunListSchema, DeskRunSchema, type DeskBacktestDto, type DeskBacktestRequest } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 
 const POLL_MS = 3000;
-
-export function useDeskRuns(symbol: string) {
-  return useQuery({ queryKey: ['desk', 'runs', symbol], queryFn: ({ signal }) => apiFetch(`/v1/desk/runs?symbol=${encodeURIComponent(symbol)}&limit=20`, { schema: DeskRunListSchema, signal }) });
-}
 
 /** One run, refreshed every few seconds while the desk is still working on it. */
 export function useDeskRun(id: string | undefined) {
@@ -21,12 +17,6 @@ export function useRunningDesk(enabled: boolean) {
     queryFn: ({ signal }) => apiFetch('/v1/desk/runs?limit=5', { schema: DeskRunListSchema, signal }),
     select: data => data.items.filter(r => r.status === 'running'),
     refetchInterval: query => (query.state.data?.items.some(r => r.status === 'running') ? POLL_MS : 60_000), refetchIntervalInBackground: true });
-}
-
-export function useRunDesk() {
-  const client = useQueryClient();
-  return useMutation({ retry: 0, onSettled: () => client.invalidateQueries({ queryKey: ['desk', 'runs'] }),
-    mutationFn: (body: { symbol: string; rounds: number; asOf?: string }): Promise<DeskRunDto> => apiFetch('/v1/desk/runs', { method: 'POST', body, schema: DeskRunSchema }) });
 }
 
 export function useDeskBacktests(symbol: string) {

@@ -1,6 +1,5 @@
-import { createRoute, useNavigate, useSearch } from '@tanstack/react-router';
+import { createRoute, Navigate, useSearch } from '@tanstack/react-router';
 import { z } from 'zod';
-import { DeskPage } from '../../features/desk';
 import { rootRoute } from './root-route';
 
 const searchSchema = z.object({
@@ -8,13 +7,10 @@ const searchSchema = z.object({
   run: z.uuid().optional().catch(undefined),
 });
 
-/** The open run lives in the address, so leaving the page and coming back (or a refresh) shows it again. */
-function DeskRoute() {
+/** The AI Desk lives in the agent window; old links (notifications, emails) to /desk open the same run there. */
+function DeskRedirect() {
   const { symbol, run } = useSearch({ from: '/desk' });
-  const navigate = useNavigate();
-  return <DeskPage symbol={symbol} runId={run}
-    onSymbol={next => { void navigate({ to: '/desk', search: { symbol: next }, replace: true }); }}
-    onOpenRun={(id, runSymbol) => { void navigate({ to: '/desk', search: { symbol: runSymbol ?? symbol, run: id } }); }} />;
+  return <Navigate to="/agent" search={{ symbol, interval: '5', run }} replace />;
 }
 
-export const deskRoute = createRoute({ getParentRoute: () => rootRoute, path: '/desk', validateSearch: (search) => searchSchema.parse(search), component: DeskRoute });
+export const deskRoute = createRoute({ getParentRoute: () => rootRoute, path: '/desk', validateSearch: (search) => searchSchema.parse(search), component: DeskRedirect });

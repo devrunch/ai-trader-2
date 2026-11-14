@@ -1,10 +1,9 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { useState } from 'react';
-import { afterAll, afterEach, beforeAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { Providers } from '../../app/providers';
-import { DeskPage } from './index';
+import { DeskRunPane } from './index';
 
 const ID = '00000000-0000-4000-8000-0000000000d1';
 const report = { stance: 'bullish', confidence: 0.7, summary: 'Trend is up', evidence: ['Above EMA20', 'Volume rising'] };
@@ -40,86 +39,49 @@ beforeEach(() => { runResponse = { status: 200, body: makeRun() }; pastRuns = []
 afterEach(() => { cleanup(); server.resetHandlers(); });
 afterAll(() => { server.close(); });
 
-function Page() {
-  const [symbol, setSymbol] = useState('NSE:NIFTY');
-  const [runId, setRunId] = useState<string | undefined>(undefined);
-  return <Providers><DeskPage symbol={symbol} runId={runId} onSymbol={setSymbol} onOpenRun={setRunId} /></Providers>;
+function Pane({ onClose = () => undefined }: { onClose?: () => void }) {
+  return <Providers><DeskRunPane runId={ID} onClose={onClose} /></Providers>;
 }
 
-it('a run that is still working shows its progress and says the page can be left', async () => {
+it('a run that is still working shows its progress', async () => {
   runResponse = { status: 200, body: makeRun({ status: 'running', trail: { ...makeRun().trail, debate: [], proposal: null, riskReview: null } }) };
-  render(<Page />);
-  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
+  render(<Pane />);
   const progress = await screen.findByRole('status', { name: 'Desk progress' });
-  expect(progress.textContent).toContain('You can leave this page');
   expect(progress.textContent).toContain('Bull vs bear…');
   expect(screen.queryByLabelText('Decision action')).toBeNull();
 });
 
-it('run now posts the symbol and rounds without asOf and shows the decision, roles and debate', async () => {
-  render(<Page />);
-  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
-  expect(await screen.findByLabelText('Decision action')).toHaveProperty('textContent', 'BUY');
-  expect(posts[0]).toEqual({ symbol: 'NSE:NIFTY', rounds: 1 });
-  expect(screen.queryByText('time machine')).toBeNull();
-  expect(screen.getByText('64% confidence')).toBeDefined();
-  expect(screen.getByText('Technical edge')).toBeDefined();
+it('shows the decision, the roles and the debate of a finished run, and closes', async () => {
+  const onClose = vi.fn();
+  render(<Pane onClose={onClose} />);
+  expect((await screen.findByLabelText('Decision action')).textContent).toBe('BUY');
   expect(screen.getByText('Momentum is strong')).toBeDefined();
-  expect(screen.getByText('Rebuttal: Momentum fades')).toBeDefined();
-  expect(screen.getByText(/1234 tokens · 6 calls/)).toBeDefined();
-});
-
-it('as of posts an ISO asOf with an offset and labels the run as a time machine', async () => {
-  runResponse = { status: 200, body: makeRun({ live: false }) };
-  render(<Page />);
-  fireEvent.change(screen.getByLabelText('As of'), { target: { value: '2020-11-10T10:30' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Run as of' }));
-  expect(await screen.findByText('time machine')).toBeDefined();
-  expect(String(posts[0]?.asOf)).toMatch(/^2020-11-10T10:30:00[+-]\d\d:\d\d$/);
-});
-
-it('refuses an as-of time in the future', async () => {
-  render(<Page />);
-  fireEvent.change(screen.getByLabelText('As of'), { target: { value: '2999-01-01T10:00' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Run as of' }));
-  expect((await screen.findByRole('alert')).textContent).toContain('future');
-  expect(posts).toHaveLength(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  expect(onClose).toHaveBeenCalled();
 });
 
 it('shows the veto reasons prominently and skipped roles', async () => {
   runResponse = { status: 200, body: makeRun({}, { vetoed: true, vetoReasons: ['Daily loss limit reached'] }) };
-  render(<Page />);
-  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
+  render(<Pane />);
   expect((await screen.findByRole('alert')).textContent).toBe('Risk manager blocked this trade: Daily loss limit reached');
   expect(within(screen.getByRole('region', { name: 'Fundamentals' })).getByText('Skipped: no fundamentals for an index')).toBeDefined();
 });
 
 it('says the run was stopped by the token budget', async () => {
   runResponse = { status: 200, body: makeRun({ status: 'budget' }) };
-  render(<Page />);
-  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
+  render(<Pane />);
   expect((await screen.findByRole('alert')).textContent).toContain('stopped by the token budget');
 });
 
-it('shows the server message when the daily cap is reached', async () => {
-  runResponse = { status: 429, body: { code: 'RATE_LIMITED', message: 'Daily desk run cap reached', requestId: 'r' } };
-  render(<Page />);
-  fireEvent.click(screen.getByRole('button', { name: 'Run now' }));
-  expect((await screen.findByRole('alert')).textContent).toContain('Daily desk run cap reached');
-});
-
-it('opens a past run from the list and says when there are none', async () => {
-  render(<Page />);
-  expect(await screen.findByText('No runs yet for this symbol.')).toBeDefined();
-  cleanup();
+it('labels a replayed run as a time machine', async () => {
   pastRuns = [makeRun({ live: false })];
-  render(<Page />);
-  fireEvent.click(await screen.findByText('1234 tokens'));
+  render(<Pane />);
   expect(await screen.findByText('time machine')).toBeDefined();
 });
 
 it('enables Start backtest only after an estimate, then shows the results table and summary', async () => {
-  render(<Page />);
+  render(<Pane />);
+  await screen.findByLabelText('Start date');
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-01-01' } });
   fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-01-15' } });
   const startButton = screen.getByRole('button', { name: 'Start backtest' });
@@ -136,8 +98,9 @@ it('enables Start backtest only after an estimate, then shows the results table 
   expect(within(table).getByText('-1.00').className).toContain('text-down');
 });
 
-it('refuses more than 30 dates with a message', () => {
-  render(<Page />);
+it('refuses more than 30 dates with a message', async () => {
+  render(<Pane />);
+  await screen.findByLabelText('Start date');
   fireEvent.change(screen.getByLabelText('Start date'), { target: { value: '2026-01-01' } });
   fireEvent.change(screen.getByLabelText('End date'), { target: { value: '2026-06-01' } });
   fireEvent.change(screen.getByLabelText('Step in days'), { target: { value: '1' } });

@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useContext } from 'react';
 import { z } from 'zod';
-import { Link } from '@tanstack/react-router';
 import { BellPlus, ChartCandlestick, PencilRuler, Sparkles, Users } from 'lucide-react';
 import type { Drawing, TradePlanDto } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { useChatActions } from './chat-actions';
 import { ActionCard } from './action-card';
+import { ChatAskContext } from './chat-view';
 
 const fmt = (n: number) => n.toLocaleString('en-IN', { maximumFractionDigits: n >= 100 ? 2 : 4 });
 const money = (n: number, currency: string) => n.toLocaleString('en-IN', { style: 'currency', currency, maximumFractionDigits: 0 });
@@ -42,6 +43,7 @@ function drawingFor(plan: TradePlanDto): Drawing {
 export function TradePlanCard({ plan }: { plan: TradePlanDto }) {
   const host = useChatActions();
   const client = useQueryClient();
+  const ask = useContext(ChatAskContext);
   const buy = plan.side === 'buy';
   const draw = useMutation({ mutationFn: () => { host.addDrawing(plan.id, drawingFor(plan)); return Promise.resolve(); } });
   const alerts = useMutation({ mutationFn: async () => {
@@ -78,7 +80,7 @@ export function TradePlanCard({ plan }: { plan: TradePlanDto }) {
       <Button size="xs" variant="outline" onClick={() => { host.openSymbol(plan.symbol, plan.interval); }}><ChartCandlestick />Open chart</Button>
       <Button size="xs" variant="outline" disabled={draw.isSuccess} onClick={() => { draw.mutate(); }}><PencilRuler />{draw.isSuccess ? 'Drawn' : draw.isError ? 'Open the terminal to draw' : 'Draw levels'}</Button>
       <Button size="xs" variant="outline" disabled={alerts.isPending || alerts.isSuccess} onClick={() => { alerts.mutate(); }}><BellPlus />{alerts.isSuccess ? 'Alerts set' : alerts.isError ? 'Alerts failed, retry' : 'Alert at stop and T1'}</Button>
-      <Button size="xs" variant="outline" asChild><Link to="/desk" search={{ symbol: plan.symbol }}><Users />Ask the desk</Link></Button>
+      {ask && <Button size="xs" variant="outline" onClick={() => { ask(`Ask the desk about ${plan.symbol}`); }}><Users />Ask the desk</Button>}
     </div>
     {plan.orderCard && <ActionCard proposed={plan.orderCard} />}
   </article>;
