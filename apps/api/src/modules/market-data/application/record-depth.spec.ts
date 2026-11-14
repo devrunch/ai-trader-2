@@ -7,7 +7,7 @@ const book = (bid: number): NonNullable<Tick['book']> => ({ levels: '5', bids: [
 const tick = (at: number, extra: Partial<Tick> = {}): Tick => ({ instrumentId: 'NSE:TEST', at, price: 100, cumVolume: null, book: book(100), ...extra });
 function setup(set = vi.fn<(id: string, depth: Depth) => Promise<void>>().mockResolvedValue(undefined)) {
   let now = 0; let emit: (t: Tick) => void = () => undefined; const log = vi.fn();
-  const recorder = new RecordDepth({ get: () => Promise.resolve(null), set }, { clock: () => now, log });
+  const recorder = new RecordDepth({ get: () => Promise.resolve(null), last: () => Promise.resolve(null), set }, { clock: () => now, log });
   const off = vi.fn();
   const detach = recorder.attach({ name: 'kite', onTick: listener => { emit = listener; return off; } });
   return { set, log, off, detach, emit: (t: Tick) => { emit(t); }, advance: (ms: number) => { now += ms; } };

@@ -9,7 +9,7 @@ const HOLD_MS = 60_000;
 const READ_TIMEOUT_MS = 5000;
 const none = (unavailable: string): DepthResponse => ({ depth: null, unavailable });
 
-/** Reads the latest book; when there is none, says why. Reading also asks for the instrument's feed, kept for a minute after the last read. */
+/** Reads the latest book; with the market closed, the last book of the session; when there is none, says why. Reading also asks for the instrument's feed, kept for a minute after the last read. */
 export class ReadDepth {
   private readonly holds = new Map<string, ReturnType<typeof setTimeout>>();
   constructor(private readonly store: DepthStore, private readonly feeds: FeedStateStore,
@@ -23,7 +23,10 @@ export class ReadDepth {
     try {
       const depth = await this.store.get(instrumentId, signal);
       if (depth) return { depth, unavailable: null };
-      if (!isMarketOpen(instrumentId.split(':')[0] ?? '', this.clock())) return none('Market closed');
+      if (!isMarketOpen(instrumentId.split(':')[0] ?? '', this.clock())) {
+        const last = await this.store.last(instrumentId, signal);
+        return last ? { depth: last, unavailable: null } : none('Market closed');
+      }
       const feed = await this.feeds.get(vendor, signal);
       return none(feed.state === 'live' ? 'Not subscribed yet' : 'Feed down');
     } catch { return none('Order book temporarily unavailable'); }

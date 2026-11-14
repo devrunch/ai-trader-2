@@ -6,11 +6,11 @@ const stanceTone = { bullish: 'text-up', bearish: 'text-down', neutral: 'text-mu
 
 export function RoleCards({ reports, running = false }: { reports: DeskTrail['reports']; running?: boolean }) {
   return <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-    {ROLES.map(([key, title]) => {
+    {ROLES.filter(([key]) => running || !('skipped' in reports[key])).map(([key, title]) => {
       const report = reports[key];
       return <section key={key} aria-label={title} className="border bg-panel p-3">
         <h4 className="mb-1 font-semibold">{title}</h4>
-        {'skipped' in report ? <p className="text-muted-foreground">{running && report.skipped === 'not run' ? 'Waiting…' : `Skipped: ${report.skipped}`}</p> : <>
+        {'skipped' in report ? <p className="text-muted-foreground">Waiting…</p> : <>
           <p><span className={`font-semibold ${stanceTone[report.stance]}`}>{report.stance}</span> <span className="num text-muted-foreground">{percent(report.confidence)} confidence</span></p>
           <p>{report.summary}</p>
           {report.evidence.length > 0 && <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">{report.evidence.map((e, i) => <li key={i}>{e}</li>)}</ul>}

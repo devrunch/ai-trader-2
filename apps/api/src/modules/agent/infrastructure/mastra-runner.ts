@@ -71,9 +71,11 @@ export class MastraRunner implements AgentRunner {
       originalMessages: original,
       execute: async ({ writer }) => {
         const output = await this.agent.stream(original, {
-          // One step past the budget, so running out of rounds ends with the budget notice instead of stopping silently.
+          // Near any limit the next step gets no tools, so the turn always ends with an answer from what was gathered.
           requestContext, abortSignal: abort.signal,
-          ...(this.activeTools ? { prepareStep: () => ({ activeTools: this.activeTools?.(input.ctx) ?? [] }) } : {}), maxSteps: input.budget.remaining().rounds + 1,
+          prepareStep: () => (input.budget.nearlySpent() ? { activeTools: [], toolChoice: 'none' as const }
+            : this.activeTools ? { activeTools: this.activeTools(input.ctx) } : {}),
+          maxSteps: input.budget.remaining().rounds + 1,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
             tokens += used;

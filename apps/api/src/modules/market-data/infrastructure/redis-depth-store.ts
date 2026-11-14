@@ -5,13 +5,19 @@ import type { DepthStore } from '../application/ports/depth-store';
 
 /** Short enough that a closed market or a dead feed reads as "no book" instead of a stale one. */
 export const DEPTH_TTL_SECONDS = 15;
+/** The closing book stays readable over a long weekend. */
+const LAST_TTL_SECONDS = 4 * 86_400;
 
 export class RedisDepthStore implements DepthStore {
   constructor(private readonly redis: Redis) {}
 
-  async get(instrumentId: string, signal?: AbortSignal): Promise<Depth | null> {
+  get(instrumentId: string, signal?: AbortSignal): Promise<Depth | null> { return this.read(`depth:${instrumentId}`, signal); }
+
+  last(instrumentId: string, signal?: AbortSignal): Promise<Depth | null> { return this.read(`depth:last:${instrumentId}`, signal); }
+
+  private async read(key: string, signal?: AbortSignal): Promise<Depth | null> {
     return this.run(async () => {
-      const raw = await this.redis.get(`depth:${instrumentId}`);
+      const raw = await this.redis.get(key);
       if (raw === null) return null;
       const parsed = DepthSchema.safeParse(parseJson(raw));
       return parsed.success ? parsed.data : null;
@@ -20,7 +26,8 @@ export class RedisDepthStore implements DepthStore {
 
   async set(instrumentId: string, depth: Depth, signal?: AbortSignal): Promise<void> {
     // Plain overwrite with expiry: a repeated write of the same book is harmless.
-    await this.run(async () => { await this.redis.set(`depth:${instrumentId}`, JSON.stringify(depth), 'EX', DEPTH_TTL_SECONDS); }, signal);
+    const json = JSON.stringify(depth);
+    await this.run(async () => { await this.redis.multi().set(`depth:${instrumentId}`, json, 'EX', DEPTH_TTL_SECONDS).set(`depth:last:${instrumentId}`, json, 'EX', LAST_TTL_SECONDS).exec(); }, signal);
   }
 
   private run<T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> { return redisCall('Depth storage unavailable', operation, signal); }

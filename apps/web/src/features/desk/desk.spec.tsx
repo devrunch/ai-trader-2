@@ -60,11 +60,12 @@ it('shows the decision, the roles and the debate of a finished run, and closes',
   expect(onClose).toHaveBeenCalled();
 });
 
-it('shows the veto reasons prominently and skipped roles', async () => {
+it('shows the veto reasons prominently and leaves out roles that had nothing to say', async () => {
   runResponse = { status: 200, body: makeRun({}, { vetoed: true, vetoReasons: ['Daily loss limit reached'] }) };
   render(<Pane />);
   expect((await screen.findByRole('alert')).textContent).toBe('Risk manager blocked this trade: Daily loss limit reached');
-  expect(within(screen.getByRole('region', { name: 'Fundamentals' })).getByText('Skipped: no fundamentals for an index')).toBeDefined();
+  expect(screen.queryByRole('region', { name: 'Fundamentals' })).toBeNull();
+  expect(screen.queryByText(/Skipped/)).toBeNull();
 });
 
 it('says the run was stopped by the token budget', async () => {

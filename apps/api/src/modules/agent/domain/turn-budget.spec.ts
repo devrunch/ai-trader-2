@@ -26,4 +26,14 @@ describe('TurnBudget (FR-AG-3)', () => {
     expect(budget.spend({ tokens: 0 })).toEqual({ exceeded: 'rounds' });
     expect(budget.remaining()).toEqual({ rounds: 0, ms: 60_000, tokens: 9_998 });
   });
+  it('is nearly spent with one round left or a small share of time or tokens', () => {
+    let now = 0;
+    const budget = new TurnBudget({ maxRounds: 3, maxMs: 100_000, maxTokens: 10_000 }, () => now);
+    expect(budget.nearlySpent()).toBe(false);
+    budget.spend({ tokens: 8_600 });
+    expect(budget.nearlySpent()).toBe(true);
+    const timed = new TurnBudget({ maxRounds: 10, maxMs: 100_000, maxTokens: 10_000 }, () => now);
+    now = 80_000;
+    expect(timed.nearlySpent()).toBe(true);
+  });
 });

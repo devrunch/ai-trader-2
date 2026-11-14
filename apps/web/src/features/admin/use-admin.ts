@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AgentQueueStatsSchema, DataSourcesResponseSchema, OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
+import { AgentQueueStatsSchema, DataGapsResponseSchema, DataSourcesResponseSchema, OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
 import { z } from 'zod';
 import { apiFetch } from '../../shared/api/http';
 
@@ -78,6 +78,10 @@ export function useRefreshInstruments() {
     mutationFn: () => apiFetch('/v1/admin/ops/instruments/refresh', { schema: nothing, method: 'POST' }),
     onSettled: () => client.invalidateQueries({ queryKey: adminKeys.instruments }),
   });
+}
+
+export function useDataGaps() {
+  return useQuery({ queryKey: ['admin', 'data-gaps'], queryFn: ({ signal }) => apiFetch('/v1/admin/data-gaps', { schema: DataGapsResponseSchema, signal }), refetchInterval: 60_000, refetchIntervalInBackground: false });
 }
 
 export function useDataSources() {

@@ -6,9 +6,9 @@ import { ReadDepth } from './read-depth';
 const depth: Depth = { instrumentId: 'NSE:TEST', at: 1, source: 'kite', levels: '5', bids: [], asks: [], spread: null, spreadPct: null, totalBidQty: 0, totalAskQty: 0, imbalance: null };
 const OPEN = Date.parse('2026-11-09T05:00:00Z'); // Monday 10:30 IST
 const CLOSED = Date.parse('2026-11-08T05:00:00Z'); // Sunday
-function setup(stored: Depth | null, feed: FeedStateRecord = { state: 'live', at: 0 }, at = OPEN) {
+function setup(stored: Depth | null, feed: FeedStateRecord = { state: 'live', at: 0 }, at = OPEN, last: Depth | null = null) {
   const subscriptions = { acquire: vi.fn().mockResolvedValue(undefined), release: vi.fn().mockResolvedValue(undefined) };
-  const store = { get: vi.fn().mockResolvedValue(stored), set: vi.fn() };
+  const store = { get: vi.fn().mockResolvedValue(stored), set: vi.fn(), last: vi.fn().mockResolvedValue(last) };
   return { subscriptions, store, read: new ReadDepth(store, { get: () => Promise.resolve(feed) }, subscriptions, () => at) };
 }
 
@@ -31,6 +31,10 @@ describe('ReadDepth', () => {
     const { read, subscriptions } = setup(depth);
     expect(await read.execute('NASDAQ:AAPL')).toEqual({ depth: null, unavailable: 'No order book for this instrument' });
     expect(subscriptions.acquire).not.toHaveBeenCalled();
+  });
+  it('shows the last book of the session while the market is closed', async () => {
+    const closing = { ...depth, at: 123 };
+    expect(await setup(null, { state: 'live', at: 0 }, CLOSED, closing).read.execute('NSE:TEST')).toEqual({ depth: closing, unavailable: null });
   });
   it('says the market is closed when there is no book outside the session', async () => {
     expect(await setup(null, { state: 'live', at: 0 }, CLOSED).read.execute('NSE:TEST')).toEqual({ depth: null, unavailable: 'Market closed' });

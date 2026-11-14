@@ -4,4 +4,6 @@ import type { Depth } from '@aitrader/contracts';
 export interface DepthStore {
   get(instrumentId: string, signal?: AbortSignal): Promise<Depth | null>;
   set(instrumentId: string, depth: Depth, signal?: AbortSignal): Promise<void>;
+  /** The last book seen, kept over a weekend, for when the market is closed. */
+  last(instrumentId: string, signal?: AbortSignal): Promise<Depth | null>;
 }

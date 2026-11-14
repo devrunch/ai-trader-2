@@ -170,3 +170,14 @@ export const assistantPrefs = pgTable('assistant_prefs', {
   maxTradesPerDay: integer('max_trades_per_day').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });
+
+/** What the assistant looked for and could not get, so the owner knows which data source or key to add. One row per tool, subject and reason. */
+export const agentDataGaps = pgTable('agent_data_gaps', {
+  tool: text('tool').notNull(),
+  subject: text('subject').notNull(),
+  reason: text('reason').notNull(),
+  count: integer('count').notNull().default(1),
+  example: text('example'),
+  firstSeen: timestamp('first_seen', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+  lastSeen: timestamp('last_seen', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.tool, t.subject, t.reason] })]);

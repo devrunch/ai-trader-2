@@ -31,7 +31,7 @@ it('exposes the recorded 5-level book through ReadDepth', async () => {
   const received = await ticks;
 
   const stored = new Map<string, Depth>(); let emit: (t: Tick) => void = () => undefined;
-  const store = { get: (id: string) => Promise.resolve(stored.get(id) ?? null), set: (id: string, d: Depth) => { stored.set(id, d); return Promise.resolve(); } };
+  const store = { get: (id: string) => Promise.resolve(stored.get(id) ?? null), last: () => Promise.resolve(null), set: (id: string, d: Depth) => { stored.set(id, d); return Promise.resolve(); } };
   new RecordDepth(store, { clock: () => 0, log: () => undefined }).attach({ name: 'kite', onTick: listener => { emit = listener; return () => undefined; } });
   for (const tick of received) emit(tick);
   const read = new ReadDepth(store, { get: () => Promise.resolve({ state: 'live', at: 0 }) }, { acquire: () => Promise.resolve(), release: () => Promise.resolve() });

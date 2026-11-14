@@ -29,11 +29,10 @@ function ToolTrail({ parts }: { parts: Array<Part & ToolLike> }) {
   const counts = new Map<string, number>();
   for (const p of parts) { const name = p.type.replace(/^tool-/, ''); if (HIDDEN.has(name)) continue; const label = PLAIN[name] ?? name; counts.set(label, (counts.get(label) ?? 0) + 1); }
   const working = parts.some(p => p.state !== 'output-available' && p.state !== 'output-error');
-  const failed = parts.filter(p => p.state === 'output-error' || (typeof p.output === 'object' && p.output !== null && 'ok' in p.output && p.output.ok === false)).length;
   const summary = [...counts].map(([label, n]) => (n > 1 && (label === 'calculations' || label === 'indicators') ? `${String(n)} ${label}` : label)).join(', ');
   if (summary === '') return null;
   return <details className={`text-xs text-muted-foreground ${working ? 'ai-working' : ''}`}>
-    <summary className="cursor-pointer list-none">{working ? 'Checking ' : 'Checked '}{summary}{failed ? ` \u00b7 ${String(failed)} unavailable` : ''} {'\u25b8'}</summary>
+    <summary className="cursor-pointer list-none">{working ? 'Checking ' : 'Checked '}{summary} {'\u25b8'}</summary>
     <div className="mt-1 space-y-1">{parts.filter(p => !HIDDEN.has(p.type.replace(/^tool-/, ''))).map((p, i) => <ToolCard key={i} part={p} />)}</div>
   </details>;
 }
@@ -92,7 +91,6 @@ function SkillChip({ part }: { part: ToolLike }) {
   return <p role="status" className="inline-flex items-center gap-1.5 border border-accent/50 px-2 py-0.5 text-xs">
     <span className="text-muted-foreground">Using</span><span className="font-semibold">{title ?? asked}</span>
     {skill?.version !== undefined && <span className="text-muted-foreground">v{skill.version}</span>}
-    {!skill && part.state === 'output-available' && <span className="text-down">not found</span>}
   </p>;
 }
 

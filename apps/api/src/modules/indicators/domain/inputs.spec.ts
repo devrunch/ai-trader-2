@@ -16,6 +16,11 @@ describe('resolveInputs', () => {
     expect(resolveInputs(defs, {})).toEqual({ length: 14, mult: 2, show: true, maType: 'SMA', source: 'close' });
   });
 
+  it('reads "period" and its synonyms as the length', () => {
+    expect(resolveInputs(defs, { period: 50 })).toMatchObject({ length: 50 });
+    expect(resolveInputs(defs, { lookback: 9 })).toMatchObject({ length: 9 });
+  });
+
   it('keeps valid overrides', () => {
     expect(resolveInputs(defs, { length: 21, mult: 2.5, show: false, maType: 'EMA', source: 'hl2' }))
       .toEqual({ length: 21, mult: 2.5, show: false, maType: 'EMA', source: 'hl2' });

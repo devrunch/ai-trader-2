@@ -6,14 +6,20 @@ import type { RedisTokenBucket } from '../../../shared/redis';
 import type { OptionQuotes, QuotedLeg } from '../application/ports/options-ports';
 
 interface KiteQuoteClient { setAccessToken(token: string): void; getQuote(instruments: string[]): Promise<unknown> }
-const reply = z.record(z.string(), z.object({ last_price: z.number(), oi: z.number().optional(), volume: z.number().optional() }));
+const reply = z.record(z.string(), z.unknown());
+const leg = z.object({ last_price: z.number(), oi: z.number().nullish(), volume: z.number().nullish() });
 /** Kite accepts up to 500 instruments per /quote call. */
 const BATCH = 500;
 
-/** Parses a Kite /quote reply; a payload that is not a symbol map is an error, never an empty success. */
+/** Parses a Kite /quote reply; a payload that is not a symbol map is an error, never an empty success. A single malformed entry is left out, not fatal. */
 export function parseKiteQuotes(payload: unknown): Map<string, QuotedLeg> {
-  return new Map(Object.entries(reply.parse(payload)).map(([symbol, q]) =>
-    [symbol, { ltp: q.last_price > 0 ? q.last_price : null, oi: q.oi ?? null, volume: q.volume ?? null }]));
+  const entries = Object.entries(reply.parse(payload));
+  const out = new Map(entries.flatMap(([symbol, raw]) => {
+    const q = leg.safeParse(raw);
+    return q.success ? [[symbol, { ltp: q.data.last_price > 0 ? q.data.last_price : null, oi: q.data.oi ?? null, volume: q.data.volume ?? null }] as const] : [];
+  }));
+  if (entries.length > 0 && out.size === 0) throw new Error('Kite /quote: no entry has a price');
+  return out;
 }
 
 /** Kite /quote with open interest: one call per 500 symbols, on the shared 1 request/second quote bucket. */

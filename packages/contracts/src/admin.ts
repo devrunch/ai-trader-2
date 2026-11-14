@@ -42,3 +42,11 @@ export const ZerodhaStatusSchema = z.strictObject({
   redirectUrl: z.string().nullable(),
 });
 export type ZerodhaStatus = z.infer<typeof ZerodhaStatusSchema>;
+
+/** What the assistant looked for and could not get: which tool, about what, why, how often. The owner adds the source or key it points to. */
+export const DataGapSchema = z.strictObject({
+  tool: z.string(), subject: z.string(), reason: z.string(), count: z.number().int(), example: z.string().nullable(), firstSeen: z.string(), lastSeen: z.string(),
+});
+export type DataGapDto = z.infer<typeof DataGapSchema>;
+export const DataGapsResponseSchema = z.strictObject({ gaps: z.array(DataGapSchema) });
+export type DataGapsResponse = z.infer<typeof DataGapsResponseSchema>;

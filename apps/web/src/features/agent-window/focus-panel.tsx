@@ -56,21 +56,19 @@ function FocusDetail({ symbol, view }: { symbol: string; view: FocusView | undef
       <Row label="52-week range">{hi === null || lo === null ? '—' : `${formatPrice(lo)} – ${formatPrice(hi)}`}</Row>
       <Row label="Where in the range">{inRange === null ? '—' : `${fmt(inRange, 0)}%`}</Row>
     </Section>
-    {nse && <Section title="Fundamentals">
-      {fundamentals.isError ? <p className="text-muted-foreground">Not available for this stock yet.</p> : <>
+    {nse && !fundamentals.isError && <Section title="Fundamentals">
+      <>
         <Row label="P/E">{fmt(r?.pe)}</Row><Row label="ROE">{r?.roe == null ? '—' : `${fmt(r.roe)}%`}</Row>
         <Row label="Debt / equity">{fmt(r?.debtToEquity, 2)}</Row>
         <Row label="Sales growth 3y">{r?.salesGrowth3y == null ? '—' : `${fmt(r.salesGrowth3y)}%`}</Row>
         <Row label="Profit growth 3y">{r?.profitGrowth3y == null ? '—' : `${fmt(r.profitGrowth3y)}%`}</Row>
-        <Row label="Promoter holding">{r?.promoterHolding == null ? '—' : `${fmt(r.promoterHolding)}%`}</Row></>}
+        <Row label="Promoter holding">{r?.promoterHolding == null ? '—' : `${fmt(r.promoterHolding)}%`}</Row></>
     </Section>}
     <Section title="Mood">
       <Row label="News today"><span className={tone(today?.score)}>{today?.score == null ? 'quiet' : fmt(today.score, 2)}</span>{today ? ` · ${String(today.items)} items` : ''}</Row>
       <Row label="This week"><span className={tone(week?.score)}>{week?.score == null ? '—' : fmt(week.score, 2)}</span>{week ? ` · ${String(week.bullish)} up / ${String(week.bearish)} down` : ''}</Row>
     </Section>
-    <Section title="Coming up">
-      {next ? <Row label={day.format(Date.parse(next.at))}>{next.title}</Row> : <p className="text-muted-foreground">Nothing scheduled this week that usually moves it.</p>}
-    </Section>
+    {next && <Section title="Coming up"><Row label={day.format(Date.parse(next.at))}>{next.title}</Row></Section>}
     <Section title="Yours">
       <Row label="Position">{position ? <span className={tone(position.unrealisedPnl)}>{`${String(position.quantity)} @ ${formatPrice(position.averagePrice)} · ${fmt(position.unrealisedPnl, 0)}`}</span> : 'none'}</Row>
       {mine.length === 0 ? <Row label="Tasks">none</Row> : mine.map(t => <Row key={t.id} label={t.state === 'paused' ? 'Paused' : 'Task'}><span className="block max-w-[14rem] truncate" title={t.title}>{t.title}</span></Row>)}

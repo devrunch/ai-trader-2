@@ -23,6 +23,12 @@ export class TurnBudget {
     return this.verdict;
   }
 
+  /** Close enough to a limit that the next step must be the answer: one round left, or under a quarter of the time or 15% of the tokens. */
+  nearlySpent(): boolean {
+    const left = this.remaining();
+    return left.rounds <= 1 || left.ms < this.limits.maxMs * 0.25 || left.tokens < this.limits.maxTokens * 0.15;
+  }
+
   remaining(): { rounds: number; ms: number; tokens: number } {
     return {
       rounds: Math.max(0, this.limits.maxRounds - this.rounds),

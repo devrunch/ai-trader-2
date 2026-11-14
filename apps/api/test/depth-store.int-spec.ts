@@ -22,6 +22,14 @@ describe('FR-MD-2 RedisDepthStore', () => {
     const ttl = await redis.ttl('depth:NSE:TEST');
     expect(ttl).toBeGreaterThan(0); expect(ttl).toBeLessThanOrEqual(DEPTH_TTL_SECONDS);
   });
+  it('keeps the last book for days, for a closed market', async () => {
+    const store = new RedisDepthStore(redis);
+    await store.set('NSE:LAST', depth);
+    await redis.del('depth:NSE:LAST');
+    expect(await store.get('NSE:LAST')).toBeNull();
+    expect(await store.last('NSE:LAST')).toEqual(depth);
+    expect(await redis.ttl('depth:last:NSE:LAST')).toBeGreaterThan(86_400);
+  });
   it('a repeated write replaces the book and renews the expiry', async () => {
     const store = new RedisDepthStore(redis);
     await store.set('NSE:TEST', depth); await store.set('NSE:TEST', { ...depth, at: depth.at + 1000 });

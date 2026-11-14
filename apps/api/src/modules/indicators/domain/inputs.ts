@@ -6,7 +6,19 @@ type InputValue = number | boolean | string;
 export type ResolvedInputs = Readonly<Record<string, InputValue>>;
 
 /** Applies defaults and the definition's bounds; unknown keys are rejected so a typo never passes silently. */
-export function resolveInputs(defs: readonly IndicatorInputDef[], raw: Readonly<Record<string, unknown>>): ResolvedInputs {
+/** Common names for an indicator's look-back, read as `length` when the indicator has one ("period: 14" means "length: 14"). */
+const LENGTH_ALIASES = ['period', 'periods', 'len', 'window', 'lookback'];
+
+function withAliases(defs: readonly IndicatorInputDef[], raw: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> {
+  if (!defs.some(d => d.id === 'length') || 'length' in raw) return raw;
+  const alias = LENGTH_ALIASES.find(a => a in raw && !defs.some(d => d.id === a));
+  if (!alias) return raw;
+  const { [alias]: value, ...rest } = raw;
+  return { ...rest, length: value };
+}
+
+export function resolveInputs(defs: readonly IndicatorInputDef[], given: Readonly<Record<string, unknown>>): ResolvedInputs {
+  const raw = withAliases(defs, given);
   for (const key of Object.keys(raw)) {
     if (!defs.some(def => def.id === key)) throw new InvalidIndicatorInputError(key, 'is not an input of this indicator');
   }

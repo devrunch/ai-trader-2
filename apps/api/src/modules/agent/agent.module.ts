@@ -36,7 +36,7 @@ import { EventScorecards } from '../calendar/application/index';
 import { MinuteBars } from '../market-data/application/index';
 import { buildScreenerTools } from './application/screener-tools';
 import { buildUniverseTools } from './application/universe-tools';
-import { FundamentalsService } from '../fundamentals/application/index';
+import { FundamentalsService, UsFundamentalsService, isUsListing } from '../fundamentals/application/index';
 import { FundamentalsModule } from '../fundamentals/fundamentals.module';
 import { Universes } from '../instruments/application/index';
 import { UniversesModule } from '../instruments/universes.module';
@@ -91,6 +91,9 @@ import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
 import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
 import { ReleaseWatch } from './application/release-watch';
+import { DataGaps } from './application/data-gaps';
+import { DrizzleDataGapsStore } from './infrastructure/drizzle-data-gaps.store';
+import { DataGapsController } from './api/data-gaps.controller';
 import { buildWhatToWatchTools } from './application/what-to-watch-tools';
 import { buildViewTools } from './application/view-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
@@ -129,7 +132,7 @@ const toolLimit = (key: string): [number, number] => (key.startsWith('agent:conv
 
 interface ToolServices {
   quote: GetQuote; market: MarketDataService; search: SearchInstruments; portfolio: ReadPortfolio; indicators: IndicatorService; cards: ActionCards;
-  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; profile: AgentProfileService; toolLog: TurnToolLog; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies; desk: TradingDesk;
+  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; profile: AgentProfileService; toolLog: TurnToolLog; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies; desk: TradingDesk; gaps: DataGaps;
 }
 
 /** No AGENT_MODEL: the assistant is off and says so. A bad model setting fails at boot, naming the .env key. */
@@ -139,8 +142,9 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
   const fallback = config.AGENT_FALLBACK_MODEL ? createLanguageModel(parseModelSpec(config.AGENT_FALLBACK_MODEL), config) : undefined;
   const deps = {
     limiter: { take: (key: string) => limiter.take(key, ...toolLimit(key)) },
-    audit: (entry: { tool: string; userId: string; conversationId: string; turnId: string; outcome: string; ms: number }) => {
+    audit: (entry: { tool: string; userId: string; conversationId: string; turnId: string; args: unknown; outcome: string; ms: number; detail?: string | undefined }) => {
       if (entry.outcome === 'ok') services.toolLog.add(entry.turnId, entry.tool);
+      services.gaps.note(entry);
       logger.log({ message: 'agent tool call', tool: entry.tool, userId: entry.userId, conversationId: entry.conversationId, turnId: entry.turnId, outcome: entry.outcome, ms: entry.ms });
     },
   };
@@ -168,7 +172,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
-  controllers: [AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
+  controllers: [DataGapsController, AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -207,22 +211,24 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
         }), { now: Date.now, id: randomUUID }, prefs) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService, WhatToWatch],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService, watch: WhatToWatch): DataTools => deps => [
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService, WhatToWatch, UsFundamentalsService],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService, watch: WhatToWatch, usFundamentals: UsFundamentalsService): DataTools => deps => [
         ...buildWhatToWatchTools(watch, deps),
         ...buildViewTools(deps),
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
         ...buildMarketStatusTools(deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
-        ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
+        ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }),
+          us: symbol => (isUsListing(symbol) ? usFundamentals.get(symbol, AbortSignal.timeout(20_000)).then(r => r as unknown as Record<string, unknown> | null) : undefined) }, deps),
         ...buildOptionsTools(options, deps),
         ...buildUniverseTools(universes, deps),
         ...buildScreenerTools(scans, listPresets(), tasks, deps)] },
-    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, AgentProfileService, TurnToolLog, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS, TradingDesk],
+    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, AgentProfileService, TurnToolLog, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS, TradingDesk, DataGaps],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
-        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, profile: AgentProfileService, toolLog: TurnToolLog, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools, desk: TradingDesk) =>
-        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, profile, toolLog, calendar, runner, strategies, desk }, limiter) },
+        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, profile: AgentProfileService, toolLog: TurnToolLog, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools, desk: TradingDesk, gaps: DataGaps) =>
+        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, profile, toolLog, calendar, runner, strategies, desk, gaps }, limiter) },
+    { provide: DataGaps, inject: [DB], useFactory: (db: Database) => new DataGaps(new DrizzleDataGapsStore(db), (message, detail) => { logger.warn({ message, ...detail }); }) },
     { provide: AgentMemory, inject: [DB], useFactory: (db: Database) => new AgentMemory(new DrizzleMemoryStore(db), { id: randomUUID }) },
     { provide: TurnToolLog, useFactory: () => new TurnToolLog() },
     { provide: AgentProfileService, inject: [DB, AgentMemory],

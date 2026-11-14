@@ -11,10 +11,18 @@ export function orJsonString<T extends z.ZodType>(schema: T) {
   }).pipe(schema)]);
 }
 
+/** An ok answer that says it has nothing (`available: false`), with its reason. */
+function noData(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null || !('available' in data) || data.available !== false) return null;
+  return 'reason' in data && typeof data.reason === 'string' ? data.reason : 'no data';
+}
+
 export interface ToolContext { userId: string; conversationId: string; turnId: string }
 type ToolResult<T> = { ok: true; data: T } | { ok: false; reason: string; detail?: string };
 interface ToolAudit {
   userId: string; conversationId: string; turnId: string; tool: string; args: unknown; outcome: string; ms: number;
+  /** Why it failed, or why an ok answer carried no data (`NO_DATA`). */
+  detail?: string | undefined;
 }
 export interface GuardDeps {
   limiter: { take(key: string): Promise<boolean> };
@@ -40,7 +48,9 @@ export function guardedTool<I, O>(spec: { name: string; description: string; inp
     async call(ctx, raw) {
       const started = clock();
       const finish = (result: ToolResult<O>): ToolResult<O> => {
-        deps.audit({ ...ctx, tool: spec.name, args: raw, outcome: result.ok ? 'ok' : result.reason, ms: clock() - started });
+        const empty = result.ok ? noData(result.data) : null;
+        deps.audit({ ...ctx, tool: spec.name, args: raw, outcome: result.ok ? (empty === null ? 'ok' : 'NO_DATA') : result.reason, ms: clock() - started,
+          detail: result.ok ? empty ?? undefined : result.detail });
         return result;
       };
       const parsed = spec.input.safeParse(raw);

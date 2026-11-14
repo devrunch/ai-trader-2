@@ -1,4 +1,7 @@
 import { Logger, Module } from '@nestjs/common';
+import type { Redis } from 'ioredis';
+import { APP_CONFIG, type AppConfig } from '../../shared/config';
+import { REDIS } from '../../shared/redis';
 import { DB, type Database } from '../../shared/database';
 import { JobScheduler } from '../../shared/jobs';
 import { SourceClient, SourceRegistry } from '../../shared/sources';
@@ -9,6 +12,8 @@ import { CalendarModule } from '../calendar/calendar.module';
 import { UniversesModule } from '../instruments/universes.module';
 import { FundamentalsController } from './api/fundamentals.controller';
 import { FundamentalsService } from './application/fundamentals';
+import { UsFundamentalsService } from './application/us-fundamentals';
+import { ALPHAVANTAGE_OVERVIEW, AlphaVantageOverviewSource } from './infrastructure/sources/alphavantage-overview.source';
 import { NIFTY_500_LIST } from './application/ports/tokens';
 import type { Nifty500List } from './application/ports/fundamentals-store';
 import { DrizzleFundamentalsStore } from './infrastructure/drizzle-fundamentals.store';
@@ -27,8 +32,13 @@ const logger = new Logger('Fundamentals');
       registry.register(SCREENER_IN);
       return new FundamentalsService(new ScreenerInSource(client), new DrizzleFundamentalsStore(db), { now: Date.now, warn: (message, detail) => { logger.warn({ message, ...detail }); }, onResultsDate: (symbol, date) => calendar.recordCompanyResults(symbol, date) });
     } },
+    { provide: UsFundamentalsService, inject: [APP_CONFIG, SourceClient, SourceRegistry, REDIS], useFactory: (config: AppConfig, client: SourceClient, registry: SourceRegistry, redis: Redis) => {
+      registry.register(ALPHAVANTAGE_OVERVIEW);
+      return new UsFundamentalsService(new AlphaVantageOverviewSource(client, config.ALPHAVANTAGE_API_KEY), {
+        get: key => redis.get(key), set: async (key, value, ttlSec) => { await redis.set(key, value, 'EX', ttlSec); } });
+    } },
     { provide: FundamentalsJob, inject: [JobScheduler, FundamentalsService, NIFTY_500_LIST], useFactory: (scheduler: JobScheduler, service: FundamentalsService, list: Nifty500List) => new FundamentalsJob(scheduler, service, list) },
   ],
-  exports: [FundamentalsService, NIFTY_500_LIST],
+  exports: [FundamentalsService, UsFundamentalsService, NIFTY_500_LIST],
 })
 export class FundamentalsModule {}

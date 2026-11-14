@@ -265,7 +265,8 @@ const CalendarToolInput = CalendarQuerySchema.extend({ symbol: z.string().regex(
 export function buildCalendarTools(calendar: CalendarDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [guardedTool({ name: 'getEconomicCalendar',
     description: 'Upcoming economic releases and central-bank events (title, country, time, impact, forecast, previous, what it usually moves). '
-      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters. '
+      + 'Use before planning trades around news. It includes RBI and Indian data releases, and results dates of NIFTY 500 companies (country INR, impact Medium, title "<TICKER> results"): '
+      + 'for "results this week" ask country INR, impact Medium, days 7. '
       + 'With `symbol` (NSE:TICKER) it returns only that company\'s upcoming results date (up to 14 days ahead), read from its screener.in page and unconfirmed until the company\'s own filing.',
     input: CalendarToolInput, run: async ({ symbol, ...query }) => {
       if (!symbol) return calendar.list(query);
