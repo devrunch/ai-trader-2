@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DefaultChatTransport, type UIMessage } from 'ai';
-import { useEffect, useMemo, useState, type SyntheticEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type SyntheticEvent } from 'react';
 import { z } from 'zod';
 import { AgentStatusSchema, ThreadSummarySchema } from '@aitrader/contracts';
 import { API_HEADERS, apiFetch, apiUrl } from '../../shared/api';
@@ -10,6 +10,7 @@ import { ChatActionsContext, type ChatActions } from './chat-actions';
 import { MessageParts } from './message-parts';
 import { Knowledge } from './knowledge';
 import { ReplyFeedback } from './reply-feedback';
+import { ChatAskContext } from './chat-view';
 import { TasksList } from './tasks-list';
 
 const threadsSchema = z.array(ThreadSummarySchema);
@@ -101,6 +102,7 @@ function ChatBody({ threadId, initial, model, onMessages }: { threadId: string; 
     onFinish: () => { for (const queryKey of [['agent', 'threads'], ['paper'], ['watchlist']]) void client.invalidateQueries({ queryKey }); } });
   useEffect(() => { onMessages?.(chat.messages); }, [chat.messages, onMessages]);
   const [input, setInput] = useState('');
+  const ask = useCallback((text: string) => { if (chat.status === 'ready' || chat.status === 'error') void chat.sendMessage({ text }); }, [chat]);
   const busy = chat.status === 'submitted' || chat.status === 'streaming';
   const submit = (e: SyntheticEvent) => {
     e.preventDefault();
@@ -110,6 +112,7 @@ function ChatBody({ threadId, initial, model, onMessages }: { threadId: string; 
     setInput('');
   };
   return <>
+    <ChatAskContext value={ask}>
     <ol aria-label="Messages" className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden">
       {chat.messages.length === 0 && <li className="space-y-3">
         <p className="text-muted-foreground">Ask about a symbol, a setup, the news or your paper positions. Trade ideas come back as a card you can draw on the chart, alert on, or place on paper after you confirm.</p>
@@ -122,6 +125,7 @@ function ChatBody({ threadId, initial, model, onMessages }: { threadId: string; 
       </li>)}
       {chat.status === 'submitted' && <li className="ai-border ai-working w-fit px-3 py-1.5 text-muted-foreground">Thinking…</li>}
     </ol>
+    </ChatAskContext>
     {chat.error && <p role="alert" className="text-down">{errorText(chat.error)} <button type="button" className="underline" onClick={() => { chat.clearError(); void chat.regenerate(); }}>Retry</button></p>}
     <form onSubmit={submit} className="flex gap-2">
       <input aria-label="Message" value={input} onChange={e => { setInput(e.target.value); }} maxLength={4000} placeholder="Ask the assistant"

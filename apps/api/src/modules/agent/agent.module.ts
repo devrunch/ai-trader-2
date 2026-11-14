@@ -91,6 +91,7 @@ import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
 import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
 import { buildWhatToWatchTools } from './application/what-to-watch-tools';
+import { buildViewTools } from './application/view-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
 import { WhatToWatchJob } from './infrastructure/what-to-watch.job';
 import { WhatToWatchController } from './api/what-to-watch.controller';
@@ -208,6 +209,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
     { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService, WhatToWatch],
       useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService, watch: WhatToWatch): DataTools => deps => [
         ...buildWhatToWatchTools(watch, deps),
+        ...buildViewTools(deps),
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
         ...buildMarketStatusTools(deps),

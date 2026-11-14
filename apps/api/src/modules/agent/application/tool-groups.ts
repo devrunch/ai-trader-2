@@ -3,14 +3,14 @@ import { guardedTool, type GuardDeps, type GuardedTool } from './guarded-tool';
 
 /** Always on: the daily reads, the trade card, the desk, memory and the loader. Everything else waits for `loadTools`. */
 export const CORE_TOOLS = ['getQuote', 'getBars', 'searchInstruments', 'getIndicator', 'listIndicators', 'getNews', 'getEconomicCalendar', 'getMarketStatus', 'getPortfolio',
-  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'updateProfile', 'getWhatToWatch', 'loadTools'] as const;
+  'calculate', 'listSkills', 'useSkill', 'presentTradePlan', 'askDesk', 'remember', 'forget', 'updateProfile', 'getWhatToWatch', 'showView', 'loadTools'] as const;
 
 export const TOOL_GROUPS = {
   screening: ['scanUniverse', 'watchScreen', 'listUniverse', 'getWatchlist', 'addToWatchlist', 'removeFromWatchlist'],
   events: ['getEventScorecard', 'watchEvent'],
   'news-deep': ['getSentiment', 'getCrowd', 'watchNews'],
   execution: ['placePaperOrder', 'cancelPaperOrder', 'closePaperPosition', 'createAlert', 'scheduleTask', 'watchMove', 'listTasks', 'cancelTask'],
-  chart: ['proposeChartAction', 'proposeDrawing', 'proposePineScript'],
+  chart: ['proposeChartAction', 'proposeDrawing', 'proposePineScript', 'showCustomView'],
   strategies: ['runBacktest', 'saveStrategy'],
   research: ['getFundamentals', 'getDepth', 'webSearch'],
   options: ['getOptionChain', 'getOptionsSummary'],
@@ -21,7 +21,7 @@ const GROUP_NAMES = Object.keys(TOOL_GROUPS) as [ToolGroup, ...ToolGroup[]];
 const GROUP_PURPOSE: Record<ToolGroup, string> = {
   screening: 'scan a market or index for candidates, watchlists', events: 'how an instrument reacted to past releases, watch a release',
   'news-deep': 'news sentiment, crowd chatter, watch the news', execution: 'paper orders, alerts, promises to act later',
-  chart: 'chart indicators, drawings, Pine scripts', strategies: 'backtests and saved strategies', research: 'fundamentals, order book, web search',
+  chart: 'chart indicators, drawings, Pine scripts, a custom-drawn view', strategies: 'backtests and saved strategies', research: 'fundamentals, order book, web search',
   options: 'India F&O option chain, put-call ratio, max pain, open-interest build-ups',
 };
 

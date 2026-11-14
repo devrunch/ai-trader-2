@@ -1,8 +1,9 @@
 import type { UIMessage } from 'ai';
 import { z } from 'zod';
-import { ActionCardSchema, TradePlanSchema } from '@aitrader/contracts';
+import { ActionCardSchema, ChatViewSchema, CustomViewSchema, TradePlanSchema } from '@aitrader/contracts';
 import { ActionCard } from './action-card';
 import { TradePlanCard } from './trade-plan-card';
+import { ChatViewCard, CustomViewFrame } from './chat-view';
 import { ChatMarkdown } from './markdown';
 
 /** What askDesk returns: a plan card for a BUY or SELL, otherwise the reasons. */
@@ -38,7 +39,7 @@ function ToolTrail({ parts }: { parts: Array<Part & ToolLike> }) {
 }
 
 const isPlainTool = (part: Part): part is Part & ToolLike => isTool(part) && part.type !== 'tool-useSkill' && part.type !== 'tool-presentTradePlan' && part.type !== 'tool-askDesk'
-  && part.type !== 'tool-proposeChartAction' && part.type !== 'tool-proposeDrawing';
+  && part.type !== 'tool-proposeChartAction' && part.type !== 'tool-proposeDrawing' && part.type !== 'tool-showView' && part.type !== 'tool-showCustomView';
 
 export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role: UIMessage['role'] }) {
   // Runs of plain data lookups become one trail; everything the user acts on (cards, text, notices) stays as it is.
@@ -53,6 +54,8 @@ export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role:
     if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
     if (isTool(part) && part.type === 'tool-useSkill') return <SkillChip key={i} part={part} />;
+    if (isTool(part) && part.type === 'tool-showView') { const view = okData(part.output, ChatViewSchema); if (view) return <ChatViewCard key={i} view={view} />; }
+    if (isTool(part) && part.type === 'tool-showCustomView') { const view = okData(part.output, CustomViewSchema); if (view) return <CustomViewFrame key={i} view={view} />; }
     if (isTool(part) && (part.type === 'tool-presentTradePlan' || part.type === 'tool-askDesk')) {
       const plan = part.type === 'tool-askDesk' ? okData(part.output, DeskAnswerSchema)?.plan : okData(part.output, TradePlanSchema);
       if (plan) return <TradePlanCard key={i} plan={plan} />;

@@ -26,3 +26,4 @@ export * from './sources.js';
 export * from './options.js';
 export * from './what-to-watch.js';
 export * from './assistant-prefs.js';
+export * from './chat-view.js';
