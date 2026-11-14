@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import { BarsResponseSchema, ViewActionSchema, type ChatView, type CustomView, type ViewAction, type ViewBlock } from '@aitrader/contracts';
@@ -17,8 +17,10 @@ const ticker = (s: string) => s.split(':')[1] ?? s;
 function useViewAction() {
   const host = useChatActions();
   const ask = useContext(ChatAskContext);
+  const client = useQueryClient();
   const alert = useMutation({ mutationFn: (a: Extract<ViewAction, { type: 'set-alert' }>) => apiFetch('/v1/agent/tasks/alerts', { method: 'POST', schema: z.unknown(),
-    body: { trigger: { kind: 'price', symbol: a.symbol, op: a.op, value: a.value }, repeat: false, note: 'Set from a reply' } }) });
+    body: { trigger: { kind: 'price', symbol: a.symbol, op: a.op, value: a.value }, repeat: false, note: 'Set from a reply' } }),
+    onSettled: () => client.invalidateQueries({ queryKey: ['agent', 'tasks'] }) });
   const run = (a: ViewAction) => {
     if (a.type === 'open-symbol') host.openSymbol(a.symbol, a.interval);
     else if (a.type === 'set-alert') alert.mutate(a);

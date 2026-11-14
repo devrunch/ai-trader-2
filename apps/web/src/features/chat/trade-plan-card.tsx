@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Link } from '@tanstack/react-router';
 import { BellPlus, ChartCandlestick, PencilRuler, Sparkles, Users } from 'lucide-react';
@@ -41,6 +41,7 @@ function drawingFor(plan: TradePlanDto): Drawing {
 /** A trade idea from the assistant as something to act on: levels on a bar, size and risk, and one click to chart it, alert on it or place it on paper. */
 export function TradePlanCard({ plan }: { plan: TradePlanDto }) {
   const host = useChatActions();
+  const client = useQueryClient();
   const buy = plan.side === 'buy';
   const draw = useMutation({ mutationFn: () => { host.addDrawing(plan.id, drawingFor(plan)); return Promise.resolve(); } });
   const alerts = useMutation({ mutationFn: async () => {
@@ -49,7 +50,7 @@ export function TradePlanCard({ plan }: { plan: TradePlanDto }) {
       body: { trigger: { kind: 'price', symbol: plan.symbol, op, value }, repeat: false, note } });
     await make(buy ? 'below' : 'above', plan.stopLoss, `${plan.symbol} hit the plan's stop`);
     await make(buy ? 'above' : 'below', t1, `${plan.symbol} reached target 1`);
-  } });
+  }, onSettled: () => client.invalidateQueries({ queryKey: ['agent', 'tasks'] }) });
   const pct = Math.round(plan.confidence * 100);
   return <article className="ai-border space-y-3 p-3 text-sm" aria-label={`Trade plan: ${plan.side} ${plan.symbol}`}>
     <header className="flex flex-wrap items-center gap-2">
