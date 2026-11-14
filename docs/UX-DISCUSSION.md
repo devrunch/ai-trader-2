@@ -376,3 +376,25 @@ Before anything below: merge AG-10 to AG-13, with "Promises" and the other renam
 6. **Around releases.**
    - Before, at and after release, as decided.
    - Realistic paper fills during a release (a wider spread and slippage).
+
+## Build status (14 Nov 2026)
+
+- Steps 0 to 6 are live.
+- **Step 5:**
+  - The assistant answers with views: figures, a table, a comparison, a small chart with levels, a callout and buttons.
+  - Buttons can only do three things: open a symbol, set a price alert, or send a follow-up message.
+- **Step 5, deviation for the owner to confirm:**
+  - The plan says a custom view "cannot act". What was built: a custom view may *ask* for one of the same three actions.
+  - The user sees what the view wants and taps "Do it" or "Ignore".
+  - The view has no access to the session, cookies or network.
+- **Step 6, before, at and after a release:**
+  - Every hour, each user's high-impact releases for the next day get a task: "Watching <release>, out at HH:MM IST".
+  - The releases are those in the currencies of their watchlist and NIFTY/USDINR.
+  - The task briefs both branches 30 minutes before, reports actual against forecast 2 minutes after, then acts on tied tasks.
+  - If the move is still running, it schedules one follow-up.
+- **Step 6, paper fills near a high-impact release:**
+  - Market-style fills get 3x the normal slippage from 2 minutes before to 15 minutes after.
+  - In the first 5 minutes it is 6x.
+- **Still open:**
+  - Phone layouts for the agent window, Portfolio and Settings.
+  - The desk's run history inside the agent window. Runs open at /desk?run= today.
