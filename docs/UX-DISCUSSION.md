@@ -120,7 +120,7 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
 1. ~~Should the assistant run its own paper book?~~ Decided: no.
 2. ~~Do followed items expire?~~ Decided: after 1 to 2 hours.
 3. ~~Intraday only?~~ Decided: multi-day trades too.
-4. Is the no-new-trades window around high-impact releases right, and how long should it be?
+4. ~~A no-new-trades window around releases?~~ Decided: no. The client wants the assistant **more** active around releases.
 
 ## Decisions and notes (owner, 14 Nov 2026)
 
@@ -311,8 +311,22 @@ The owner wants it free, since it is all our data. Technical position:
    | Corners | square (`--radius: 0`) |
 
    - Fonts in the old product: Inter for text, Fraunces for headings, Geist Mono for figures.
-   - **Proposal:** the pink gradient goes away. The assistant is marked by the brand violet plus its icon, so there is one brand colour, not two.
+   - **Decided:** the pink gradient goes away (see the next round for how the assistant is marked instead).
    - **Open:** the old product was dark only. Keep a light mode, or dark only?
 2. **Stocks in focus = the stocks in the current conversation**, always.
 3. **Tasks expire after 1 to 2 hours** (watching and waiting). If a task's trade is open when it expires, the trade carries on with its stop and target; only the watching ends.
 4. **Multi-day trades are allowed**, not only intraday.
+
+## Decisions (owner, 14 Nov 2026, sixth round)
+
+1. **How the assistant looks: glass and shine in the brand violet, no gradient.**
+   - AI controls and AI-made content get a glass surface and a light sweep across them (a "shine wipe" on buttons, a soft shimmer while the assistant is working), so it reads as intelligent.
+   - Used only on the assistant's surfaces: its buttons, its replies and cards, and its working state. Everything else stays plain, so the assistant stands out.
+   - The animation stops for users who turn off motion in their system settings.
+2. **No quiet window around big releases. The assistant is more active around them** (client request).
+   - Before: a brief on what each outcome (above or below forecast) would likely mean, plus the user's positions at risk.
+   - At release: the actual against the forecast, and the first move, reported within minutes.
+   - After: it acts on the tasks tied to that release, and follows up as the move develops.
+   - **Technical note:** prices jump and spreads widen at a release. Paper fills in that window must assume worse prices (wider spread, slippage), or the paper results will look better than real trading would.
+
+Still open: keep a light mode, or dark only like the old product?
