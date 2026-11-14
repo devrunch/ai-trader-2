@@ -312,7 +312,7 @@ The owner wants it free, since it is all our data. Technical position:
 
    - Fonts in the old product: Inter for text, Fraunces for headings, Geist Mono for figures.
    - **Decided:** the pink gradient goes away (see the next round for how the assistant is marked instead).
-   - **Open:** the old product was dark only. Keep a light mode, or dark only?
+   - **Decided:** dark (the old palette) and a light mode as well (see the next round).
 2. **Stocks in focus = the stocks in the current conversation**, always.
 3. **Tasks expire after 1 to 2 hours** (watching and waiting). If a task's trade is open when it expires, the trade carries on with its stop and target; only the watching ends.
 4. **Multi-day trades are allowed**, not only intraday.
@@ -329,4 +329,50 @@ The owner wants it free, since it is all our data. Technical position:
    - After: it acts on the tasks tied to that release, and follows up as the move develops.
    - **Technical note:** prices jump and spreads widen at a release. Paper fills in that window must assume worse prices (wider spread, slippage), or the paper results will look better than real trading would.
 
-Still open: keep a light mode, or dark only like the old product?
+
+## Decisions (owner, 14 Nov 2026, seventh round)
+
+1. **Light mode too.** The old product was dark only, so the light palette is new.
+   - **Proposal:** same roles, same violet brand, tuned for a light background, with contrast checked:
+
+   | Role | Light value (proposal) |
+   |---|---|
+   | Page background | `#f5f6fa` |
+   | Panels and cards | `#ffffff`; side bars `#eef0f5` |
+   | Raised and hover surfaces | `#eceef4` |
+   | Borders and inputs | `#d9dce5` |
+   | Text | `#161a24`; muted text `#5d6273` |
+   | Brand accent (fills) | `#5b4bd6` (a deeper violet, so white text on it stays readable) |
+   | Brand accent as text | `#4f3fd0` |
+   | Buy / up | `#0b8a5b` |
+   | Sell / down | `#d63a46` |
+
+## Build plan, draft for the owner's approval (nothing starts until approved)
+
+Before anything below: merge AG-10 to AG-13, with "Promises" and the other renamed labels put back to Tasks and to words traders know.
+
+1. **Visual foundation.**
+   - The theme tokens for dark and light, from the tables above.
+   - One type scale, spacing and density, with the size of rows, buttons, panels and headers set to the TradingView reference.
+   - The assistant's glass and shine treatment; the pink gradient removed.
+   - Every existing page moved onto it, so the app looks like one product before new places are added.
+2. **The agent window and Tasks.**
+   - The Switch to agent and Back to terminal buttons.
+   - The agent window: chat in the centre, Tasks beside it, and the focus panel (stocks in the conversation, one open in full, the rest as rows).
+   - Tasks with plain titles that change with their state, 1 to 2 hour expiry, and stop, pause, resume and delete.
+   - The desk folded into the assistant, with every run in history with its trace; the AI Desk page removed.
+3. **What to watch.**
+   - Kept per user and refreshed by the assistant.
+   - Shown on Home and answered from in chat.
+   - Each item can be followed with one tap, which creates a task.
+   - The track record of past items.
+4. **Portfolio and Settings.**
+   - **Portfolio:** what the AI did next to what the user did, with the reasons and results.
+   - **Settings:** profile, the autonomy flag (paper: acts by itself; ask first), limits, email and theme in one place.
+5. **Interactive chat.**
+   - Replies built from our components: trade card, figures, table, comparison, small chart and buttons.
+   - Every button works only through our actions, with the same checks as elsewhere.
+   - Custom views in a sandbox that gets the data passed in but cannot act.
+6. **Around releases.**
+   - Before, at and after release, as decided.
+   - Realistic paper fills during a release (a wider spread and slippage).
