@@ -118,8 +118,8 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
 ### Open questions
 
 1. ~~Should the assistant run its own paper book?~~ Decided: no.
-2. Do followed items expire? For example at the end of the day, after N days, or when the reason no longer holds.
-3. Should it carry positional (multi-day) trades, or only intraday for now?
+2. ~~Do followed items expire?~~ Decided: after 1 to 2 hours.
+3. ~~Intraday only?~~ Decided: multi-day trades too.
 4. Is the no-new-trades window around high-impact releases right, and how long should it be?
 
 ## Decisions and notes (owner, 14 Nov 2026)
@@ -292,3 +292,27 @@ The owner wants it free, since it is all our data. Technical position:
    - Its pages outside the chart look good.
    - Its terminal shows a lot of information with clear, consistent buttons and controls, and still feels cohesive.
    - That is the bar for density, structure, sizing and controls across the Terminal, the agent window and every other page.
+
+## Decisions (owner, 14 Nov 2026, fifth round)
+
+1. **Colour theme: the old product's palette** (`ai-trader-frontend/app/globals.css`), used the same way everywhere:
+
+   | Role | Value |
+   |---|---|
+   | Page background | `#0b0e14` (ink navy) |
+   | Panels and cards | `#12151c`; side bars `#0e1118` |
+   | Raised and hover surfaces | `#1a1e28` |
+   | Borders and inputs | `#232733` |
+   | Text | `#e8e6f0`; muted text `#8b8a9e` |
+   | Brand accent (fills, primary buttons, focus ring) | `#6c5ce7` (indigo-violet) |
+   | Brand accent as text (links, labels) | `#8b7cf0`, the lighter variant that passes contrast |
+   | Buy / up | `#16c784` |
+   | Sell / down / destructive | `#f0525d` |
+   | Corners | square (`--radius: 0`) |
+
+   - Fonts in the old product: Inter for text, Fraunces for headings, Geist Mono for figures.
+   - **Proposal:** the pink gradient goes away. The assistant is marked by the brand violet plus its icon, so there is one brand colour, not two.
+   - **Open:** the old product was dark only. Keep a light mode, or dark only?
+2. **Stocks in focus = the stocks in the current conversation**, always.
+3. **Tasks expire after 1 to 2 hours** (watching and waiting). If a task's trade is open when it expires, the trade carries on with its stop and target; only the watching ends.
+4. **Multi-day trades are allowed**, not only intraday.
