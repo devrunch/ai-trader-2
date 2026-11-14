@@ -1,6 +1,7 @@
 import { chargesFor } from '../domain/cost-model';
 import type { WorkingOrder } from '../domain/matching';
 import { roundMoney } from '../domain/money';
+import { RELEASE_WINDOW, releaseSlippage } from '../domain/release-slippage';
 import { applyFill, FLAT } from '../domain/position';
 import type { Segment } from '../domain/segment';
 import type { PaperDeps } from './paper-settings';
@@ -10,9 +11,16 @@ export interface FillFacts { price: number; slippage: number; at: number }
 
 export function exchangeOf(instrumentId: string): string { return instrumentId.slice(0, instrumentId.indexOf(':')); }
 
-export function workingOrder(order: OrderRecord, slippageRate: number): WorkingOrder {
+export function workingOrder(order: OrderRecord, slippageAt: (at: number) => number): WorkingOrder {
   return { side: order.side, type: order.type, limitPrice: order.limitPrice, triggerPrice: order.triggerPrice, triggered: order.triggered,
-    placedAt: order.placedAt, tick: order.tick, slippageRate };
+    placedAt: order.placedAt, tick: order.tick, slippageAt };
+}
+
+/** The slippage rate for fills of this instrument between two moments: the normal rate, wider around a high-impact release. A calendar outage keeps the normal rate. */
+export async function slippageFor(instrumentId: string, from: number, to: number, deps: PaperDeps): Promise<(at: number) => number> {
+  const base = deps.settings.slippageRate;
+  const releases = await deps.releases?.near(instrumentId, from - RELEASE_WINDOW.afterMs, to + RELEASE_WINDOW.beforeMs).catch(() => []) ?? [];
+  return at => releaseSlippage(base, at, releases);
 }
 
 function requireSegment(order: Pick<OrderRecord, 'segment' | 'id'>): Segment {

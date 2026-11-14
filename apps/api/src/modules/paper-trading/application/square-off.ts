@@ -1,5 +1,5 @@
 import { matchAtPrice } from '../domain/matching';
-import { fillOrder, workingOrder } from './fill-order';
+import { fillOrder, slippageFor, workingOrder } from './fill-order';
 import type { MatchOpenOrders } from './match-open-orders';
 import type { PaperDeps } from './paper-settings';
 import type { PaperMarket } from './ports/paper-market';
@@ -42,6 +42,7 @@ export class SquareOff {
     if (!quote) this.log('paper square-off had no price; used the average price', { instrumentId: position.instrumentId, positionId: position.id });
     const price = quote?.price ?? position.averagePrice;
     const clientOrderId = `squareoff#${position.id}#${String(position.squareOffAt)}`;
+    const slippageAt = await slippageFor(position.instrumentId, now, now, this.deps);
     return this.store.inAccount(position.accountId, async tx => {
       if (await tx.orderByClientId(clientOrderId)) return false;
       const current = (await tx.positions()).find(p => p.id === position.id);
@@ -53,7 +54,7 @@ export class SquareOff {
         parentOrderId: null, referencePrice: price, fillPrice: null, placedAt: now, expiresAt: now, filledAt: null, updatedAt: now,
       };
       await tx.insertOrder(order);
-      const match = matchAtPrice(workingOrder(order, this.deps.settings.slippageRate), price, now);
+      const match = matchAtPrice(workingOrder(order, slippageAt), price, now);
       if (match.kind !== 'fill') throw new Error('A market square-off must fill');
       return fillOrder(tx, order, match, this.deps);
     });

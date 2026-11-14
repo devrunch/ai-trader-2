@@ -90,6 +90,7 @@ import { DeskController } from './api/desk.controller';
 import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
 import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
+import { ReleaseWatch } from './application/release-watch';
 import { buildWhatToWatchTools } from './application/what-to-watch-tools';
 import { buildViewTools } from './application/view-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
@@ -274,8 +275,13 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           : Promise.reject(new UnavailableError('What to watch is off: set DESK_MODEL or AGENT_MODEL'))) },
         { create: (userId, input) => tasks.create(userId, null, input, 'agent') }, { now: Date.now, id: randomUUID });
       } },
-    { provide: WhatToWatchJob, inject: [JobScheduler, WhatToWatch, DB],
-      useFactory: (scheduler: JobScheduler, watch: WhatToWatch, db: Database) => new WhatToWatchJob(scheduler, watch, async () => (await db.select({ id: usersTable.id }).from(usersTable)).map(u => u.id)) },
+    { provide: ReleaseWatch, inject: [EconomicCalendar, Watchlists, AgentTasks],
+      useFactory: (calendar: EconomicCalendar, watchlist: Watchlists, tasks: AgentTasks) => new ReleaseWatch({
+        symbols: async userId => [...(await watchlist.get(userId)).items, 'NSE:NIFTY', 'FX:USDINR'],
+        events: async () => (await calendar.list({ days: 1, impact: 'High' })).map(e => ({ title: e.title, country: e.country, at: e.at })),
+      }, { titles: async userId => (await tasks.list(userId)).map(t => t.title), create: (userId, input) => tasks.create(userId, null, input, 'agent') }, Date.now) },
+    { provide: WhatToWatchJob, inject: [JobScheduler, WhatToWatch, ReleaseWatch, DB],
+      useFactory: (scheduler: JobScheduler, watch: WhatToWatch, releases: ReleaseWatch, db: Database) => new WhatToWatchJob(scheduler, watch, releases, async () => (await db.select({ id: usersTable.id }).from(usersTable)).map(u => u.id)) },
     { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, AgentRunQueue, Notifications],
       useFactory: (scheduler: JobScheduler, tasks: AgentTasks, queue: AgentRunQueue, notifications: Notifications) => new AgentTaskJob(scheduler, tasks, queue, notifications) },
   ],

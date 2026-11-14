@@ -18,6 +18,9 @@ import { PAPER_STORE, type PaperStore } from './application/ports/paper-store';
 import { SquareOff } from './application/square-off';
 import { DrizzlePaperStore } from './infrastructure/drizzle-paper-store';
 import { MarketDataPaperMarket } from './infrastructure/market-data-paper-market';
+import { CalendarReleaseWindows } from './infrastructure/calendar-release-windows';
+import { CalendarModule } from '../calendar/calendar.module';
+import { EconomicCalendar } from '../calendar/application/index';
 import { PaperJobsRegistration } from './infrastructure/paper-jobs.registration';
 
 const PAPER_DEPS = Symbol('PAPER_DEPS');
@@ -26,14 +29,15 @@ const warn = (message: string, detail: Record<string, unknown>) => { logger.warn
 
 /** Paper trading (SRD §7.4). PAPER ONLY: no broker order API is imported anywhere in this module. */
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, NotificationsModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, NotificationsModule, CalendarModule],
   controllers: [PaperController],
   providers: [
     { provide: PAPER_STORE, inject: [DB], useFactory: (db: Database) => new DrizzlePaperStore(db) },
     { provide: PAPER_MARKET, inject: [ResolveInstrument, GetQuote, MarketDataService, RequestSubscription],
       useFactory: (resolve: ResolveInstrument, quote: GetQuote, market: MarketDataService, subscriptions: RequestSubscription) =>
         new MarketDataPaperMarket(resolve, quote, market, subscriptions, warn) },
-    { provide: PAPER_DEPS, inject: [Notifications], useFactory: (notifications: Notifications): PaperDeps => ({ clock: Date.now, ids: randomUUID, settings: DEFAULT_PAPER_SETTINGS,
+    { provide: PAPER_DEPS, inject: [Notifications, EconomicCalendar, PAPER_MARKET], useFactory: (notifications: Notifications, calendar: EconomicCalendar, market: PaperMarket): PaperDeps => ({
+      clock: Date.now, ids: randomUUID, settings: DEFAULT_PAPER_SETTINGS, releases: new CalendarReleaseWindows(calendar, market, Date.now),
       events: { filled: event => { void notifications.notify({ userId: event.userId, kind: 'fill', ...describeFill(event), link: { symbol: event.instrumentId } }); } } }) },
     { provide: PlaceOrder, inject: [PAPER_STORE, PAPER_MARKET, PAPER_DEPS],
       useFactory: (store: PaperStore, market: PaperMarket, deps: PaperDeps) => new PlaceOrder(store, market, deps) },

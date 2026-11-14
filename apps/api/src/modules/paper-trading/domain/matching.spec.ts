@@ -4,12 +4,12 @@ import { matchOrder, slipped, type PriceBar, type WorkingOrder } from './matchin
 const T = 1_800_000_000_000;
 const bar = (minute: number, open: number, high: number, low: number, close: number): PriceBar => ({ time: T + minute * 60_000, open, high, low, close });
 const order = (patch: Partial<WorkingOrder>): WorkingOrder => ({
-  side: 'buy', type: 'limit', limitPrice: null, triggerPrice: null, triggered: false, placedAt: T + 30_000, tick: 0.05, slippageRate: 0, ...patch,
+  side: 'buy', type: 'limit', limitPrice: null, triggerPrice: null, triggered: false, placedAt: T + 30_000, tick: 0.05, slippageAt: () => 0, ...patch,
 });
 
 describe('order matching FR-PT-2', () => {
   it('fills a market order at the open of the first bar after placement, with adverse slippage', () => {
-    const result = matchOrder(order({ type: 'market', slippageRate: 0.001 }), [bar(0, 99, 101, 98, 100), bar(1, 100, 102, 99, 101)]);
+    const result = matchOrder(order({ type: 'market', slippageAt: () => 0.001 }), [bar(0, 99, 101, 98, 100), bar(1, 100, 102, 99, 101)]);
     expect(result).toEqual({ kind: 'fill', price: 100.1, slippage: 0.1, at: T + 60_000 });
   });
 
@@ -31,7 +31,7 @@ describe('order matching FR-PT-2', () => {
   });
 
   it('fills a sell stop that the price gaps through at the next price, not the stop', () => {
-    const stop = order({ side: 'sell', type: 'stop', triggerPrice: 100, slippageRate: 0.001 });
+    const stop = order({ side: 'sell', type: 'stop', triggerPrice: 100, slippageAt: () => 0.001 });
     expect(matchOrder(stop, [bar(1, 95, 96, 94, 95.5)])).toEqual({ kind: 'fill', price: 94.9, slippage: 0.1, at: T + 60_000 });
     expect(matchOrder(stop, [bar(1, 102, 102, 99.5, 100.5)])).toMatchObject({ kind: 'fill', price: 99.9 });
   });

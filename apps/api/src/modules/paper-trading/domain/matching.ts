@@ -12,8 +12,8 @@ export interface WorkingOrder {
   triggered: boolean;
   placedAt: number;
   tick: number;
-  /** Adverse slippage applied to market-style fills (market, stop and a triggered stop-limit). */
-  slippageRate: number;
+  /** Adverse slippage rate at a moment, applied to market-style fills (market, stop and a triggered stop-limit); wider around releases. */
+  slippageAt: (at: number) => number;
 }
 
 export type MatchResult = { kind: 'fill'; price: number; slippage: number; at: number } | { kind: 'none'; triggered: boolean };
@@ -58,8 +58,8 @@ function evaluate(order: WorkingOrder, bar: Omit<PriceBar, 'time'>, at: number):
   if (order.type === 'stop') return marketFill(order, triggerAt, at);
   const limit = required(order.limitPrice);
   if (buy ? triggerAt > limit : triggerAt < limit) return { kind: 'none', triggered: true };
-  const price = buy ? Math.min(slipped('buy', triggerAt, order.slippageRate, order.tick), limit)
-    : Math.max(slipped('sell', triggerAt, order.slippageRate, order.tick), limit);
+  const price = buy ? Math.min(slipped('buy', triggerAt, order.slippageAt(at), order.tick), limit)
+    : Math.max(slipped('sell', triggerAt, order.slippageAt(at), order.tick), limit);
   return { kind: 'fill', price, slippage: difference(price, triggerAt), at };
 }
 
@@ -71,7 +71,7 @@ function limitFill(order: WorkingOrder, bar: Omit<PriceBar, 'time'>, at: number)
 }
 
 function marketFill(order: WorkingOrder, base: number, at: number): MatchResult {
-  const price = slipped(order.side, base, order.slippageRate, order.tick);
+  const price = slipped(order.side, base, order.slippageAt(at), order.tick);
   return { kind: 'fill', price, slippage: difference(price, base), at };
 }
 

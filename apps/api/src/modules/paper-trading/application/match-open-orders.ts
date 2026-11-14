@@ -1,5 +1,5 @@
 import { matchOrder } from '../domain/matching';
-import { fillOrder, workingOrder } from './fill-order';
+import { fillOrder, slippageFor, workingOrder } from './fill-order';
 import type { PaperDeps } from './paper-settings';
 import type { PaperMarket } from './ports/paper-market';
 import type { OrderRecord, PaperStore } from './ports/paper-store';
@@ -40,9 +40,10 @@ export class MatchOpenOrders {
   private async matchInstrument(instrumentId: string, orders: OrderRecord[], signal?: AbortSignal): Promise<{ filled: number; triggered: number }> {
     const since = Math.floor(Math.min(...orders.map(o => o.placedAt)) / MINUTE) * MINUTE;
     const bars = await this.market.barsSince(instrumentId, since, signal);
+    const slippageAt = await slippageFor(instrumentId, since, this.deps.clock(), this.deps);
     let filled = 0; let triggered = 0;
     for (const order of orders) {
-      const result = matchOrder(workingOrder(order, this.deps.settings.slippageRate), bars.filter(b => b.time < order.expiresAt));
+      const result = matchOrder(workingOrder(order, slippageAt), bars.filter(b => b.time < order.expiresAt));
       if (result.kind === 'fill') {
         const done = await this.store.inAccount(order.accountId, async tx => {
           const current = await tx.order(order.id);

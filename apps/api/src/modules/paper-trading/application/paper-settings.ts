@@ -15,4 +15,6 @@ export const DEFAULT_PAPER_SETTINGS: PaperSettings = {
 
 /** A fill, for whoever wants to tell the user (in-app notifications). Raised inside the fill's transaction. */
 interface PaperFillEvent { userId: string; instrumentId: string; side: 'buy' | 'sell'; quantity: number; price: number; realised: number; clientOrderId: string }
-export interface PaperDeps { clock: () => number; ids: () => string; settings: PaperSettings; events?: { filled(event: PaperFillEvent): void } }
+/** High-impact release times that move an instrument, between two moments. */
+export interface ReleaseWindows { near(instrumentId: string, from: number, to: number): Promise<number[]> }
+export interface PaperDeps { clock: () => number; ids: () => string; settings: PaperSettings; events?: { filled(event: PaperFillEvent): void }; releases?: ReleaseWindows }

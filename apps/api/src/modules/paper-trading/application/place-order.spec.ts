@@ -27,6 +27,14 @@ describe('PlaceOrder FR-PT-1..4, FR-PT-6, NFR-RB-4', () => {
     expect(store.state.accounts[0]).toMatchObject({ cash: 1_000_000 - charges.total, charges: charges.total, realisedPnl: 0 });
   });
 
+  it('fills a market order at a high-impact release at a much worse price, and at the normal one when the calendar is down', async () => {
+    const deps = { ...fakeDeps(clock), settings: { ...fakeDeps(clock).settings, slippageRate: 0.0003 } };
+    const at = new PlaceOrder(store, market, { ...deps, releases: { near: () => Promise.resolve([NOW - 60_000]) } });
+    expect(await at.execute('user-1', request())).toMatchObject({ status: 'filled', fillPrice: 1502.7 });
+    const down = new PlaceOrder(store, market, { ...deps, releases: { near: () => Promise.reject(new Error('calendar down')) } });
+    expect(await down.execute('user-1', request({ clientOrderId: 'c-2' }))).toMatchObject({ status: 'filled', fillPrice: 1500.45 });
+  });
+
   it('settles a US stock in its own dollar account, with limits scaled to dollars', async () => {
     const aapl = { id: 'NASDAQ:AAPL', exchange: 'NASDAQ', type: 'stock', currency: 'USD', status: 'active', lotSize: 1, tick: 0.01 };
     market.instruments.set(aapl.id, aapl); market.quotes.set(aapl.id, { price: 200, at: NOW });

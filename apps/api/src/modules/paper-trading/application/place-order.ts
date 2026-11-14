@@ -6,7 +6,7 @@ import { InvalidOrderError, validateOrder } from '../domain/order';
 import { checkRisk, type RiskLimits } from '../domain/risk';
 import { segmentOf, type Segment, type TradableInstrument } from '../domain/segment';
 import { orderExpiresAt, squareOffAt, type Session } from '../domain/session-rules';
-import { exchangeOf, fillOrder, workingOrder } from './fill-order';
+import { exchangeOf, fillOrder, slippageFor, workingOrder } from './fill-order';
 import { marginInUse } from './margin-in-use';
 import type { PaperDeps } from './paper-settings';
 import type { PaperMarket } from './ports/paper-market';
@@ -37,13 +37,14 @@ export class PlaceOrder {
     const quote = await this.market.quote(instrument.id);
     const now = this.deps.clock();
     const session = this.market.session(instrument.id, now);
+    const slippageAt = await slippageFor(instrument.id, now, now, this.deps);
     return this.store.inAccount(account.id, async tx => {
       const again = await tx.orderByClientId(request.clientOrderId);
       if (again) return sameOrder(again, request, instrument.id);
       const order = await this.decide(tx, { accountId: account.id, request, instrument, segment, quote, session, now, limits: terms.limits });
       await tx.insertOrder(order);
       if (order.status !== 'open' || !quote || now - quote.at > this.deps.settings.freshQuoteMs) return order;
-      const match = matchAtPrice(workingOrder(order, this.deps.settings.slippageRate), quote.price, now);
+      const match = matchAtPrice(workingOrder(order, slippageAt), quote.price, now);
       if (match.kind !== 'fill') return order;
       await fillOrder(tx, order, match, this.deps);
       return (await tx.order(order.id)) ?? order;
