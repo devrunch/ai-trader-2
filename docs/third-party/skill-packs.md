@@ -102,3 +102,7 @@ The multi-role trading desk (analysts, bull/bear debate, trader, risk manager) f
 
 - Paper: Xiao, Sun, Luo, Wang, "TradingAgents: Multi-Agents LLM Financial Trading Framework", arXiv:2412.20138 (2024).
 - Repository: https://github.com/TauricResearch/TradingAgents, Apache-2.0 (licence text in `docs/third-party/LICENSE-Apache-2.0.txt`), checked at commit 9fa1196 (2026-11-04).
+
+## Market skills written in-house (AG-10)
+
+`risk-atr-correlation`, `macro-fx-carry`, `event-surprise-playbook`, `commodities-crude-gold`, `crypto-24x7`, `us-earnings`, `india-fno-expiry`, `india-gap-playbook`, `screener-ideas` are our own text, written for this app's tools. No upstream pack is vendored for them, so there is no licence or commit to pin. A `Markets:` line in a skill file sets its group in `listSkills`.

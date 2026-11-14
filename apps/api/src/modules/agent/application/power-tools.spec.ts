@@ -76,9 +76,20 @@ describe('assistant power tools', () => {
   it('lists and loads versioned skills', async () => {
     const skills = { keys: () => ['system', 'skill-trend-check'], active: vi.fn().mockResolvedValue({ version: 2, content: '# Trend check\nDecide the trend from data.\n\n1. ...' }) };
     const tools = buildSkillTools(skills, deps);
-    expect(await byName(tools, 'listSkills')?.call(ctx, {})).toEqual({ ok: true, data: [{ name: 'trend-check', title: 'Trend check', summary: 'Decide the trend from data.' }] });
+    expect(await byName(tools, 'listSkills')?.call(ctx, {})).toEqual({ ok: true, data: [{ market: 'all', skills: [{ name: 'trend-check', title: 'Trend check', summary: 'Decide the trend from data.' }] }] });
     expect(await byName(tools, 'useSkill')?.call(ctx, { name: 'trend-check' })).toMatchObject({ ok: true, data: { version: 2 } });
     expect(await byName(tools, 'useSkill')?.call(ctx, { name: 'nope' })).toMatchObject({ ok: false, reason: 'VALIDATION_FAILED' });
+  });
+
+  it('groups skills by market, listing a multi-market skill under each', async () => {
+    const files: Record<string, string> = { 'skill-macro': '# Macro\nRates and sessions.\nMarkets: forex, commodities\n1. x', 'skill-fno': '# F&O\nExpiry day.\nMarkets: india\n1. x', 'skill-risk': '# Risk\nSize it.\n1. x' };
+    const skills = { keys: () => ['system', ...Object.keys(files)], active: (k: string) => Promise.resolve({ version: 0, content: files[k] ?? '' }) };
+    const out = await byName(buildSkillTools(skills, deps), 'listSkills')?.call(ctx, {});
+    expect(out).toEqual({ ok: true, data: [
+      { market: 'commodities', skills: [{ name: 'macro', title: 'Macro', summary: 'Rates and sessions.' }] },
+      { market: 'forex', skills: [{ name: 'macro', title: 'Macro', summary: 'Rates and sessions.' }] },
+      { market: 'india', skills: [{ name: 'fno', title: 'F&O', summary: 'Expiry day.' }] },
+      { market: 'all', skills: [{ name: 'risk', title: 'Risk', summary: 'Size it.' }] }] });
   });
 
   it('schedules tasks in the current conversation', async () => {

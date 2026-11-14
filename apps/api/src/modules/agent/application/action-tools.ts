@@ -46,7 +46,7 @@ export function buildIndicatorTools(s: IndicatorToolServices, deps: GuardDeps): 
 export function buildActionTools(cards: ActionCardPort, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
     guardedTool({ name: 'proposeChartAction',
-      description: 'Propose a change to the user\'s chart for them to confirm: add an indicator (with inputs) or open a symbol. Nothing changes until the user applies the card.',
+      description: 'Propose a change to the user\'s chart for them to confirm: add an indicator (with inputs), remove one (by indicatorId; `match` narrows to the instance with those inputs), change an indicator\'s inputs (set-indicator-inputs), or open a symbol. Nothing changes until the user applies the card.',
       input: ChartActionSchema, run: (action, ctx) => cards.propose(ctx.userId, action) }, deps),
     guardedTool({ name: 'proposeDrawing',
       description: 'Propose chart drawings computed by the server from real bars: support/resistance levels, a trend line through recent swings, or the high/low of a time range. The result shows the computed prices; the user applies the card to draw them.',

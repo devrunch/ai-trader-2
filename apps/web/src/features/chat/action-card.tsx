@@ -11,9 +11,14 @@ import { PineSummary } from './pine-summary';
 type Inputs = Record<string, number | boolean | string>;
 const key = (id: string) => ['agent', 'action', id] as const;
 
+const inputsText = (inputs: Inputs): string => Object.entries(inputs).map(([k, v]) => `${k} ${String(v)}`).join(', ');
+const matchText = (match: Inputs): string => (Object.keys(match).length > 0 ? ` (${inputsText(match)})` : '');
+
 const describe = (action: AgentAction): string => {
   switch (action.kind) {
     case 'add-indicator': return `Add ${action.indicatorId.toUpperCase()} to the chart`;
+    case 'remove-indicator': return `Remove ${action.indicatorId.toUpperCase()}${matchText(action.match)} from the chart`;
+    case 'set-indicator-inputs': return `Change ${action.indicatorId.toUpperCase()}${matchText(action.match)} to ${inputsText(action.inputs)}`;
     case 'add-pine': return `Save “${action.name}” to My scripts and add it to the chart`;
     case 'place-order': return describeOrder(action);
     case 'open-symbol': return `Open ${action.symbol}${action.interval ? ` on ${action.interval}` : ''}`;
@@ -37,6 +42,8 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
   const host = useChatActions();
   const addIndicator = useIndicatorStore(state => state.add);
   const addPine = useIndicatorStore(state => state.addPine);
+  const removeMatching = useIndicatorStore(state => state.removeMatching);
+  const updateMatching = useIndicatorStore(state => state.updateMatching);
   const card = useQuery({ queryKey: key(proposed.id), initialData: proposed, staleTime: 0,
     queryFn: ({ signal }) => apiFetch(`/v1/agent/actions/${proposed.id}`, { schema: ActionCardSchema, signal }) });
   const [draft, setDraft] = useState<AgentAction | null>(null);
@@ -47,6 +54,8 @@ export function ActionCard({ proposed }: { proposed: ActionCardDto }) {
   const run = (applied: ActionCardDto) => {
     const { action: done } = applied;
     if (done.kind === 'add-indicator') addIndicator(done.indicatorId, done.inputs);
+    else if (done.kind === 'remove-indicator') { if (removeMatching(done.indicatorId, done.match) === 0) throw new Error(`${done.indicatorId.toUpperCase()} is not on the chart`); }
+    else if (done.kind === 'set-indicator-inputs') { if (updateMatching(done.indicatorId, done.match, done.inputs) === 0) throw new Error(`${done.indicatorId.toUpperCase()} is not on the chart`); }
     else if (done.kind === 'add-pine') {
       if (!done.check.ok) throw new Error(done.check.error);
       void client.invalidateQueries({ queryKey: ['pine-scripts'] });
@@ -117,7 +126,7 @@ function Fields({ action, onChange }: { action: AgentAction; onChange: (next: Ag
     }
     return null;
   }
-  if (action.kind === 'add-pine' || action.kind === 'place-order') return null;
+  if (action.kind === 'add-pine' || action.kind === 'place-order' || action.kind === 'remove-indicator') return null;
   if (action.kind === 'open-symbol') {
     return <div className="flex flex-wrap gap-2">
       <label className="flex items-center gap-1">Symbol<input aria-label="Symbol" value={action.symbol} onChange={e => { onChange({ ...action, symbol: e.target.value.toUpperCase() }); }}

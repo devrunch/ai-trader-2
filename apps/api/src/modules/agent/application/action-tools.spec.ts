@@ -35,6 +35,20 @@ describe('action cards (FR-AG-17)', () => {
     expect([...store.rows.values()][0]?.userId).toBe('u1');
   });
 
+  it('proposes removing an indicator and changing its settings as pending cards (FR-IN-24)', async () => {
+    const { cards } = setup();
+    const [tool] = buildActionTools(cards, deps);
+    expect(await tool?.call(ctx, { kind: 'remove-indicator', indicatorId: 'rsi', match: { length: 14 } })).toMatchObject({ ok: true, data: { state: 'pending', action: { kind: 'remove-indicator', indicatorId: 'rsi', match: { length: 14 } } } });
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'rsi', inputs: { length: 9 } })).toMatchObject({ ok: true, data: { state: 'pending', action: { kind: 'set-indicator-inputs', match: {}, inputs: { length: 9 } } } });
+  });
+
+  it('checks the new inputs of a settings change against the indicator', async () => {
+    const { cards } = setup();
+    const [tool] = buildActionTools(cards, deps);
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'rsi', inputs: { length: 0 } })).toMatchObject({ ok: false, detail: expect.stringContaining('out of range') as unknown });
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'nope', inputs: { length: 5 } })).toMatchObject({ ok: false, detail: expect.stringContaining('Unknown indicator') as unknown });
+  });
+
   it('refuses unknown indicators and bad inputs with a reason the model can read', async () => {
     const { cards } = setup();
     const [tool] = buildActionTools(cards, deps);

@@ -13,15 +13,24 @@ const SKILL = /^skill-[a-z0-9-]{1,57}$/;
 
 export interface SkillSource { keys(): string[]; active(key: string): Promise<{ content: string; version: number }> }
 
+/** An optional line in a skill file naming its markets, e.g. `Markets: forex, commodities`; no line means all. */
+const MARKETS = /^Markets:\s*(.+)$/m;
+
 /** Skills are versioned prompts named `skill-*`: the admin edits them like the system prompt; each use records its version. */
 export function buildSkillTools(skills: SkillSource, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
-    guardedTool({ name: 'listSkills', description: 'The playbooks you can follow (position sizing, risk/reward, trend check, breakout watch, ...), with a one-line summary each.',
-      input: z.looseObject({}), run: async () => Promise.all(skills.keys().filter(k => SKILL.test(k)).map(async key => {
-        const { content } = await skills.active(key);
-        const [title = key, summary = ''] = content.split('\n').map(l => l.replace(/^#\s*/, '').trim()).filter(Boolean);
-        return { name: key.slice('skill-'.length), title, summary };
-      })) }, deps),
+    guardedTool({ name: 'listSkills', description: 'The playbooks you can follow, grouped by market (india, forex, commodities, us, crypto, all), with a one-line summary each. A skill tagged for several markets is listed under each.',
+      input: z.looseObject({}), run: async () => {
+        const entries = await Promise.all(skills.keys().filter(k => SKILL.test(k)).map(async key => {
+          const { content } = await skills.active(key);
+          const [title = key, summary = ''] = content.split('\n').map(l => l.replace(/^#\s*/, '').trim()).filter(l => l && !MARKETS.test(l));
+          const markets = (MARKETS.exec(content)?.[1] ?? 'all').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+          return { skill: { name: key.slice('skill-'.length), title, summary }, markets };
+        }));
+        const groups = new Map<string, Array<{ name: string; title: string; summary: string }>>();
+        for (const { skill, markets } of entries) for (const m of markets) groups.set(m, [...(groups.get(m) ?? []), skill]);
+        return [...groups].sort(([x], [y]) => (x === 'all' ? 1 : y === 'all' ? -1 : x.localeCompare(y))).map(([market, list]) => ({ market, skills: list }));
+      } }, deps),
     guardedTool({ name: 'useSkill', description: 'Load one playbook by name and follow its steps.',
       input: z.strictObject({ name: z.string().regex(/^[a-z0-9-]{1,57}$/) }),
       run: async input => {

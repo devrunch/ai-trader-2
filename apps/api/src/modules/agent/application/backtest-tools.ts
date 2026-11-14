@@ -18,7 +18,7 @@ export interface BacktestDesk {
 const iso = (ms: number): string => new Date(ms).toISOString();
 
 /** What a backtest found, as the one line the trade journal keeps and the numbers the auto-trade gate judges. */
-function noteOf(result: BacktestResult): BacktestNote {
+export function noteOf(result: BacktestResult): BacktestNote {
   const { metrics: m, sample } = result;
   return { symbol: sample.symbol, interval: sample.interval, profitFactor: m.profitFactor, tradeCount: m.tradeCount,
     summary: `${sample.symbol} ${sample.interval}, ${String(sample.bars)} bars: return ${String(m.totalReturnPct)}%, max drawdown ${String(m.maxDrawdownPct)}%, ${String(m.tradeCount)} trades, profit factor ${String(m.profitFactor)}` };

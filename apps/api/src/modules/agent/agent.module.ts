@@ -25,6 +25,7 @@ import { BacktestRunner, Strategies } from '../strategies/application/index';
 import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { buildDepthTools } from './application/depth-tools';
+import { buildMarketStatusTools, deskMarketLine } from './application/market-status-tools';
 import { buildEventScorecardTools } from './application/event-tools';
 import { buildResearchTools } from './application/research-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
@@ -73,6 +74,7 @@ import { PaperVenue } from './infrastructure/paper-venue';
 import { AsOfDeskData } from './application/desk-data';
 import { DeskBacktests } from './application/desk-backtest';
 import { DeskTaskRunner } from './application/desk-task';
+import { buildSetupBacktest } from './application/desk-setup-backtest';
 import { TradingDesk, type DeskModel } from './application/trading-desk';
 import { DeskController } from './api/desk.controller';
 import { AgentQueueController } from './api/agent-queue.controller';
@@ -180,6 +182,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
       useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService): DataTools => deps => [
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
+        ...buildMarketStatusTools(deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
         ...buildUniverseTools(universes, deps),
@@ -201,7 +204,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         const model: DeskModel = spec ? new AiDeskModel(createLanguageModel(parseModelSpec(spec), config))
           : { generate: () => Promise.reject(new UnavailableError('The trading desk is off: set DESK_MODEL or AGENT_MODEL')) };
         const routed = venues.routed();
-        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }, { forEvents: (events, limit, asOf) => scorecards.forEvents(events, limit, asOf) }), model, new DrizzleDeskRunStore(db),
+        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }, { forEvents: (events, limit, asOf) => scorecards.forEvents(events, limit, asOf) }, deskMarketLine), model, new DrizzleDeskRunStore(db),
           { maxTokens: config.DESK_MAX_TOKENS, dailyRuns: config.DESK_DAILY_RUNS, minRewardRisk: 1.5, maxRiskPct: 0.5, defaultCash: 1_000_000 },
           { now: Date.now, id: randomUUID, skills: () => prompts.keys().filter(k => k.startsWith('skill-')).map(k => k.slice('skill-'.length)),
             cash: async (userId, symbol) => (await routed.account(userId, symbol).catch(() => ({ initialCash: 1_000_000 }))).initialCash });
@@ -210,8 +213,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
       useFactory: (db: Database, desk: TradingDesk, market: MarketDataService) => new DeskBacktests(desk,
         { after: async (symbol, interval, from, limit) => (await market.bars(symbol, interval, { since: from }, limit)).bars.filter(b => b.time >= from).sort((a, b) => a.time - b.time).slice(0, limit) },
         new DrizzleDeskBacktestStore(db), { now: Date.now, id: randomUUID }) },
-    { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications],
-      useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications) => new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }) },
+    { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications, BacktestRunner],
+      useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications, runner: BacktestRunner) =>
+        new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }, buildSetupBacktest(runner)) },
     { provide: TaskFirer, inject: [ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns, DeskTaskRunner],
       useFactory: (chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns, desk: DeskTaskRunner) =>
         new TaskFirer(chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs, desk) },

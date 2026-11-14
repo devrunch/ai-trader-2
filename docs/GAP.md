@@ -62,13 +62,13 @@ Removed by owner 2026-11-12 (no longer tracked here):
 | FR-AG-2 | Models with fallback per task | partial | `models/model-factory.ts` (Gemini + Bedrock); fallback chain not confirmed per task |
 | FR-AG-3 | Per-turn budget, per-user daily cap | partial | `turn-budget.ts`; admin-editable daily cap not found |
 | FR-AG-4 | No orders, no broker access | dropped | superseded by paper-only rule; broker unreachable from agent code |
-| FR-AG-5 | Guarded read functions | partial | getBars/getQuote/searchInstruments/getPortfolio/getNews/getEconomicCalendar/indicator tools exist; no `scanUniverse` |
+| FR-AG-5 | Guarded read functions | done | all agent tools listed in the system prompt (tool-guide spec) and tested per asset class; `scanUniverse`, `getDepth`, `getFundamentals`, `getEventScorecard`, `getSentiment`, `getCrowd`, `webSearch`, `getMarketStatus` (AG-10) |
 | FR-AG-6 | Numbers come from tools | done | server-computed drawings and levels; `calculate` tool |
 | FR-AG-7 | Agent code never runs on server | done | declarative specs; Pine only in sandboxed pool |
 | FR-AG-8 | Streaming chat with tool cards | done | `chat/message-parts.tsx`, P7 |
 | FR-AG-9 | Threads and working memory | done | `agent-memory.ts`, P7-9, `threads.ts` |
 | FR-AG-10 | Skills in SKILL.md format | partial | 13 `skill-*.md` prompt skills with `listSkills/useSkill`; not Agent-Skills/Workspace format, no `skill_search` |
-| FR-AG-11 | Vendored skill sources at pinned commits | partial | day-trader skills adapted (P8-1); tradermonty set not vendored |
+| FR-AG-11 | Vendored skill sources at pinned commits | partial | day-trader skills adapted (P8-1); AG-1 packs pinned; AG-10 market skills (macro-fx-carry, event-surprise-playbook, commodities-crude-gold, crypto-24x7, us-earnings, india-fno-expiry, india-gap-playbook, screener-ideas, risk-atr-correlation) are our own, no upstream; `listSkills` groups by market |
 | FR-AG-12 | Broker skills removed | done | none present |
 | FR-AG-13 | Skill data via guarded functions | done | skills call the same tools |
 | FR-AG-14 | Skill scripts in isolated sandbox | missing | no AgentCore/sandbox; skills are prompts + `calculate` only |
@@ -110,7 +110,7 @@ Removed by owner 2026-11-12 (no longer tracked here):
 | FR-IN-21 | Alert conditions on indicators | done | P9-5 |
 | FR-IN-22 | Server-side alert evaluation | done | P9-4/5 |
 | FR-IN-23 | Alert recovery after outage | partial | not confirmed in alerts code; E1 repairs exist |
-| FR-IN-24 | Agent adds/removes indicators, reads values | partial | `getIndicator`, `proposeChartAction` (add via card); no remove or change-settings tool |
+| FR-IN-24 | Agent adds/removes indicators, reads values | done | `getIndicator`; `proposeChartAction` adds, removes (`remove-indicator`) and changes inputs (`set-indicator-inputs`) via cards (AG-10) |
 | FR-IN-25 | Paste code or link into chat | done | P7-10 `proposePineScript` |
 | FR-IN-26 | Checked before offered (compile, coverage, test run) | partial | compile + coverage errors shown; no sample-bar run |
 | FR-IN-27 | Action card, then modal; never saves alone | partial | action card done; no modal (card applies directly) |
