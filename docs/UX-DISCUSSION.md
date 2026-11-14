@@ -74,3 +74,52 @@ What the code does today, against the goal of one assistant that can do anything
    - It is learned from conversations and from behaviour (cards applied or dismissed, answers marked useful or not) and read at the start of every turn.
 5. **Plain promises in every reply and screen:** "If X happens, I will do Y", never the mechanism.
 6. **Data gaps to close:** options chain and open interest from Kite; a company earnings calendar.
+
+## Flow: how the assistant runs on its own (proposal, under discussion)
+
+Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; this sits behind a flag so it can be switched to "ask first" later. What follows is the proposed flow, not yet agreed.
+
+### When nothing is set up (empty)
+
+- **Proposed:** the assistant does **not** trade on the user's behalf without a reason the user has seen.
+  - It still writes What to watch and offers each item as "Want me to follow this?"
+  - It trades only what the user has accepted (from What to watch or from chat).
+- **Open:** should the assistant also run **its own paper book**? That would be separate money, trading its own ideas with no user input, purely to build a track record we can judge it by. This fits "paper is our test of the AI".
+
+### When it starts
+
+- A followed item becomes active when the user accepts it.
+- It acts only while that instrument's market is open: NSE 09:15 to 15:30 IST; MCX into the evening; forex Monday to Friday around the clock; crypto always.
+- It never acts on stale prices. If the feed is down or Zerodha is disconnected, it waits and says so.
+
+### What a day looks like (Indian equities as the example)
+
+1. **Before the open:** What to watch is ready, including items carried over from yesterday that are still being followed.
+2. **At the open:** followed items are live.
+3. **When a condition is met:** it places the paper trade inside the limits, then tells the user in plain words what it did and why, with one tap to close it.
+4. **During the trade:** the stop and target are set at entry and never widened. It reports only when something changes.
+5. **At the close:** intraday positions are closed before the market shuts (15:15 IST for NSE intraday). Positional trades stay open with their stop.
+6. **After the close:** a recap of what was flagged, what it did, and how it went, which feeds the track record.
+
+### When it stops
+
+- **For one trade:** the stop or target is hit; the user closes it; the reason no longer holds (it says why).
+- **For the day:**
+  - the daily loss limit is hit;
+  - the trades-per-day limit is reached;
+  - the market closes;
+  - the data goes stale or the broker disconnects (it waits, and resumes when data is back).
+- **Until the user says so:** the user pauses it, or an admin uses the kill switch. Everything stays visible; nothing new is entered.
+- **Proposed, open:** around a high-impact release (for example the RBI decision), it does not enter new trades from 15 minutes before to 15 minutes after, unless the followed item is about that release.
+
+### When it starts again
+
+- The next trading session for that market, or when the user resumes.
+- After a daily-limit stop it starts fresh the next day and says so in What to watch.
+
+### Open questions
+
+1. Should the assistant run its own paper book (its own ideas, its own money) in addition to following the user's accepted items?
+2. Do followed items expire? For example at the end of the day, after N days, or when the reason no longer holds.
+3. Should it carry positional (multi-day) trades, or only intraday for now?
+4. Is the no-new-trades window around high-impact releases right, and how long should it be?
