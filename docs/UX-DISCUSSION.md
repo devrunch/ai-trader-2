@@ -271,7 +271,7 @@ The owner wants it free, since it is all our data. Technical position:
    - The stocks in focus are shown as **numbers**: price and move, their fundamentals, and the figures the assistant is using.
    - Charts stay in the Terminal; the assistant can still show a small chart inside a reply when it explains something.
 
-### Proposal to confirm: the numbers shown for a stock in focus
+### The numbers shown for a stock in focus (confirmed)
 
 - **Price:** last price, change today, day range, volume against its usual volume, where it sits in its 52-week range.
 - **Fundamentals (NSE):** P/E, ROE, debt to equity, sales and profit growth, promoter holding.
@@ -279,3 +279,16 @@ The owner wants it free, since it is all our data. Technical position:
 - **Coming up:** the next event or results date that can move it.
 - **Yours:** open position and P&L, and the tasks on it with their plain titles.
 - **The assistant's view:** its current call (buy, sell, hold or watch), how sure it is, and its levels.
+
+## Decisions (owner, 14 Nov 2026, fourth round)
+
+1. **The focus numbers above are confirmed.** They get cluttered beyond about three stocks, so the layout has to stay readable as the list grows:
+   - one stock is open in full at a time;
+   - the others are one compact row each (name, price, move, the assistant's call, a task badge) that opens in full on click.
+2. **Density: in between, not compressed.**
+   - The current UI squeezes too much (13px base, tight rows, small buttons).
+   - The whole app must look like one product, with the same structure and sizes everywhere: type scale, spacing, row heights, button sizes, panels and headers.
+3. **Reference: TradingView.**
+   - Its pages outside the chart look good.
+   - Its terminal shows a lot of information with clear, consistent buttons and controls, and still feels cohesive.
+   - That is the bar for density, structure, sizing and controls across the Terminal, the agent window and every other page.
