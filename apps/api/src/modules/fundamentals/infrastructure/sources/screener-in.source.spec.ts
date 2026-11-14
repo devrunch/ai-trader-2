@@ -20,6 +20,25 @@ describe('screener-in descriptor', () => {
   });
 });
 
+describe('upcoming results date', () => {
+  it('reads the results date the page announces as an ISO date', () => {
+    expect(parseScreenerPage(fixture('reliance-upcoming-results.html')).figures.nextResultsDate).toBe('2026-11-14');
+  });
+
+  it('is null when the page announces none', () => {
+    expect(parseScreenerPage(fixture('reliance.html')).figures.nextResultsDate).toBeNull();
+  });
+
+  it('is null for an impossible date rather than an error', () => {
+    const bad = fixture('reliance-upcoming-results.html').replace('14 Nov 2026', '31 Feb 2026');
+    expect(parseScreenerPage(bad).figures.nextResultsDate).toBeNull();
+  });
+
+  it('still throws a parse error when the ratios are gone, whatever the date says', () => {
+    expect(() => parseScreenerPage(fixture('shape-changed.html').replace('<body>', '<body><p>Upcoming results: 14 Nov 2026</p>'))).toThrow(FundamentalsParseError);
+  });
+});
+
 describe('parsing a recorded company page', () => {
   const { figures } = parseScreenerPage(fixture('reliance.html'));
 

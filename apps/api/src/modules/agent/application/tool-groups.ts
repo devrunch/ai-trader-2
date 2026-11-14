@@ -13,6 +13,7 @@ export const TOOL_GROUPS = {
   chart: ['proposeChartAction', 'proposeDrawing', 'proposePineScript'],
   strategies: ['runBacktest', 'saveStrategy'],
   research: ['getFundamentals', 'getDepth', 'webSearch'],
+  options: ['getOptionChain', 'getOptionsSummary'],
 } as const;
 export type ToolGroup = keyof typeof TOOL_GROUPS;
 const GROUP_NAMES = Object.keys(TOOL_GROUPS) as [ToolGroup, ...ToolGroup[]];
@@ -21,6 +22,7 @@ const GROUP_PURPOSE: Record<ToolGroup, string> = {
   screening: 'scan a market or index for candidates, watchlists', events: 'how an instrument reacted to past releases, watch a release',
   'news-deep': 'news sentiment, crowd chatter, watch the news', execution: 'paper orders, alerts, promises to act later',
   chart: 'chart indicators, drawings, Pine scripts', strategies: 'backtests and saved strategies', research: 'fundamentals, order book, web search',
+  options: 'India F&O option chain, put-call ratio, max pain, open-interest build-ups',
 };
 
 export const groupOf = (name: string): ToolGroup | undefined => GROUP_NAMES.find(g => (TOOL_GROUPS[g] as readonly string[]).includes(name));

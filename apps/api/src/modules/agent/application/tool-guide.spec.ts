@@ -7,7 +7,7 @@ const names = readdirSync(__dirname).filter(f => f.endsWith('.ts') && !f.endsWit
 const guide = readFileSync(join(__dirname, '..', 'prompts', 'system.md'), 'utf8');
 
 it('lists every agent tool, including each AG-7..AG-9 data tool, in the system prompt tool guide', () => {
-  for (const tool of ['getDepth', 'getFundamentals', 'scanUniverse', 'watchScreen', 'getEventScorecard', 'getSentiment', 'getCrowd', 'webSearch', 'getMarketStatus', 'listUniverse']) expect(names).toContain(tool);
+  for (const tool of ['getDepth', 'getFundamentals', 'scanUniverse', 'watchScreen', 'getEventScorecard', 'getSentiment', 'getCrowd', 'webSearch', 'getMarketStatus', 'listUniverse', 'getOptionChain', 'getOptionsSummary']) expect(names).toContain(tool);
   const missing = [...new Set(names)].filter(n => !guide.includes(`\`${n}\``));
   expect(missing).toEqual([]);
 });

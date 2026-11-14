@@ -6,7 +6,7 @@ import { isFresh, visibleAt } from '../domain/visibility';
 import type { FundamentalsSource } from './ports/fundamentals-source';
 import type { FundamentalsStore } from './ports/fundamentals-store';
 
-export interface FundamentalsEnv { now: () => number; warn: (message: string, detail?: Record<string, unknown>) => void }
+export interface FundamentalsEnv { now: () => number; warn: (message: string, detail?: Record<string, unknown>) => void; /** Called with an upcoming results date after a record is saved; a failure here never fails the refresh. */ onResultsDate?: (symbol: string, date: string) => Promise<void> }
 const SKIP_IF_FETCHED_MS = 20 * 3_600_000;
 const LIVE_WINDOW_MS = 300_000;
 const TICKER = /^NSE:([A-Z0-9&-]{1,20})$/;
@@ -92,9 +92,18 @@ export class FundamentalsService {
         throw second instanceof FundamentalsNotFoundError ? first : second;
       }
     }
-    const record: Fundamentals = { symbol, consolidated, source: this.source.id, fetchedAt: new Date(this.env.now()).toISOString(), ...figures };
+    const { nextResultsDate, ...rest } = figures;
+    const record: Fundamentals = { symbol, consolidated, source: this.source.id, fetchedAt: new Date(this.env.now()).toISOString(), ...rest };
     await this.store.save(record);
+    await this.publishResultsDate(symbol, nextResultsDate);
     return record;
+  }
+
+  private async publishResultsDate(symbol: string, date: string | null | undefined): Promise<void> {
+    if (!date || !this.env.onResultsDate || Date.parse(date) < this.env.now() - 86_400_000) return;
+    try { await this.env.onResultsDate(symbol, date); } catch (error) {
+      this.env.warn('results date not stored in the calendar', { symbol, error: error instanceof Error ? error.message : 'unknown' });
+    }
   }
 }
 

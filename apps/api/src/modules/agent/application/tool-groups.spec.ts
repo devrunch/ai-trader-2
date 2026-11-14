@@ -17,8 +17,8 @@ describe('tool groups', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('names the seven groups', () => {
-    expect(Object.keys(TOOL_GROUPS).sort()).toEqual(['chart', 'events', 'execution', 'news-deep', 'research', 'screening', 'strategies']);
+  it('names the eight groups', () => {
+    expect(Object.keys(TOOL_GROUPS).sort()).toEqual(['chart', 'events', 'execution', 'news-deep', 'options', 'research', 'screening', 'strategies']);
   });
 
   it('offers the core until a group is loaded, then that group for the rest of that turn only', () => {

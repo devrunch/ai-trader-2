@@ -16,3 +16,4 @@ export { savedScreens } from './screens';
 export { fundamentals } from './fundamentals';
 export { universeConstituents } from './universes';
 export { eventReactions } from './event-reactions';
+export { optionSnapshots } from './option-snapshots';

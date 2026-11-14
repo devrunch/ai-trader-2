@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AgentTrader, BackgroundRuns, type TradeRow } from './agent-trader';
 import type { AgentTask } from '../domain/agent-task';
 import type { BacktestNote } from '../domain/auto-trade';
-import { buildCalcTool, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
+import { buildCalcTool, buildCalendarTools, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
 const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
@@ -310,5 +310,32 @@ describe('auto-trade backtest gate', () => {
     expect(none.j.rows).toEqual([]);
     expect(other.j.rows).toEqual([]);
     expect(none.d.place).not.toHaveBeenCalled();
+  });
+});
+
+describe('getEconomicCalendar with a symbol', () => {
+  const event = (title: string, country: string) => ({ id: title, title, country, at: '2026-11-14T10:00:00.000Z', impact: 'Medium', forecast: null, previous: null, moves: [] });
+  const list = vi.fn().mockResolvedValue([event('INFY results', 'INR'), event('INFYX results', 'INR'), event('TCS results', 'INR'), event('INFY results', 'USD'), event('CPI m/m', 'USD')]);
+  const tool = byName(buildCalendarTools({ list }, deps), 'getEconomicCalendar');
+
+  it('returns only that company\'s results events, asking for rupee events of medium impact', async () => {
+    const out = await tool?.call(ctx, { symbol: 'NSE:INFY', days: 14 }) as { data: { events: Array<{ title: string }> } };
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ country: 'INR', impact: 'Medium', days: 14 }));
+    expect(out.data.events.map(e => e.title)).toEqual(['INFY results']);
+  });
+
+  it('says no date is known, not that none exists, when the company has no results event', async () => {
+    const out = await tool?.call(ctx, { symbol: 'NSE:WIPRO' }) as { data: { events: unknown[]; note: string } };
+    expect(out.data.events).toEqual([]);
+    expect(out.data.note).toMatch(/no results date/i);
+  });
+
+  it('rejects a symbol outside NSE', async () => {
+    expect(await tool?.call(ctx, { symbol: 'NASDAQ:AAPL' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+
+  it('without a symbol keeps returning the list unchanged', async () => {
+    list.mockResolvedValueOnce([event('CPI m/m', 'USD')]);
+    expect(await tool?.call(ctx, { days: 3 })).toEqual({ ok: true, data: [event('CPI m/m', 'USD')] });
   });
 });

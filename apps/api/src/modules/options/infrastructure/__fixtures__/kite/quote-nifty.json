@@ -1,0 +1,6 @@
+{
+  "NSE:NIFTY 50": { "instrument_token": 256265, "timestamp": "2026-11-13 15:29:58", "last_price": 24512.4, "ohlc": { "open": 24400, "high": 24560, "low": 24380, "close": 24450 } },
+  "NFO:NIFTY2611324500CE": { "instrument_token": 11111, "timestamp": "2026-11-13 15:29:58", "last_price": 98.5, "volume": 1250000, "oi": 2100000, "oi_day_high": 2200000, "oi_day_low": 1800000, "ohlc": { "open": 80, "high": 110, "low": 70, "close": 85 } },
+  "NFO:NIFTY2611324500PE": { "instrument_token": 11112, "timestamp": "2026-11-13 15:29:58", "last_price": 71.2, "volume": 1100000, "oi": 2600000, "oi_day_high": 2700000, "oi_day_low": 2000000, "ohlc": { "open": 90, "high": 95, "low": 60, "close": 88 } },
+  "NFO:NIFTY2611324600CE": { "instrument_token": 11113, "timestamp": "2026-11-13 15:29:58", "last_price": 0, "volume": 0, "oi": 0, "ohlc": { "open": 0, "high": 0, "low": 0, "close": 0 } }
+}

@@ -1,9 +1,9 @@
 # Earnings reaction score
 Rate how strongly a stock reacted to its latest results and whether post-earnings drift may follow.
-Needs: daily bars for 1 year and news. Company results dates are not available: the calendar is macro only, so ask the user or take an announced date from `getNews`, and treat it as unconfirmed.
+Needs: daily bars for 1 year and news. Results date: for results still ahead, `getEconomicCalendar` with `symbol` (NSE:TICKER); for results already out, `getNews`. Without a calendar event, ask the user or take an announced date from `getNews` and treat it as unconfirmed.
 
 1.
-   `getNews` (symbol, last 3 days) to confirm the results date and whether they came before the open or after the close. Do not rely on `getEconomicCalendar`; it has no company results.
+   If the results are still ahead, `getEconomicCalendar` with `symbol` gives the date the company page shows: a date to plan around, not a confirmed filing. `getNews` (symbol, last 3 days) confirms the date and whether results came before the open or after the close. No calendar event means the date is unconfirmed.
    Unknown timing: treat as after close.
 2. `getBars` daily, 1 year.
    Gap % = (reaction-day open − prior close) ÷ prior close × 100 with `calculate`; for after-close results the reaction day is the next session.

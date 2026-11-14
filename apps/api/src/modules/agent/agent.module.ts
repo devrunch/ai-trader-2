@@ -29,6 +29,9 @@ import { buildMarketStatusTools, deskMarketLine } from './application/market-sta
 import { buildEventScorecardTools } from './application/event-tools';
 import { buildResearchTools } from './application/research-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
+import { buildOptionsTools } from './application/options-tools';
+import { OptionsService } from '../options/application/index';
+import { OptionsModule } from '../options/options.module';
 import { EventScorecards } from '../calendar/application/index';
 import { MinuteBars } from '../market-data/application/index';
 import { buildScreenerTools } from './application/screener-tools';
@@ -152,7 +155,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
   controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
@@ -191,13 +194,14 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
         }), { now: Date.now, id: randomUUID }) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService): DataTools => deps => [
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService): DataTools => deps => [
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
         ...buildMarketStatusTools(deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
+        ...buildOptionsTools(options, deps),
         ...buildUniverseTools(universes, deps),
         ...buildScreenerTools(scans, listPresets(), tasks, deps)] },
     { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, AgentProfileService, TurnToolLog, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS, TradingDesk],

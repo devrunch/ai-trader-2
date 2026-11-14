@@ -258,10 +258,20 @@ export function buildMemoryTools(memory: MemoryDesk, deps: GuardDeps): Array<Gua
 
 export interface CalendarDesk { list(query: CalendarQuery): Promise<unknown> }
 
+const CalendarToolInput = CalendarQuerySchema.extend({ symbol: z.string().regex(/^NSE:[A-Z0-9&-]{1,20}$/).optional() });
+
+
 /** Scheduled releases (CPI, payrolls, Fed, ECB…) with what each usually moves; times are UTC ISO, say them in IST. */
 export function buildCalendarTools(calendar: CalendarDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [guardedTool({ name: 'getEconomicCalendar',
     description: 'Upcoming economic releases and central-bank events (title, country, time, impact, forecast, previous, what it usually moves). '
-      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters.',
-    input: CalendarQuerySchema, run: input => calendar.list(input) }, deps)];
+      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters. '
+      + 'With `symbol` (NSE:TICKER) it returns only that company\'s upcoming results date (up to 14 days ahead), read from its screener.in page and unconfirmed until the company\'s own filing.',
+    input: CalendarToolInput, run: async ({ symbol, ...query }) => {
+      if (!symbol) return calendar.list(query);
+      const title = `${symbol.slice(4)} results`;
+      const all = await calendar.list({ ...query, impact: 'Medium', country: 'INR' }) as Array<{ title: string; country: string }>;
+      const events = all.filter(e => e.country === 'INR' && e.title === title);
+      return events.length > 0 ? { events } : { events, note: `No results date known for ${symbol}; take an announced date from getNews and treat it as unconfirmed.` };
+    } }, deps)];
 }

@@ -119,3 +119,29 @@ describe('FundamentalsService.refreshAll', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 });
+
+describe('FundamentalsService results date hand-off', () => {
+  const withDate = (date: string | null) => vi.fn<FundamentalsSource['fetch']>().mockResolvedValue({ ...figures, nextResultsDate: date });
+  const build = (fetch: FundamentalsSource['fetch'], onResultsDate: (symbol: string, date: string) => Promise<void>, warn = vi.fn()) =>
+    new FundamentalsService({ id: 'screener-in', fetch }, memoryStore(), { now: () => NOW, warn, onResultsDate });
+
+  it('passes an upcoming results date on after saving the record', async () => {
+    const hook = vi.fn().mockResolvedValue(undefined);
+    await build(withDate('2026-03-20'), hook).refresh('NSE:INFY');
+    expect(hook).toHaveBeenCalledWith('NSE:INFY', '2026-03-20');
+  });
+
+  it('ignores a null date and a date already past', async () => {
+    const hook = vi.fn().mockResolvedValue(undefined);
+    await build(withDate(null), hook).refresh('NSE:INFY');
+    await build(withDate('2026-03-01'), hook).refresh('NSE:INFY');
+    expect(hook).not.toHaveBeenCalled();
+  });
+
+  it('keeps the refresh when the calendar write fails, and warns', async () => {
+    const warn = vi.fn();
+    const got = await build(withDate('2026-03-20'), () => Promise.reject(new Error('db down')), warn).refresh('NSE:INFY');
+    expect(got.symbol).toBe('NSE:INFY');
+    expect(warn).toHaveBeenCalledWith('results date not stored in the calendar', expect.objectContaining({ symbol: 'NSE:INFY' }));
+  });
+});

@@ -43,6 +43,22 @@ describe('skill prompts', () => {
     for (const key of ['skill-idea-screen', 'skill-sector-overview', 'skill-dt-scanner']) expect(defaults.read(key)).toContain('`scanUniverse`');
   });
 
+  it('earnings-reaction reads company results dates from getEconomicCalendar with a symbol', () => {
+    const text = defaults.read('skill-earnings-reaction') ?? '';
+    expect(text).toContain('`getEconomicCalendar`');
+    expect(text).toMatch(/with `symbol`/);
+    expect(text).toMatch(/unconfirmed/);
+    expect(text).not.toMatch(/results dates are not available/i);
+  });
+
+  it('india-fno-expiry reads the option chain and summary instead of saying options data is missing', () => {
+    const text = defaults.read('skill-india-fno-expiry') ?? '';
+    expect(text).toContain('`getOptionsSummary`');
+    expect(text).toContain('`getOptionChain`');
+    expect(text).toMatch(/loadTools.*options|options.*loadTools/s);
+    expect(text).not.toMatch(/not available here|Options chains and open interest are not available/i);
+  });
+
   it('uses plain words for promises, never the internal ones', () => {
     for (const key of skills) expect(defaults.read(key) ?? '', key).not.toMatch(/\b(watcher|desk run|requireBacktest)\b/i);
   });

@@ -20,6 +20,7 @@ export function repository() {
     listForIndex: vi.fn<InstrumentRepository['listForIndex']>().mockResolvedValue([]),
     activeAmong: vi.fn<InstrumentRepository['activeAmong']>().mockResolvedValue(new Set()),
     listContinuousCandidates: vi.fn<InstrumentRepository['listContinuousCandidates']>().mockResolvedValue([]),
+    listOptionContracts: vi.fn<InstrumentRepository['listOptionContracts']>().mockResolvedValue([]),
     setSourceStatus: vi.fn<InstrumentRepository['setSourceStatus']>().mockResolvedValue(undefined),
     purgeExpired: vi.fn<InstrumentRepository['purgeExpired']>().mockResolvedValue(0),
     listSourceStatus: vi.fn<InstrumentRepository['listSourceStatus']>().mockResolvedValue([]) };

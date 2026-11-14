@@ -26,6 +26,16 @@ export class EconomicCalendar {
   }
 
   /**
+   * Stores a company's announced results date as a Medium INR event. The time is 15:30 IST (10:00 UTC), the usual close: companies rarely announce a time and
+   * most report after the session, so a reaction window starts there. The id is derived from ticker and date, so a repeat write is a no-op.
+   * The calendar has no source column; the date comes from the company page screener.in (the fundamentals job).
+   */
+  async recordCompanyResults(symbol: string, date: string): Promise<void> {
+    const raw: RawEvent = { title: `${symbol.slice(symbol.indexOf(':') + 1)} results`, country: 'INR', at: new Date(`${date}T10:00:00Z`).toISOString(), impact: 'Medium', forecast: null, previous: null };
+    await this.store.upsert([{ ...raw, id: this.env.id(raw) }]);
+  }
+
+  /**
    * Upcoming (and the last 6 hours, so today's releases stay visible), soonest first, each with what it measures and, once released, its actual and surprise.
    * `asOf` replays the calendar at an earlier moment: the same window around that time, and an actual stored after that moment is hidden.
    */

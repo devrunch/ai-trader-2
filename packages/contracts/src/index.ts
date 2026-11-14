@@ -23,3 +23,4 @@ export * from './depth.js';
 export * from './fundamentals.js';
 export * from './screener.js';
 export * from './sources.js';
+export * from './options.js';

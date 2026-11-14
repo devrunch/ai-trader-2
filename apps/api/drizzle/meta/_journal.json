@@ -260,6 +260,13 @@
       "when": 1794300039000,
       "tag": "0039_agent_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794300040000,
+      "tag": "0040_option_snapshots",
+      "breakpoints": true
     }
   ]
 }
