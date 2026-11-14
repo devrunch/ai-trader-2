@@ -48,21 +48,17 @@ describe('MastraRunner', () => {
     expect(result.messages.length).toBe(2);
   });
 
-  it('takes the tools away near the round limit so the turn ends with an answer', async () => {
+  it('refuses lookups once the turn is nearly spent, even from a model that ignores tool choice', async () => {
     const q = quoteTool();
-    const seen: Array<{ tools: number; choice: unknown }> = [];
-    const model = new MockLanguageModelV4({ doStream: options => {
-      const tools = (options.tools ?? []).length;
-      seen.push({ tools, choice: options.toolChoice?.type });
-      return Promise.resolve(tools > 0 && options.toolChoice?.type !== 'none' ? toolCallStep() : textStep());
-    } });
+    let calls = 0;
+    const model = new MockLanguageModelV4({ doStream: () => { calls++; return Promise.resolve(calls < 4 ? toolCallStep() : textStep()); } });
     const runner = new MastraRunner({ name: 'mock/model', primary: model, tools: [q.tool] });
     const { stream, done } = runner.run({ system: 'sys', messages: user, ctx, signal: new AbortController().signal,
-      budget: new TurnBudget({ maxRounds: 3, maxMs: 60_000, maxTokens: 100_000 }) });
+      budget: new TurnBudget({ maxRounds: 4, maxMs: 60_000, maxTokens: 100_000 }) });
     const chunks = await drain(stream);
-    expect(chunks).toContainEqual(expect.objectContaining({ type: 'text-delta', delta: 'RELIANCE is at 1325.' }));
+    expect(q.run.mock.calls.length).toBeLessThan(3);
+    expect(chunks.some(c => (c as { type: string; output?: { reason?: string } }).type === 'tool-output-available' && (c as { output?: { reason?: string } }).output?.reason === 'TIME_TO_ANSWER')).toBe(true);
     expect((await done).outcome).toBe('ok');
-    expect(seen.at(-1)).toMatchObject({ choice: 'none' });
   });
 
   it('ends the turn with a plain notice when the token budget runs out', async () => {

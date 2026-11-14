@@ -6,7 +6,7 @@ export interface GapStore {
 }
 
 /** Outcomes that are the model's or the limiter's doing, not missing data. */
-const NOT_GAPS = new Set(['ok', 'INVALID_INPUT', 'RATE_LIMITED', 'NOT_LOADED', 'VALIDATION_FAILED', 'CONFLICT']);
+const NOT_GAPS = new Set(['ok', 'INVALID_INPUT', 'RATE_LIMITED', 'NOT_LOADED', 'VALIDATION_FAILED', 'CONFLICT', 'TIME_TO_ANSWER']);
 const SUBJECT_KEYS = ['symbol', 'symbols', 'underlying', 'instrumentId', 'query', 'title', 'universe', 'countries', 'name'] as const;
 
 /** What a call was about, in a few words: its symbol, query or title. */

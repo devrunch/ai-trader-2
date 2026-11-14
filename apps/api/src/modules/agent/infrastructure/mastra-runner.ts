@@ -6,10 +6,14 @@ import { createUIMessageStream, type LanguageModel, type UIMessage } from 'ai';
 import type { AgentRunner, RunDone, RunInput } from '../application/chat-service';
 import type { GuardedTool, ToolContext } from '../application/guarded-tool';
 import { SpecialTokenFilter } from './special-tokens';
+import { TurnBudget } from '../domain/turn-budget';
 
 type Model = Exclude<LanguageModel, string>;
 const TOOL_CONTEXT = 'tool-context';
 const SYSTEM = 'system-prompt';
+const BUDGET = 'turn-budget';
+/** What a tool answers once the turn is nearly spent, so the model answers instead of gathering more, whatever the provider does with tool choice. */
+const WRAP_UP = { ok: false, reason: 'TIME_TO_ANSWER', detail: 'No more lookups this turn. Answer the user now from what you already have.' } as const;
 
 const budgetText: Record<string, string> = {
   rounds: 'This answer needed more steps than one turn allows. Ask a narrower question or continue in a new message.',
@@ -41,6 +45,8 @@ export class MastraRunner implements AgentRunner {
       execute: async (input, context) => {
         const ctx: unknown = context.requestContext.get(TOOL_CONTEXT);
         if (!isToolContext(ctx)) return { ok: false, reason: 'UNAVAILABLE' };
+        const budget: unknown = context.requestContext.get(BUDGET);
+        if (budget instanceof TurnBudget && budget.nearlySpent()) return WRAP_UP;
         return tool.call(ctx, input);
       },
     })]));
@@ -65,16 +71,17 @@ export class MastraRunner implements AgentRunner {
     const requestContext = new RequestContext();
     requestContext.set(TOOL_CONTEXT, input.ctx);
     requestContext.set(SYSTEM, input.system);
+    requestContext.set(BUDGET, input.budget);
     const original = input.messages as UIMessage[];
 
     const stream = createUIMessageStream<UIMessage>({
       originalMessages: original,
       execute: async ({ writer }) => {
         const output = await this.agent.stream(original, {
-          // Near any limit the next step gets no tools, so the turn always ends with an answer from what was gathered.
+          // Near any limit every tool answers "answer now" instead of running (WRAP_UP), so the turn ends with an answer from what was gathered.
+          // Taking the tools away instead does not work: some models then call them anyway from the history, and each call fails into another step.
           requestContext, abortSignal: abort.signal,
-          prepareStep: () => (input.budget.nearlySpent() ? { activeTools: [], toolChoice: 'none' as const }
-            : this.activeTools ? { activeTools: this.activeTools(input.ctx) } : {}),
+          ...(this.activeTools ? { prepareStep: () => ({ activeTools: this.activeTools?.(input.ctx) ?? [] }) } : {}),
           maxSteps: input.budget.remaining().rounds + 2,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
