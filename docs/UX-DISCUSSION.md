@@ -141,3 +141,82 @@ Owner decision, 14 Nov 2026: on paper the assistant trades by itself for now; th
    - The user cannot find previous desk runs: there is no history to browse.
    - Today's page only lists past runs for the symbol currently typed in. Runs on other symbols, and runs started by watches, are not findable.
    - Needed: a history of every desk run (any symbol, started by the user or by a task), with its decision, time and outcome, openable from the Tasks tab and from the symbol.
+3. **The skill name shows under answers** (decided): "Using: Day trader", so the user can see which playbook shaped the answer.
+
+## UX map, draft v0 (for discussion)
+
+### Places
+
+| Place | What it is for | Status today |
+|---|---|---|
+| Public site | What the product does, sign in | Built |
+| **What to watch** (home after sign-in) | The assistant's list of what to watch out for and why; each item can be followed with one tap, which creates a task | Missing: today Home is a dashboard with a brief button |
+| **Symbol workspace** (the Terminal) | Chart, order book, options*, news, fundamentals, alerts, trade panel, and the assistant beside it, all for one instrument | Built, but desk results, screener hits and backtests do not open into it |
+| **Assistant** (docked on every page) | One assistant with three tabs: Chat, **Tasks**, About you | Chat and About you built*; Tasks is inside the chat panel only |
+| **Tasks** | Everything the assistant is doing, with plain titles ("Watching RELIANCE: will buy above 1,350"), state, last run, and stop, pause, resume, delete; desk runs included | Partly built: alerts and watches listed, desk runs and auto-trades not in one list, no global "running now" view |
+| **Portfolio** | Paper account: positions, orders, the journal of what the assistant did and why, its performance and track record | Missing as a page: positions and journal live in the terminal's trading panel; no track record |
+| Screener | Scan a market; results open the symbol | Built |
+| Strategies | Test rules on history; a passing rule can become a task | Built; cannot yet become a task |
+| AI Desk | The assistant's full analysis for one decision, with history of every run | Built; history missing (only the typed symbol) |
+| **Settings** | Profile, how much the assistant may do on its own (the flag), limits, email, theme | Missing: settings are split between About you*, the bell panel and per-task switches |
+| Admin | Broker connection, data sources, jobs, prompts | Built |
+
+\* waiting to be merged (AG-11, AG-12) or being built (AG-13: options, earnings).
+
+### Journeys
+
+1. **First visit:** public site, then sign in, then pick markets and style (short setup), then the first What to watch, then follow an item, which creates a task.
+2. **A day with tasks:** What to watch; a condition is met; the assistant trades on paper inside the limits; a notification says what and why, with Close it; the task title updates; the recap after the close; the track record.
+3. **Ask about a symbol:** ask the assistant; get an answer or a trade card; draw it, set an alert, follow it as a task, or place it.
+4. **Find ideas:** run a screen; open a result in the symbol workspace; ask the desk; follow it as a task.
+5. **Test an idea:** backtest a rule; save it; turn it into a task.
+6. **Review:** Portfolio and track record: what was flagged, what was done, how it went.
+
+### Not accounted for yet
+
+- **What to watch** as the home, with follow-to-task, and its **track record**.
+- **One global Tasks view** that includes alerts, watches, auto-trades, desk runs and screens, with "running now" visible from anywhere.
+- **Desk history** across all symbols and runs started by tasks.
+- **Portfolio page** with the assistant's performance; the trade journal is hidden in the terminal.
+- **Settings page:** the autonomy flag (paper: acts by itself; ask first), limits (risk per trade, trades per day, daily loss), email, profile, theme.
+- **The recap** after the close.
+- **First-run setup** (markets, style) that seeds the profile.
+- **Notifications vs Tasks vs journal:** three places say what happened; decide one home and how the others link to it.
+- **Strategies and screens becoming tasks.**
+- **Pause everything / kill switch** for the user (and for admin).
+- **One colour theme** and visual language across the public site and the app.
+- **Phone layouts** for the new places.
+
+## What the assistant can do (as of AG-12; AG-13 in progress)
+
+- **See the market:**
+  - quotes, bars and indicators (built-in and Pine);
+  - order book;
+  - market hours and holidays;
+  - instrument search and universes (NIFTY 50/100/500, forex, commodities, US, crypto);
+  - screener scans;
+  - fundamentals for NSE stocks;
+  - options chain and open interest (coming in AG-13).
+- **Read the world:**
+  - news grouped into stories, with sentiment and crowd chatter;
+  - the economic calendar with what each event means, actual values (US needs the FRED key) and how markets reacted before;
+  - web search;
+  - company earnings dates (coming in AG-13).
+- **Think:**
+  - 42 playbooks (skills), with the skill name shown;
+  - a calculator;
+  - the AI Desk for a full decision (analysts, both sides, trader, risk check);
+  - rule backtests on history.
+- **Act (paper):**
+  - trade cards and paper orders (place, cancel, close) behind the risk check;
+  - auto-trade inside limits;
+  - watchlist changes and alerts;
+  - chart actions (add, remove or change indicators, draw levels, add Pine scripts);
+  - saving strategies.
+- **Keep watching (tasks):** schedules; prices and indicators; news; economic events (with surprise filters and pre-event briefs); sharp moves; screen matches; running the desk on a trigger. It decides whether a wake-up is worth reporting.
+- **Remember:**
+  - notes you ask it to keep;
+  - a profile of your markets, style and risk;
+  - what has worked for you, learned from thumbs up/down and the cards you apply or dismiss.
+- **Report:** in-app notifications and email (to an address you give).
+- **Stays inside:** daily limits on turns, wake-ups and desk runs, and token budgets.
