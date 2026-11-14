@@ -39,11 +39,11 @@ export class TaskFirer {
     if (watching && !error) {
       const verdict = parseWatchReply(reply);
       if (!verdict.report) return { error: null, outcome: 'silent' };
-      await this.notifications.notify({ userId: task.userId, kind: 'task', title: `Watch: ${task.title}`, body: verdict.text.slice(0, 600), link: { threadId }, email: true });
+      await this.notifications.notify({ userId: task.userId, kind: 'task', title: task.title, body: verdict.text.slice(0, 600), link: { threadId }, email: true });
       return { error: null, outcome: 'report' };
     }
     // The last lines are the summary the prompt asks for; the full reply is in the task's thread.
-    await this.notifications.notify({ userId: task.userId, kind: 'task', title: error ? `Task "${task.title}" failed` : `Task "${task.title}" ran`,
+    await this.notifications.notify({ userId: task.userId, kind: 'task', title: error ? `"${task.title}" could not run` : `"${task.title}" ran`,
       body: error ?? reply.trim().split('\n').filter(Boolean).slice(-3).join('\n').slice(-600), link: { threadId } });
     return { error, outcome: error ? 'error' : 'ran' };
   }

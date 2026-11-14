@@ -34,7 +34,7 @@ beforeEach(() => { posted.length = 0; verbs.length = 0; tasks = [
 afterEach(() => { cleanup(); server.resetHandlers(); });
 afterAll(() => { server.close(); });
 
-it('lists alerts and AI watches together, filters by type, and opens the alert\'s symbol', async () => {
+it('lists alerts and watches together, filters by type, and opens the alert\'s symbol', async () => {
   const open = vi.fn();
   render(<Providers><AlertsPanel symbol="NSE:RELIANCE" interval="5" onOpenSymbol={open} /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: 'NSE:INFY above 1,500' }));
@@ -42,7 +42,7 @@ it('lists alerts and AI watches together, filters by type, and opens the alert\'
   expect(screen.getByText('Assistant task')).toBeDefined();
   fireEvent.click(screen.getByRole('tab', { name: /^Alerts/ }));
   expect(screen.queryByText('Assistant task')).toBeNull();
-  fireEvent.click(screen.getByRole('tab', { name: /^AI watches/ }));
+  fireEvent.click(screen.getByRole('tab', { name: /^Tasks/ }));
   expect(screen.getByText('Assistant task')).toBeDefined();
   expect(screen.queryByText('NSE:INFY above 1,500')).toBeNull();
 });

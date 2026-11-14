@@ -18,3 +18,4 @@ export function exchangeTimezone(instrumentId: string): string {
 export function sessionAt(instrumentId: string, at: number): { open: number; close: number } | null {
   try { return calendarForInstrument(instrumentId).sessionContaining(at); } catch { return null; }
 }
+export { marketStatus, type MarketStatus } from '../domain/market-status';

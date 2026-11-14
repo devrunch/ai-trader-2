@@ -35,6 +35,20 @@ describe('action cards (FR-AG-17)', () => {
     expect([...store.rows.values()][0]?.userId).toBe('u1');
   });
 
+  it('proposes removing an indicator and changing its settings as pending cards (FR-IN-24)', async () => {
+    const { cards } = setup();
+    const [tool] = buildActionTools(cards, deps);
+    expect(await tool?.call(ctx, { kind: 'remove-indicator', indicatorId: 'rsi', match: { length: 14 } })).toMatchObject({ ok: true, data: { state: 'pending', action: { kind: 'remove-indicator', indicatorId: 'rsi', match: { length: 14 } } } });
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'rsi', inputs: { length: 9 } })).toMatchObject({ ok: true, data: { state: 'pending', action: { kind: 'set-indicator-inputs', match: {}, inputs: { length: 9 } } } });
+  });
+
+  it('checks the new inputs of a settings change against the indicator', async () => {
+    const { cards } = setup();
+    const [tool] = buildActionTools(cards, deps);
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'rsi', inputs: { length: 0 } })).toMatchObject({ ok: false, detail: expect.stringContaining('out of range') as unknown });
+    expect(await tool?.call(ctx, { kind: 'set-indicator-inputs', indicatorId: 'nope', inputs: { length: 5 } })).toMatchObject({ ok: false, detail: expect.stringContaining('Unknown indicator') as unknown });
+  });
+
   it('refuses unknown indicators and bad inputs with a reason the model can read', async () => {
     const { cards } = setup();
     const [tool] = buildActionTools(cards, deps);
@@ -112,5 +126,21 @@ describe('indicator tools', () => {
   it('no tool the agent has can place, modify or cancel an order', () => {
     const names = [...buildIndicatorTools({ list: () => [], compute: vi.fn() }, deps), ...buildActionTools({ propose: vi.fn(), proposePine: vi.fn() }, deps)].map(t => t.name);
     for (const name of names) expect(name).not.toMatch(/order|cancel|place|buy|sell|trade|broker|login|token/i);
+  });
+});
+
+describe('card decisions as signals', () => {
+  it('reports an applied or dismissed card once, with a key per card and outcome', async () => {
+    const store = memoryStore();
+    const signal = vi.fn().mockResolvedValue(undefined);
+    let n = 0;
+    const cards = new ActionCards(store, { indicators: () => [rsi], draw, checkPine: vi.fn(), savePine: vi.fn(), submitOrder: vi.fn(), signal },
+      { now: () => Date.parse('2026-11-10T10:00:00Z'), id: () => `00000000-0000-4000-8000-00000000000${String(++n)}` });
+    const a = await cards.propose('u1', { kind: 'add-indicator', indicatorId: 'rsi', inputs: {} });
+    const b = await cards.propose('u1', { kind: 'add-indicator', indicatorId: 'rsi', inputs: {} });
+    await cards.apply('u1', a.id);
+    await cards.dismiss('u1', b.id);
+    expect(signal.mock.calls.map(c => [(c[1] as { eventKey: string }).eventKey, (c[1] as { kind: string }).kind])).toEqual([
+      [`card:${a.id}:applied`, 'card-applied'], [`card:${b.id}:dismissed`, 'card-dismissed']]);
   });
 });

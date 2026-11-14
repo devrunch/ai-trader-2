@@ -22,6 +22,8 @@ export interface DeskSnapshot {
   events: Array<EconomicEvent & { released: boolean; scorecard?: DeskScorecardSummary }>;
   /** Company fundamentals as of `asOf` (NSE stocks); null when there is no record that existed then, or the instrument is not an NSE stock. */
   fundamentals: FundamentalsResponse | null;
+  /** One line on whether the instrument's market was open at `asOf` (and when it next opens); null when unknown. */
+  market: string | null;
 }
 /** Everything the desk may read, at one moment. Nothing dated after `asOf` is ever returned. */
 export interface DeskData { snapshot(symbol: string, asOf: number): Promise<DeskSnapshot> }
@@ -51,7 +53,7 @@ const IMPACT_RANK: Record<EconomicEvent['impact'], number> = { High: 3, Medium: 
  */
 export class AsOfDeskData implements DeskData {
   constructor(private readonly market: BarsPort, private readonly indicators: IndicatorPort, private readonly news: NewsPort, private readonly calendar: CalendarPort,
-    private readonly fundamentals?: FundamentalsPort, private readonly scorecards?: ScorecardPort) {}
+    private readonly fundamentals?: FundamentalsPort, private readonly scorecards?: ScorecardPort, private readonly marketLine?: (symbol: string, asOf: number) => string | null) {}
 
   async snapshot(symbol: string, asOf: number): Promise<DeskSnapshot> {
     const closedBy = (interval: Interval, bars: DeskBar[]): DeskBar[] => {
@@ -74,7 +76,7 @@ export class AsOfDeskData implements DeskData {
     return {
       asOf, lastClose: intraday.at(-1)?.close ?? daily.at(-1)?.close ?? null, intraday: intraday.slice(-40), daily: daily.slice(-15), indicators: values,
       headlines: news.filter(n => Date.parse(n.publishedAt) <= asOf).sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt)).slice(0, 25),
-      fundamentals,
+      fundamentals, market: this.marketLine?.(symbol, asOf) ?? null,
       events: inWindow.map(e => { const scorecard = cards.get(e.id); return scorecard ? { ...e, scorecard } : e; }),
     };
   }

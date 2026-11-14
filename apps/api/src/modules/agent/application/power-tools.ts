@@ -13,15 +13,24 @@ const SKILL = /^skill-[a-z0-9-]{1,57}$/;
 
 export interface SkillSource { keys(): string[]; active(key: string): Promise<{ content: string; version: number }> }
 
+/** An optional line in a skill file naming its markets, e.g. `Markets: forex, commodities`; no line means all. */
+const MARKETS = /^Markets:\s*(.+)$/m;
+
 /** Skills are versioned prompts named `skill-*`: the admin edits them like the system prompt; each use records its version. */
 export function buildSkillTools(skills: SkillSource, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
-    guardedTool({ name: 'listSkills', description: 'The playbooks you can follow (position sizing, risk/reward, trend check, breakout watch, ...), with a one-line summary each.',
-      input: z.looseObject({}), run: async () => Promise.all(skills.keys().filter(k => SKILL.test(k)).map(async key => {
-        const { content } = await skills.active(key);
-        const [title = key, summary = ''] = content.split('\n').map(l => l.replace(/^#\s*/, '').trim()).filter(Boolean);
-        return { name: key.slice('skill-'.length), title, summary };
-      })) }, deps),
+    guardedTool({ name: 'listSkills', description: 'The playbooks you can follow, grouped by market (india, forex, commodities, us, crypto, all), with a one-line summary each. A skill tagged for several markets is listed under each.',
+      input: z.looseObject({}), run: async () => {
+        const entries = await Promise.all(skills.keys().filter(k => SKILL.test(k)).map(async key => {
+          const { content } = await skills.active(key);
+          const [title = key, summary = ''] = content.split('\n').map(l => l.replace(/^#\s*/, '').trim()).filter(l => l && !MARKETS.test(l));
+          const markets = (MARKETS.exec(content)?.[1] ?? 'all').split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+          return { skill: { name: key.slice('skill-'.length), title, summary }, markets };
+        }));
+        const groups = new Map<string, Array<{ name: string; title: string; summary: string }>>();
+        for (const { skill, markets } of entries) for (const m of markets) groups.set(m, [...(groups.get(m) ?? []), skill]);
+        return [...groups].sort(([x], [y]) => (x === 'all' ? 1 : y === 'all' ? -1 : x.localeCompare(y))).map(([market, list]) => ({ market, skills: list }));
+      } }, deps),
     guardedTool({ name: 'useSkill', description: 'Load one playbook by name and follow its steps.',
       input: z.strictObject({ name: z.string().regex(/^[a-z0-9-]{1,57}$/) }),
       run: async input => {
@@ -112,6 +121,13 @@ export interface TaskDesk {
 }
 
 /** Background work: the assistant schedules itself, or waits for a price or indicator condition, then runs the instruction. */
+const PLAIN_PROMISE = 'Tell the user in plain words what you will do and until when, with the numbers and that it is paper, e.g. "If Reliance closes above 1,350, I will buy 120 shares on paper with a stop at 1,331, until Friday." Do not say task, watcher or desk run.';
+/** The result plus a reminder of how to say it, so the reply is a promise and not a description of the machinery. */
+async function withSay(pending: Promise<unknown>): Promise<unknown> {
+  const result = await pending;
+  return typeof result === 'object' && result !== null ? { ...result, say: PLAIN_PROMISE } : result;
+}
+
 export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [
     guardedTool({ name: 'scheduleTask',
@@ -120,12 +136,12 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         + 'The instruction must be complete on its own: what to check and exactly what to do, e.g. which paper order to place.',
       input: z.strictObject({ title: z.string().min(1).max(120), instruction: z.string().min(1).max(2000), trigger: orJsonString(TaskTriggerSchema),
         maxRuns: z.number().int().min(1).max(500).optional(), expiresInDays: z.number().int().min(1).max(30).optional() }),
-      run: (input, ctx) => tasks.create(ctx.userId, ctx.conversationId, input) }, deps),
+      run: (input, ctx) => withSay(tasks.create(ctx.userId, ctx.conversationId, input)) }, deps),
     guardedTool({ name: 'createAlert',
       description: 'Set a plain alert for the user: a notification when a price or indicator condition crosses, with no assistant run. '
         + 'Prefer this over scheduleTask when the user only wants to be told ("alert me when NIFTY goes above 24,500"). repeat: every crossing for 30 days.',
       input: z.strictObject({ trigger: orJsonString(AlertCreateSchema.shape.trigger), repeat: z.boolean().default(false), note: z.string().max(200).optional() }),
-      run: (input, ctx) => tasks.createAlert(ctx.userId, input) }, deps),
+      run: (input, ctx) => withSay(tasks.createAlert(ctx.userId, input)) }, deps),
     guardedTool({ name: 'watchNews',
       description: 'Watch the news in the background and wake yourself when a matching headline arrives, then decide whether it is worth telling the user. '
         + 'Use for "watch INR news with high impact" or "tell me when something moves crude". markets: forex, india, us, commodities, crypto or all; optional symbols and keywords; minImpact high, medium or low; optional minSentiment (0-1: only stories whose sentiment is at least that strong either way) and minSources (only when that many different outlets report the same story, e.g. 3). '
@@ -137,7 +153,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(7), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'news' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0]) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0]) }));
       } }, deps),
     guardedTool({ name: 'watchEvent',
       description: 'Watch the economic calendar and wake yourself shortly after a release ("tell me when RBI policy comes out", "watch US CPI"), then decide whether it is worth telling the user. '
@@ -151,7 +167,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         maxRuns: z.number().int().min(1).max(100).default(10), expiresInDays: z.number().int().min(1).max(30).default(14), desk: DeskOption }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'event' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, undefined) }));
       } }, deps),
     guardedTool({ name: 'watchMove',
       description: 'Watch instruments in the background and wake yourself when one moves sharply: "tell me if any NIFTY 50 stock moves 3% in 15 minutes", "watch NIFTY and BANKNIFTY for a 1% drop in an hour". '
@@ -164,7 +180,7 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
         .refine(o => o.symbols.length > 0 || o.universe !== undefined, { message: 'give symbols or a universe', path: ['symbols'] }),
       run: ({ instruction, maxRuns, expiresInDays, desk, ...rest }, ctx) => {
         const trigger = { kind: 'move' as const, ...rest };
-        return tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0] ?? MOVE_DESK_PLACEHOLDER) });
+        return withSay(tasks.create(ctx.userId, ctx.conversationId, { title: describeWatch(trigger), instruction, trigger, maxRuns, expiresInDays, desk: deskFor(desk, rest.symbols[0] ?? MOVE_DESK_PLACEHOLDER) }));
       } }, deps),
     guardedTool({ name: 'listTasks', description: 'The user\'s background tasks and alerts with their state, runs and next run.',
       input: z.looseObject({}), run: (_input, ctx) => tasks.list(ctx.userId) }, deps),
@@ -242,10 +258,20 @@ export function buildMemoryTools(memory: MemoryDesk, deps: GuardDeps): Array<Gua
 
 export interface CalendarDesk { list(query: CalendarQuery): Promise<unknown> }
 
+const CalendarToolInput = CalendarQuerySchema.extend({ symbol: z.string().regex(/^NSE:[A-Z0-9&-]{1,20}$/).optional() });
+
+
 /** Scheduled releases (CPI, payrolls, Fed, ECB…) with what each usually moves; times are UTC ISO, say them in IST. */
 export function buildCalendarTools(calendar: CalendarDesk, deps: GuardDeps): Array<GuardedTool<unknown, unknown>> {
   return [guardedTool({ name: 'getEconomicCalendar',
     description: 'Upcoming economic releases and central-bank events (title, country, time, impact, forecast, previous, what it usually moves). '
-      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters.',
-    input: CalendarQuerySchema, run: input => calendar.list(input) }, deps)];
+      + 'Use before planning trades around news; RBI and Indian data may be missing from this feed, say so when it matters. '
+      + 'With `symbol` (NSE:TICKER) it returns only that company\'s upcoming results date (up to 14 days ahead), read from its screener.in page and unconfirmed until the company\'s own filing.',
+    input: CalendarToolInput, run: async ({ symbol, ...query }) => {
+      if (!symbol) return calendar.list(query);
+      const title = `${symbol.slice(4)} results`;
+      const all = await calendar.list({ ...query, impact: 'Medium', country: 'INR' }) as Array<{ title: string; country: string }>;
+      const events = all.filter(e => e.country === 'INR' && e.title === title);
+      return events.length > 0 ? { events } : { events, note: `No results date known for ${symbol}; take an announced date from getNews and treat it as unconfirmed.` };
+    } }, deps)];
 }

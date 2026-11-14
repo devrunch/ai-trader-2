@@ -11,7 +11,7 @@ export interface ActionCardStore {
 
 /** Checks a proposed action against what exists (an indicator id and its inputs). Returns a reason, or null when valid. */
 function checkAction(action: AgentAction, indicators: IndicatorDefinition[]): string | null {
-  if (action.kind !== 'add-indicator') return null;
+  if (action.kind !== 'add-indicator' && action.kind !== 'set-indicator-inputs') return null;
   const def = indicators.find(d => d.id === action.indicatorId);
   if (!def) return `Unknown indicator "${action.indicatorId}"`;
   for (const [key, value] of Object.entries(action.inputs)) {
@@ -40,6 +40,8 @@ export interface CardDeps {
   savePine: (userId: string, name: string, source: string) => Promise<string>;
   /** Risk-checks and places a confirmed proposed order (paper) and journals it; returns its client order id. */
   submitOrder: (userId: string, action: Extract<AgentAction, { kind: 'place-order' }>) => Promise<string>;
+  /** Tells the assistant what the user did with a card (applied or dismissed); once per card and outcome. */
+  signal?: (userId: string, input: { eventKey: string; kind: string; topic: string; tools: string[] }) => Promise<void>;
 }
 
 /** Proposed workspace changes the user confirms (FR-AG-17): pending, applied, dismissed, expired (15 min) or failed. */
@@ -79,6 +81,7 @@ export class ActionCards {
     if (decision.card === stored) return dto(stored);
     const applied = await this.settle(userId, decision.card);
     await this.commit(applied, stored.state);
+    await this.deps.signal?.(userId, { eventKey: `card:${id}:applied`, kind: 'card-applied', topic: `card:${applied.action.kind}`, tools: [] });
     return dto(applied);
   }
 
@@ -99,7 +102,10 @@ export class ActionCards {
     const stored = await this.load(userId, id);
     const decision = dismissCard(stored, this.env.now());
     if (!decision.ok) throw new ConflictError(`This card can no longer be dismissed (${decision.reason.toLowerCase()})`, { reason: decision.reason });
-    if (decision.card !== stored) await this.commit(decision.card, stored.state);
+    if (decision.card !== stored) {
+      await this.commit(decision.card, stored.state);
+      await this.deps.signal?.(userId, { eventKey: `card:${id}:dismissed`, kind: 'card-dismissed', topic: `card:${stored.action.kind}`, tools: [] });
+    }
     return dto(decision.card);
   }
 

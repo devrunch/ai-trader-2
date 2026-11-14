@@ -85,7 +85,7 @@ describe('AsOfDeskData: nothing after asOf can leak', () => {
 });
 
 function setup(options: { maxTokens?: number; tokensPerCall?: number; proposal?: DeskProposal; review?: { approve: boolean; reasons: string[] }; snapshot?: Partial<DeskSnapshot> } = {}) {
-  const snapshot: DeskSnapshot = { asOf, lastClose: 100, intraday: [bar(asOf - 300_000)], daily: [bar(asOf - 86_400_000)], indicators: { rsi14: 55 }, headlines: [news('h', asOf - 1000)], events: [], fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()), ...options.snapshot };
+  const snapshot: DeskSnapshot = { asOf, lastClose: 100, intraday: [bar(asOf - 300_000)], daily: [bar(asOf - 86_400_000)], indicators: { rsi14: 55 }, headlines: [news('h', asOf - 1000)], events: [], market: null, fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()), ...options.snapshot };
   const calls: string[] = [];
   const model: DeskModel = { generate: <T>(call: RoleCall<T>) => {
     calls.push(call.role);
@@ -106,7 +106,7 @@ function setup(options: { maxTokens?: number; tokensPerCall?: number; proposal?:
   return { desk, calls, rows, data, updates };
 }
 const signal = new AbortController().signal;
-const fundamentalsSnapshot = (): DeskSnapshot => ({ asOf, lastClose: 100, intraday: [], daily: [], indicators: {}, headlines: [], events: [], fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()) });
+const fundamentalsSnapshot = (): DeskSnapshot => ({ asOf, lastClose: 100, intraday: [], daily: [], indicators: {}, headlines: [], events: [], market: null, fundamentals: fundamentalsRecord(new Date(asOf - 1000).toISOString()) });
 
 describe('TradingDesk', () => {
   it('start() returns the run marked running at once and saves each step until the decision', async () => {

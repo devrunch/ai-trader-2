@@ -28,8 +28,38 @@ describe('skill prompts', () => {
 
   it.each(skills)('%s names only tools the assistant has, and no scripts', key => {
     const text = defaults.read(key) ?? '';
-    const named = [...text.matchAll(/`([A-Za-z][A-Za-z0-9_]*)\(?[^`]*`/g)].map(m => m[1] ?? '').filter(n => /^(get|list|propose|place|cancel|close|create|schedule|run|use|add|remove|remember|forget|search|calculate)([A-Z]|$)/.test(n));
+    const named = [...text.matchAll(/`([A-Za-z][A-Za-z0-9_]*)\(?[^`]*`/g)].map(m => m[1] ?? '').filter(n => /^(get|list|propose|place|cancel|close|create|schedule|run|use|add|remove|remember|forget|search|calculate|scan|watch|present|ask|load|save)([A-Z]|$)/.test(n));
     for (const name of named) expect(tools, `${key} mentions \`${name}\``).toContain(name);
     expect(text).not.toMatch(/\.py\b|\.sh\b|python|npm |curl |https?:\/\//i);
+  });
+
+  it.each(skills)('%s says what data it needs', key => {
+    const needs = (defaults.read(key) ?? '').split('\n').find(l => l.startsWith('Needs:'));
+    expect(needs, `${key} has no Needs: line`).toBeDefined();
+    expect((needs ?? '').length).toBeGreaterThan(12);
+  });
+
+  it('screens markets with scanUniverse, not symbol-by-symbol bars', () => {
+    for (const key of ['skill-idea-screen', 'skill-sector-overview', 'skill-dt-scanner']) expect(defaults.read(key)).toContain('`scanUniverse`');
+  });
+
+  it('earnings-reaction reads company results dates from getEconomicCalendar with a symbol', () => {
+    const text = defaults.read('skill-earnings-reaction') ?? '';
+    expect(text).toContain('`getEconomicCalendar`');
+    expect(text).toMatch(/with `symbol`/);
+    expect(text).toMatch(/unconfirmed/);
+    expect(text).not.toMatch(/results dates are not available/i);
+  });
+
+  it('india-fno-expiry reads the option chain and summary instead of saying options data is missing', () => {
+    const text = defaults.read('skill-india-fno-expiry') ?? '';
+    expect(text).toContain('`getOptionsSummary`');
+    expect(text).toContain('`getOptionChain`');
+    expect(text).toMatch(/loadTools.*options|options.*loadTools/s);
+    expect(text).not.toMatch(/not available here|Options chains and open interest are not available/i);
+  });
+
+  it('uses plain words for promises, never the internal ones', () => {
+    for (const key of skills) expect(defaults.read(key) ?? '', key).not.toMatch(/\b(watcher|desk run|requireBacktest)\b/i);
   });
 });

@@ -28,9 +28,14 @@ const withFallback = (primary: Model, fallback: Model): ModelWithRetries[] => [{
 export class MastraRunner implements AgentRunner {
   readonly model: string;
   private readonly agent: Agent;
+  private readonly activeTools: ((ctx: ToolContext) => string[]) | undefined;
+  private readonly endTurn: ((ctx: ToolContext) => void) | undefined;
 
-  constructor(opts: { name: string; primary: Model; fallback?: Model; tools: Array<GuardedTool<unknown, unknown>> }) {
+  constructor(opts: { name: string; primary: Model; fallback?: Model; tools: Array<GuardedTool<unknown, unknown>>;
+    /** The tool names the model may see at this step; absent means all. */ activeTools?: (ctx: ToolContext) => string[]; endTurn?: (ctx: ToolContext) => void }) {
     this.model = opts.name;
+    this.activeTools = opts.activeTools;
+    this.endTurn = opts.endTurn;
     const tools = Object.fromEntries(opts.tools.map(tool => [tool.name, createTool({
       id: tool.name, description: tool.description, inputSchema: tool.input,
       execute: async (input, context) => {
@@ -67,7 +72,8 @@ export class MastraRunner implements AgentRunner {
       execute: async ({ writer }) => {
         const output = await this.agent.stream(original, {
           // One step past the budget, so running out of rounds ends with the budget notice instead of stopping silently.
-          requestContext, abortSignal: abort.signal, maxSteps: input.budget.remaining().rounds + 1,
+          requestContext, abortSignal: abort.signal,
+          ...(this.activeTools ? { prepareStep: () => ({ activeTools: this.activeTools?.(input.ctx) ?? [] }) } : {}), maxSteps: input.budget.remaining().rounds + 1,
           onStepFinish: (step: { usage?: { totalTokens?: number | undefined; inputTokens?: number | undefined; outputTokens?: number | undefined } }) => {
             const used = step.usage?.totalTokens ?? (step.usage?.inputTokens ?? 0) + (step.usage?.outputTokens ?? 0);
             tokens += used;
@@ -103,6 +109,7 @@ export class MastraRunner implements AgentRunner {
       onError: () => 'The assistant could not answer just now. Try again in a moment.',
       onEnd: ({ messages, isAborted }) => {
         input.signal.removeEventListener('abort', onOuterAbort);
+        this.endTurn?.(input.ctx);
         const outcome = exceeded ? `budget:${exceeded}` : isAborted || input.signal.aborted ? 'aborted' : 'ok';
         settle({ outcome, tokens, messages });
       },

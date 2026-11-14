@@ -10,10 +10,10 @@ export interface RunDone { outcome: TurnOutcome | (string & {}); tokens: number;
 export interface AgentRunner { readonly model: string; run(input: RunInput): { stream: ReadableStream<unknown>; done: Promise<RunDone> } }
 
 export interface TurnStart { id: string; userId: string; threadId: string; promptKey: string; promptVersion: number; model: string; startedAt: string }
-export interface TurnStore { start(turn: TurnStart): Promise<void>; finish(id: string, result: { outcome: string; tokens: number; finishedAt: string }): Promise<void> }
+export interface TurnStore { start(turn: TurnStart): Promise<void>; finish(id: string, result: { outcome: string; tokens: number; finishedAt: string; tools: string[] }): Promise<void> }
 /** `ensure` creates the thread on first use and returns its stored history; another user's thread is not found. */
 export interface ThreadHistoryStore { ensure(userId: string, threadId: string, firstText: string): Promise<unknown[]>; saveMessages(userId: string, threadId: string, messages: unknown[]): Promise<void> }
-export interface ChatStores { turns: TurnStore; threads: ThreadHistoryStore; memory?: { promptFor(userId: string): Promise<string> } }
+export interface ChatStores { turns: TurnStore; threads: ThreadHistoryStore; memory?: { promptFor(userId: string): Promise<string> }; toolLog?: { take(turnId: string): string[] } }
 export interface WindowLimiter { take(key: string, limit: number, windowMs: number): Promise<boolean> }
 export interface ChatOptions { dailyTurns: number; maxRounds: number; turnTimeoutMs: number; maxTokens: number }
 export interface ChatTurn { userId: string; threadId: string; message: unknown }
@@ -102,6 +102,6 @@ export class ChatService {
     } catch {
       result = { outcome: 'error', tokens: 0 };
     }
-    await this.stores.turns.finish(turnId, { ...result, finishedAt: new Date(this.env.now()).toISOString() }).catch(() => undefined);
+    await this.stores.turns.finish(turnId, { ...result, tools: this.stores.toolLog?.take(turnId) ?? [], finishedAt: new Date(this.env.now()).toISOString() }).catch(() => undefined);
   }
 }

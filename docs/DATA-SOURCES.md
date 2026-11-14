@@ -11,7 +11,8 @@ Owner direction 2026-11-12: every external data source enters the app through on
    | Prices, bars, quotes, order book (depth) | `market-data` |
    | Instrument lists, universes (NIFTY 50/100/500 and others) | `instruments` |
    | Headlines, clusters, sentiment, crowd chatter | `news` |
-   | Calendar, event specs, actuals, surprise, scorecard | `calendar` |
+   | Calendar, event specs, actuals, surprise, scorecard, company results dates | `calendar` |
+   | Option chains, open interest, put-call ratio, max pain (India F&O) | `options` (new, AG-13) |
    | Company fundamentals (ratios, results, shareholding) | `fundamentals` (new) |
    | Web search | `research` (new) |
    | Scans | `screener` (new): reads other modules' application APIs only, has no sources of its own |
@@ -69,6 +70,8 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | fred | calendar | US actuals + full history (curated series) | US, so USD, gold | FRED_API_KEY | 120/min | key |
 | nse-corporate | calendar | results / board meetings for the NIFTY 500 | India | none | polite | skipped (AG-8): not stably reachable without bot-protection workarounds |
 | eia | calendar | crude inventory schedule + actuals | commodities | none | weekly | live (AG-8): schedule only, actuals need an EIA key |
+| kite-options | options | option chain: price, open interest, volume per strike (Kite `/quote`, instrument master for strikes and expiries); snapshots kept 10 days | India (NFO) | ZERODHA_* | quote bucket 1/s, 500 symbols per call; 60 s cache | built AG-13 (not verified live; OI change needs a prior day's 15:40 snapshot) |
+| screener-in-results | calendar, fundamentals | upcoming results date read from the same screener.in company page (no extra request) | India | none | as screener-in | built AG-13 (markup guessed from a hand-written fixture; verify live; a missing date is null) |
 | screener-in | fundamentals | ratios, results, growth, shareholding | India | none | <= 1 request / 3 s; `/company/<SYMBOL>/` only (robots.txt) | live (AG-7; fixtures hand-written, verify against the live site) |
 | tavily | research | web search for the agent | all | TAVILY_API_KEY | AGENT_WEB_SEARCH_DAILY | built AG-9 |
 | ff-history | calendar | actuals history from 2007 (old product's 66 MB export) | global FX | none | static | lost: rebuild from FRED history + our own captured actuals |
@@ -83,7 +86,8 @@ Status: **live** = in production; **build** = AG task; **key** = waiting for a k
 | searchInstruments, listUniverse | instruments | |
 | scanUniverse, watchScreen | screener | price + fundamental conditions |
 | getNews, getSentiment, getCrowd | news | clusters, source count; `asOf` on getSentiment (headline lists use the desk's `asOf` path) |
-| getEconomicCalendar, getEventScorecard | calendar | specs, actuals, surprise, reaction history |
+| getEconomicCalendar, getEventScorecard | calendar | specs, actuals, surprise, reaction history; `getEconomicCalendar` with `symbol` returns that NSE company's upcoming results (AG-13) |
+| getOptionChain, getOptionsSummary | options | NSE F&O only; group `options`; `asOf` replays a stored snapshot (AG-13) |
 | getFundamentals | fundamentals | NSE stocks |
 | webSearch | research | capped, cited |
 | runBacktest, saveStrategy | strategies, compute | |

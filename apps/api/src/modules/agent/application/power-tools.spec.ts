@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AgentTrader, BackgroundRuns, type TradeRow } from './agent-trader';
 import type { AgentTask } from '../domain/agent-task';
 import type { BacktestNote } from '../domain/auto-trade';
-import { buildCalcTool, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
+import { buildCalcTool, buildCalendarTools, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './power-tools';
 
 const ctx = { userId: 'u1', conversationId: '7d9f0a2e-0000-4000-8000-000000000001', turnId: 'turn-abcdef12' };
 const tenAm = Date.parse('2026-11-11T10:00:00+05:30');
@@ -76,9 +76,20 @@ describe('assistant power tools', () => {
   it('lists and loads versioned skills', async () => {
     const skills = { keys: () => ['system', 'skill-trend-check'], active: vi.fn().mockResolvedValue({ version: 2, content: '# Trend check\nDecide the trend from data.\n\n1. ...' }) };
     const tools = buildSkillTools(skills, deps);
-    expect(await byName(tools, 'listSkills')?.call(ctx, {})).toEqual({ ok: true, data: [{ name: 'trend-check', title: 'Trend check', summary: 'Decide the trend from data.' }] });
+    expect(await byName(tools, 'listSkills')?.call(ctx, {})).toEqual({ ok: true, data: [{ market: 'all', skills: [{ name: 'trend-check', title: 'Trend check', summary: 'Decide the trend from data.' }] }] });
     expect(await byName(tools, 'useSkill')?.call(ctx, { name: 'trend-check' })).toMatchObject({ ok: true, data: { version: 2 } });
     expect(await byName(tools, 'useSkill')?.call(ctx, { name: 'nope' })).toMatchObject({ ok: false, reason: 'VALIDATION_FAILED' });
+  });
+
+  it('groups skills by market, listing a multi-market skill under each', async () => {
+    const files: Record<string, string> = { 'skill-macro': '# Macro\nRates and sessions.\nMarkets: forex, commodities\n1. x', 'skill-fno': '# F&O\nExpiry day.\nMarkets: india\n1. x', 'skill-risk': '# Risk\nSize it.\n1. x' };
+    const skills = { keys: () => ['system', ...Object.keys(files)], active: (k: string) => Promise.resolve({ version: 0, content: files[k] ?? '' }) };
+    const out = await byName(buildSkillTools(skills, deps), 'listSkills')?.call(ctx, {});
+    expect(out).toEqual({ ok: true, data: [
+      { market: 'commodities', skills: [{ name: 'macro', title: 'Macro', summary: 'Rates and sessions.' }] },
+      { market: 'forex', skills: [{ name: 'macro', title: 'Macro', summary: 'Rates and sessions.' }] },
+      { market: 'india', skills: [{ name: 'fno', title: 'F&O', summary: 'Expiry day.' }] },
+      { market: 'all', skills: [{ name: 'risk', title: 'Risk', summary: 'Size it.' }] }] });
   });
 
   it('schedules tasks in the current conversation', async () => {
@@ -299,5 +310,32 @@ describe('auto-trade backtest gate', () => {
     expect(none.j.rows).toEqual([]);
     expect(other.j.rows).toEqual([]);
     expect(none.d.place).not.toHaveBeenCalled();
+  });
+});
+
+describe('getEconomicCalendar with a symbol', () => {
+  const event = (title: string, country: string) => ({ id: title, title, country, at: '2026-11-14T10:00:00.000Z', impact: 'Medium', forecast: null, previous: null, moves: [] });
+  const list = vi.fn().mockResolvedValue([event('INFY results', 'INR'), event('INFYX results', 'INR'), event('TCS results', 'INR'), event('INFY results', 'USD'), event('CPI m/m', 'USD')]);
+  const tool = byName(buildCalendarTools({ list }, deps), 'getEconomicCalendar');
+
+  it('returns only that company\'s results events, asking for rupee events of medium impact', async () => {
+    const out = await tool?.call(ctx, { symbol: 'NSE:INFY', days: 14 }) as { data: { events: Array<{ title: string }> } };
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ country: 'INR', impact: 'Medium', days: 14 }));
+    expect(out.data.events.map(e => e.title)).toEqual(['INFY results']);
+  });
+
+  it('says no date is known, not that none exists, when the company has no results event', async () => {
+    const out = await tool?.call(ctx, { symbol: 'NSE:WIPRO' }) as { data: { events: unknown[]; note: string } };
+    expect(out.data.events).toEqual([]);
+    expect(out.data.note).toMatch(/no results date/i);
+  });
+
+  it('rejects a symbol outside NSE', async () => {
+    expect(await tool?.call(ctx, { symbol: 'NASDAQ:AAPL' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' });
+  });
+
+  it('without a symbol keeps returning the list unchanged', async () => {
+    list.mockResolvedValueOnce([event('CPI m/m', 'USD')]);
+    expect(await tool?.call(ctx, { days: 3 })).toEqual({ ok: true, data: [event('CPI m/m', 'USD')] });
   });
 });

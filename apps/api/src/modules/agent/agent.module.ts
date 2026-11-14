@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Logger, Module } from '@nestjs/common';
 import type { Redis } from 'ioredis';
-import type { PineCheck } from '@aitrader/contracts';
+import type { AgentAction, PineCheck } from '@aitrader/contracts';
 import { UnavailableError, ValidationError } from '../../shared/errors';
 import { APP_CONFIG, type AppConfig } from '../../shared/config';
 import { DB, type Database } from '../../shared/database';
@@ -25,9 +25,13 @@ import { BacktestRunner, Strategies } from '../strategies/application/index';
 import { StrategiesModule } from '../strategies/strategies.module';
 import { buildBacktestTools } from './application/backtest-tools';
 import { buildDepthTools } from './application/depth-tools';
+import { buildMarketStatusTools, deskMarketLine } from './application/market-status-tools';
 import { buildEventScorecardTools } from './application/event-tools';
 import { buildResearchTools } from './application/research-tools';
 import { buildFundamentalsTools } from './application/fundamentals-tools';
+import { buildOptionsTools } from './application/options-tools';
+import { OptionsService } from '../options/application/index';
+import { OptionsModule } from '../options/options.module';
 import { EventScorecards } from '../calendar/application/index';
 import { MinuteBars } from '../market-data/application/index';
 import { buildScreenerTools } from './application/screener-tools';
@@ -55,9 +59,16 @@ import { ActionCards } from './application/action-cards';
 import { AgentTasks } from './application/agent-tasks';
 import { buildCalcTool, buildCalendarTools, buildMemoryTools, buildNewsTools, buildPaperTools, buildSkillTools, buildTaskTools, buildWatchlistTools } from './application/power-tools';
 import { AgentMemory } from './application/agent-memory';
+import { AgentProfileService } from './application/agent-profile';
+import { buildProfileTools } from './application/profile-tools';
+import { TurnToolLog } from './application/turn-tool-log';
+import { DrizzleProfileStore, DrizzleSignalStore } from './infrastructure/drizzle-profile.store';
+import { ProfileController } from './api/profile.controller';
 import { DrizzleMemoryStore } from './infrastructure/drizzle-memory.store';
 import { MemoryController } from './api/memory.controller';
 import { buildTradePlanTools } from './application/trade-plan-tools';
+import { buildDeskTools } from './application/desk-tools';
+import { ToolLoader, buildLoadTools, gateTools, groupOf } from './application/tool-groups';
 import { buildActionTools, buildIndicatorTools } from './application/action-tools';
 import { ChatService, type AgentRunner, type WindowLimiter } from './application/chat-service';
 import { DrawingService } from './application/drawing-service';
@@ -73,6 +84,7 @@ import { PaperVenue } from './infrastructure/paper-venue';
 import { AsOfDeskData } from './application/desk-data';
 import { DeskBacktests } from './application/desk-backtest';
 import { DeskTaskRunner } from './application/desk-task';
+import { buildSetupBacktest } from './application/desk-setup-backtest';
 import { TradingDesk, type DeskModel } from './application/trading-desk';
 import { DeskController } from './api/desk.controller';
 import { AgentQueueController } from './api/agent-queue.controller';
@@ -105,7 +117,7 @@ const toolLimit = (key: string): [number, number] => (key.startsWith('agent:conv
 
 interface ToolServices {
   quote: GetQuote; market: MarketDataService; search: SearchInstruments; portfolio: ReadPortfolio; indicators: IndicatorService; cards: ActionCards;
-  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies;
+  dataTools: DataTools; trader: AgentTrader; runs: BackgroundRuns; place: PlaceOrder; cancel: CancelOrder; prompts: PromptRegistry; tasks: AgentTasks; news: NewsService; watchlist: Watchlists; memory: AgentMemory; profile: AgentProfileService; toolLog: TurnToolLog; calendar: EconomicCalendar; runner: BacktestRunner; strategies: Strategies; desk: TradingDesk;
 }
 
 /** No AGENT_MODEL: the assistant is off and says so. A bad model setting fails at boot, naming the .env key. */
@@ -116,15 +128,20 @@ function createRunner(config: AppConfig, services: ToolServices, limiter: Window
   const deps = {
     limiter: { take: (key: string) => limiter.take(key, ...toolLimit(key)) },
     audit: (entry: { tool: string; userId: string; conversationId: string; turnId: string; outcome: string; ms: number }) => {
+      if (entry.outcome === 'ok') services.toolLog.add(entry.turnId, entry.tool);
       logger.log({ message: 'agent tool call', tool: entry.tool, userId: entry.userId, conversationId: entry.conversationId, turnId: entry.turnId, outcome: entry.outcome, ms: entry.ms });
     },
   };
-  const tools = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
-    ...buildCalcTool(deps), ...buildTradePlanTools({ account: (userId, symbol) => services.trader.account(userId, symbol), propose: (userId, action) => services.cards.propose(userId, action), id: () => randomUUID() }, deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildCalendarTools(services.calendar, deps),
+  const planDeps = { account: (userId: string, symbol: string) => services.trader.account(userId, symbol), propose: (userId: string, action: AgentAction) => services.cards.propose(userId, action), id: () => randomUUID() };
+  const loader = new ToolLoader();
+  const all = [...buildReadTools(services, deps), ...buildIndicatorTools(services.indicators, deps), ...buildActionTools(services.cards, deps),
+    ...buildCalcTool(deps), ...buildTradePlanTools(planDeps, deps), ...buildSkillTools(services.prompts, deps), ...buildPaperTools(services.trader, deps, { runs: services.runs, propose: (userId, action) => services.cards.propose(userId, action) }), ...buildTaskTools(services.tasks, deps), ...buildNewsTools(services.news, deps), ...buildWatchlistTools(services.watchlist, deps), ...buildMemoryTools(services.memory, deps), ...buildProfileTools(services.profile, deps), ...buildCalendarTools(services.calendar, deps),
     ...services.dataTools(deps), ...buildBacktestTools({ runner: services.runner, strategies: services.strategies }, deps,
-      (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); })];
+      (ctx, note) => { services.runs.noteBacktest(ctx.conversationId, note); }),
+    ...buildDeskTools({ ...planDeps, run: (userId, request, signal) => services.desk.run(userId, request, signal) }, deps)];
+  const tools = [...gateTools(all, loader), ...buildLoadTools(loader, deps)];
   logger.log(`Assistant model ${config.AGENT_MODEL}${config.AGENT_FALLBACK_MODEL ? `, fallback ${config.AGENT_FALLBACK_MODEL}` : ''}`);
-  return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools });
+  return new MastraRunner({ name: config.AGENT_MODEL, primary, ...(fallback ? { fallback } : {}), tools, activeTools: ctx => loader.active(ctx.turnId), endTurn: ctx => { loader.end(ctx.turnId); } });
 }
 
 /** The runtime's description of a script, or the error with its line; an unavailable runtime stays an error to the caller. */
@@ -138,8 +155,8 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 }
 
 @Module({
-  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule],
-  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, TradesController, DeskController, AgentQueueController],
+  imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
+  controllers: [PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
@@ -155,11 +172,12 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
       useFactory: (venues: VenueRouter, journal: TradeJournal) => new AgentTrader(venues.routed(), journal, { now: Date.now, id: randomUUID }) },
     { provide: TradeLog, inject: [VenueRouter, TRADE_JOURNAL], useFactory: (venues: VenueRouter, journal: TradeJournal) => new TradeLog(journal, venues.routed()) },
     { provide: BackgroundRuns, useFactory: () => new BackgroundRuns() },
-    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService, PineScripts, AgentTrader],
-      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService, scripts: PineScripts, trader: AgentTrader) => {
+    { provide: ActionCards, inject: [DB, IndicatorService, MarketDataService, PineScripts, AgentTrader, AgentProfileService],
+      useFactory: (db: Database, indicators: IndicatorService, market: MarketDataService, scripts: PineScripts, trader: AgentTrader, profile: AgentProfileService) => {
         const drawings = new DrawingService(market);
         return new ActionCards(new DrizzleActionStore(db), { indicators: () => indicators.list(), draw: intent => drawings.compute(intent), checkPine: source => checkPine(indicators, source),
           savePine: async (userId, name, source) => (await scripts.create(userId, { name, source })).id,
+          signal: (userId, input) => profile.signal(userId, input),
           submitOrder: async (userId, a) => {
             const clientOrderId = `agent-card-${randomUUID().slice(0, 8)}`;
             await trader.enter(userId, a, { taskId: null, trigger: 'confirmed proposal', skill: null, rationale: a.rationale, backtest: null, clientOrderId });
@@ -176,22 +194,27 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
           positions: async (userId, symbols) => (await portfolio.positions(userId)).filter(p => p.quantity !== 0 && symbols.includes(p.instrumentId))
             .map(p => ({ symbol: p.instrumentId, quantity: Math.abs(p.quantity), side: p.quantity > 0 ? 'long' : 'short' })),
         }), { now: Date.now, id: randomUUID }) },
-    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService],
-      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService): DataTools => deps => [
+    { provide: DATA_TOOLS, inject: [ReadDepth, FundamentalsService, Universes, ScanService, AgentTasks, EventScorecards, ResearchService, OptionsService],
+      useFactory: (depth: ReadDepth, fundamentals: FundamentalsService, universes: Universes, scans: ScanService, tasks: AgentTasks, scorecards: EventScorecards, research: ResearchService, options: OptionsService): DataTools => deps => [
         ...buildResearchTools({ search: query => research.search(query, AbortSignal.timeout(25_000)) }, deps),
         ...buildEventScorecardTools(scorecards, deps),
+        ...buildMarketStatusTools(deps),
         ...buildDepthTools({ read: symbol => depth.execute(symbol) }, deps),
         ...buildFundamentalsTools({ get: (symbol, asOf) => fundamentals.get(symbol, asOf === undefined ? {} : { asOf }) }, deps),
+        ...buildOptionsTools(options, deps),
         ...buildUniverseTools(universes, deps),
         ...buildScreenerTools(scans, listPresets(), tasks, deps)] },
-    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS],
+    { provide: RUNNER, inject: [APP_CONFIG, GetQuote, MarketDataService, SearchInstruments, ReadPortfolio, IndicatorService, ActionCards, PlaceOrder, CancelOrder, PromptRegistry, AgentTasks, NewsService, Watchlists, AgentMemory, AgentProfileService, TurnToolLog, EconomicCalendar, BacktestRunner, Strategies, LIMITER, AgentTrader, BackgroundRuns, DATA_TOOLS, TradingDesk],
       useFactory: (config: AppConfig, quote: GetQuote, market: MarketDataService, search: SearchInstruments, portfolio: ReadPortfolio, indicators: IndicatorService,
-        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools) =>
-        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, calendar, runner, strategies }, limiter) },
+        cards: ActionCards, place: PlaceOrder, cancel: CancelOrder, prompts: PromptRegistry, tasks: AgentTasks, news: NewsService, watchlist: Watchlists, memory: AgentMemory, profile: AgentProfileService, toolLog: TurnToolLog, calendar: EconomicCalendar, runner: BacktestRunner, strategies: Strategies, limiter: WindowLimiter, trader: AgentTrader, runs: BackgroundRuns, dataTools: DataTools, desk: TradingDesk) =>
+        createRunner(config, { quote, market, search, portfolio, indicators, cards, dataTools, trader, runs, place, cancel, prompts, tasks, news, watchlist, memory, profile, toolLog, calendar, runner, strategies, desk }, limiter) },
     { provide: AgentMemory, inject: [DB], useFactory: (db: Database) => new AgentMemory(new DrizzleMemoryStore(db), { id: randomUUID }) },
-    { provide: ChatService, inject: [RUNNER, PromptRegistry, DB, LIMITER, APP_CONFIG, AgentMemory],
-      useFactory: (runner: AgentRunner | null, prompts: PromptRegistry, db: Database, limiter: WindowLimiter, config: AppConfig, memory: AgentMemory) =>
-        new ChatService(runner, prompts, { turns: new DrizzleTurnStore(db), threads: new DrizzleThreadStore(db), memory }, limiter,
+    { provide: TurnToolLog, useFactory: () => new TurnToolLog() },
+    { provide: AgentProfileService, inject: [DB, AgentMemory],
+      useFactory: (db: Database, memory: AgentMemory) => new AgentProfileService(new DrizzleProfileStore(db), new DrizzleSignalStore(db), memory, { id: randomUUID }, groupOf) },
+    { provide: ChatService, inject: [RUNNER, PromptRegistry, DB, LIMITER, APP_CONFIG, AgentProfileService, TurnToolLog],
+      useFactory: (runner: AgentRunner | null, prompts: PromptRegistry, db: Database, limiter: WindowLimiter, config: AppConfig, profile: AgentProfileService, toolLog: TurnToolLog) =>
+        new ChatService(runner, prompts, { turns: new DrizzleTurnStore(db), threads: new DrizzleThreadStore(db), memory: profile, toolLog }, limiter,
           { dailyTurns: config.AGENT_DAILY_TURNS, maxRounds: config.AGENT_MAX_ROUNDS, turnTimeoutMs: config.AGENT_TURN_TIMEOUT_MS, maxTokens: config.AGENT_MAX_TOKENS },
           { now: Date.now, id: randomUUID }) },
     { provide: Threads, inject: [DB], useFactory: (db: Database) => new Threads(new DrizzleThreadStore(db)) },
@@ -201,7 +224,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
         const model: DeskModel = spec ? new AiDeskModel(createLanguageModel(parseModelSpec(spec), config))
           : { generate: () => Promise.reject(new UnavailableError('The trading desk is off: set DESK_MODEL or AGENT_MODEL')) };
         const routed = venues.routed();
-        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }, { forEvents: (events, limit, asOf) => scorecards.forEvents(events, limit, asOf) }), model, new DrizzleDeskRunStore(db),
+        return new TradingDesk(new AsOfDeskData(market, { compute: request => indicators.compute(request) }, news, calendar, { get: (symbol, asOf) => fundamentals.get(symbol, { asOf }) }, { forEvents: (events, limit, asOf) => scorecards.forEvents(events, limit, asOf) }, deskMarketLine), model, new DrizzleDeskRunStore(db),
           { maxTokens: config.DESK_MAX_TOKENS, dailyRuns: config.DESK_DAILY_RUNS, minRewardRisk: 1.5, maxRiskPct: 0.5, defaultCash: 1_000_000 },
           { now: Date.now, id: randomUUID, skills: () => prompts.keys().filter(k => k.startsWith('skill-')).map(k => k.slice('skill-'.length)),
             cash: async (userId, symbol) => (await routed.account(userId, symbol).catch(() => ({ initialCash: 1_000_000 }))).initialCash });
@@ -210,8 +233,9 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
       useFactory: (db: Database, desk: TradingDesk, market: MarketDataService) => new DeskBacktests(desk,
         { after: async (symbol, interval, from, limit) => (await market.bars(symbol, interval, { since: from }, limit)).bars.filter(b => b.time >= from).sort((a, b) => a.time - b.time).slice(0, limit) },
         new DrizzleDeskBacktestStore(db), { now: Date.now, id: randomUUID }) },
-    { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications],
-      useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications) => new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }) },
+    { provide: DeskTaskRunner, inject: [TradingDesk, AgentTrader, ActionCards, Notifications, BacktestRunner],
+      useFactory: (desk: TradingDesk, trader: AgentTrader, cards: ActionCards, notifications: Notifications, runner: BacktestRunner) =>
+        new DeskTaskRunner(desk, trader, (userId, action) => cards.propose(userId, action), notifications, { now: Date.now, id: randomUUID }, buildSetupBacktest(runner)) },
     { provide: TaskFirer, inject: [ChatService, Notifications, LIMITER, APP_CONFIG, BackgroundRuns, DeskTaskRunner],
       useFactory: (chat: ChatService, notifications: Notifications, limiter: WindowLimiter, config: AppConfig, runs: BackgroundRuns, desk: DeskTaskRunner) =>
         new TaskFirer(chat, notifications, { limiter, dailyRuns: config.AGENT_WATCH_DAILY_RUNS, now: Date.now }, runs, desk) },

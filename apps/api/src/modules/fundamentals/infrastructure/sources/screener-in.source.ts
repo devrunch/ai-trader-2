@@ -1,7 +1,7 @@
 import type { SourceDescriptor } from '../../../../shared/sources';
 import type { SourceClient } from '../../../../shared/sources';
 import { SourceUnavailableError } from '../../../../shared/sources';
-import type { FundamentalsFigures, FundamentalsSource } from '../../application/ports/fundamentals-source';
+import type { SourceFigures, FundamentalsSource } from '../../application/ports/fundamentals-source';
 import { FundamentalsNotFoundError, FundamentalsParseError } from '../../domain/errors';
 import { parseScreenerPage } from './screener-in.parse';
 
@@ -29,7 +29,7 @@ export class ScreenerInSource implements FundamentalsSource {
 
   constructor(private readonly client: Pick<SourceClient, 'get' | 'recordItems'>) {}
 
-  async fetch(ticker: string, consolidated: boolean, signal?: AbortSignal): Promise<FundamentalsFigures> {
+  async fetch(ticker: string, consolidated: boolean, signal?: AbortSignal): Promise<SourceFigures> {
     const url = companyUrl(ticker, consolidated);
     let body: string;
     try {

@@ -2,7 +2,7 @@ import { Global, Inject, Logger, Module, type OnApplicationBootstrap } from '@ne
 import { DB, type Database } from '../../shared/database/index.js';
 import { JobScheduler } from '../../shared/jobs/index.js';
 import { ReadinessRegistry } from '../../shared/health/index.js';
-import { RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources } from './application/index.js';
+import { RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources, OptionContractList } from './application/index.js';
 import { POPULAR_INSTRUMENTS } from './infrastructure/popular-instruments';
 import { INSTRUMENT_REPOSITORY, type InstrumentRepository } from './application/ports/instrument-repository.js';
 import { INSTRUMENT_SOURCES, type InstrumentSource } from './application/ports/instrument-source.js';
@@ -25,6 +25,7 @@ import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
   providers: [
     { provide: 'INSTRUMENT_SOURCE_DESCRIPTORS', inject: [SourceRegistry], useFactory: (registry: SourceRegistry) => { registry.register(NASDAQ_TRADER_DESCRIPTOR); return true; } },
     { provide: ListInstrumentSources, inject: [INSTRUMENT_REPOSITORY], useFactory: (repo: InstrumentRepository) => new ListInstrumentSources(repo) },
+    { provide: OptionContractList, inject: [INSTRUMENT_REPOSITORY], useFactory: (repo: InstrumentRepository) => new OptionContractList(repo) },
     { provide: InstrumentHistory, inject: [INSTRUMENT_REPOSITORY],
       useFactory: (repo: InstrumentRepository) => new InstrumentHistory(repo, POPULAR_INSTRUMENTS) },
     { provide: CLOCK, useValue: Date.now },
@@ -42,7 +43,7 @@ import { RedisRefreshLock } from './infrastructure/redis-refresh-lock.js';
       useFactory: (scheduler: JobScheduler, refresh: RefreshInstruments, db: Database, readiness: ReadinessRegistry) =>
         new RefreshJob(scheduler, refresh, db, readiness) },
   ],
-  exports: [RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources, CLOCK, InstrumentsRateLimitGuard],
+  exports: [OptionContractList, RefreshInstruments, ResolveInstrument, SearchInstruments, InstrumentHistory, ListInstrumentSources, CLOCK, InstrumentsRateLimitGuard],
 })
 export class InstrumentsModule implements OnApplicationBootstrap {
   constructor(@Inject(INSTRUMENT_REPOSITORY) private readonly repository: InstrumentRepository,

@@ -38,6 +38,7 @@ function renderSnapshot(symbol: string, s: DeskSnapshot): string {
   const bar = (b: { time: number; open: number; high: number; low: number; close: number; volume: number | null }) => `${iso(b.time)} O${num(b.open)} H${num(b.high)} L${num(b.low)} C${num(b.close)} V${num(b.volume)}`;
   return [
     `Instrument ${symbol}. As of ${iso(s.asOf)}. Last close ${num(s.lastClose)}.`,
+    ...(s.market ? [`Market: ${s.market}`] : []),
     `Indicators on 5m (last closed bar): ${Object.entries(s.indicators).map(([k, v]) => `${k}=${num(v)}`).join(', ')}`,
     `Daily bars (oldest first):\n${s.daily.map(bar).join('\n') || 'none'}`,
     `Last 5m bars (oldest first):\n${s.intraday.slice(-20).map(bar).join('\n') || 'none'}`,

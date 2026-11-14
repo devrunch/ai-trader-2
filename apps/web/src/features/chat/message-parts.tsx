@@ -1,9 +1,12 @@
 import type { UIMessage } from 'ai';
+import { z } from 'zod';
 import { ActionCardSchema, TradePlanSchema } from '@aitrader/contracts';
 import { ActionCard } from './action-card';
 import { TradePlanCard } from './trade-plan-card';
 import { ChatMarkdown } from './markdown';
 
+/** What askDesk returns: a plan card for a BUY or SELL, otherwise the reasons. */
+const DeskAnswerSchema = z.looseObject({ plan: TradePlanSchema.nullable() });
 type Part = UIMessage['parts'][number];
 interface ToolLike { type: string; state?: string; input?: unknown; output?: unknown; errorText?: string }
 interface NoticeLike { type: 'data-notice'; data: { text?: string } }
@@ -17,8 +20,8 @@ export function MessageParts({ parts, role }: { parts: UIMessage['parts']; role:
     if (part.type === 'text') return role === 'user' ? <p key={i} className="whitespace-pre-wrap">{part.text}</p> : <ChatMarkdown key={i} text={part.text} />;
     if (isNotice(part)) return <p key={i} role="status" className="rounded border border-dashed p-2 text-muted-foreground">{part.data.text}</p>;
     if (isTool(part) && part.type === 'tool-useSkill') return <SkillChip key={i} part={part} />;
-    if (isTool(part) && part.type === 'tool-presentTradePlan') {
-      const plan = okData(part.output, TradePlanSchema);
+    if (isTool(part) && (part.type === 'tool-presentTradePlan' || part.type === 'tool-askDesk')) {
+      const plan = part.type === 'tool-askDesk' ? okData(part.output, DeskAnswerSchema)?.plan : okData(part.output, TradePlanSchema);
       if (plan) return <TradePlanCard key={i} plan={plan} />;
     }
     if (isTool(part)) {
@@ -51,7 +54,7 @@ function SkillChip({ part }: { part: ToolLike }) {
   const title = skill?.content.split('\n').find(l => l.startsWith('#'))?.replace(/^#+\s*/, '');
   const asked = typeof part.input === 'object' && part.input !== null && 'name' in part.input && typeof part.input.name === 'string' ? part.input.name : 'skill';
   return <p role="status" className="inline-flex items-center gap-1.5 border border-accent/50 px-2 py-0.5 text-xs">
-    <span className="text-muted-foreground">Using skill</span><span className="font-semibold">{title ?? asked}</span>
+    <span className="text-muted-foreground">Using</span><span className="font-semibold">{title ?? asked}</span>
     {skill?.version !== undefined && <span className="text-muted-foreground">v{skill.version}</span>}
     {!skill && part.state === 'output-available' && <span className="text-down">not found</span>}
   </p>;

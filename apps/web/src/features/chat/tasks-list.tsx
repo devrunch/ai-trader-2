@@ -34,7 +34,7 @@ export function TasksList({ onOpenThread }: { onOpenThread: (threadId: string) =
     onSettled: () => client.invalidateQueries({ queryKey: ['agent', 'tasks'] }),
   });
   if (tasks.isPending) return <p className="text-muted-foreground">Loading tasks…</p>;
-  if (tasks.isError) return <p role="alert" className="text-down">Tasks are unavailable right now.</p>;
+  if (tasks.isError) return <p role="alert" className="text-down">Your promises are unavailable right now.</p>;
   // Alerts live in the Alerts widget; this list is the assistant's own work.
   const mine = tasks.data.filter((t): t is AgentTaskDto & { threadId: string } => t.mode === 'agent' && t.threadId !== null);
   if (mine.length === 0) return <p className="text-muted-foreground">No background tasks. Ask the assistant, for example: “every weekday at 9:20, check NIFTY's trend and tell me”.</p>;

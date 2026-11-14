@@ -37,7 +37,7 @@ export function AlertsPanel({ symbol, interval, onOpenSymbol }: { symbol: string
     <NewAlert symbol={symbol} interval={interval} pending={create.isPending} error={create.error}
       onCreate={body => { create.mutate(body); }} last={create.data?.conditionNow ?? null} />
     <div role="tablist" aria-label="Show" className="flex gap-1 border-b px-3 py-1.5">
-      {([['all', 'All'], ['notify', `Alerts (${String(count('notify'))})`], ['agent', `AI watches (${String(count('agent'))})`]] as const).map(([id, label]) =>
+      {([['all', 'All'], ['notify', `Alerts (${String(count('notify'))})`], ['agent', `Tasks (${String(count('agent'))})`]] as const).map(([id, label]) =>
         <button key={id} type="button" role="tab" aria-selected={show === id} onClick={() => { setShow(id); }}
           className={`px-2 py-1 ${show === id ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>{label}</button>)}
     </div>
@@ -45,18 +45,18 @@ export function AlertsPanel({ symbol, interval, onOpenSymbol }: { symbol: string
       {list.isPending ? <p className="p-3 text-muted-foreground">Loading alerts…</p>
         : list.isError ? <p role="alert" className="p-3 text-down">Alerts are unavailable right now. They will load again on their own; check your connection if this stays.</p>
         : shown.length === 0 ? <div className="space-y-1 p-3 text-muted-foreground">
-          <p>{show === 'agent' ? 'No AI watches yet.' : 'No alerts yet.'}</p>
+          <p>{show === 'agent' ? 'Nothing is being watched yet.' : 'No alerts yet.'}</p>
           <p>{show === 'agent' ? 'Ask the assistant, for example “watch INR news with high impact and tell me if it matters”. It wakes on a match and decides whether to tell you.'
             : 'Set a price, indicator, news or event condition above. You get a notification in the bell when it triggers.'}</p></div>
         : <ul aria-label="Alerts">{[...live, ...past].map(a => <li key={a.id} className="space-y-1 border-b px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className={`shrink-0 px-1.5 py-px text-[10px] font-semibold ${a.mode === 'agent' ? 'ai-gradient' : 'border text-muted-foreground'}`}>{a.mode === 'agent' ? 'AI watch' : 'Alert'}</span>
+            <span className={`shrink-0 px-1.5 py-px text-[10px] font-semibold ${a.mode === 'agent' ? 'ai-gradient' : 'border text-muted-foreground'}`}>{a.mode === 'agent' ? 'Task' : 'Alert'}</span>
             <button type="button" className="min-w-0 flex-1 truncate text-left font-semibold hover:underline" title={a.instruction || a.title}
               onClick={() => { const s = openable(a.trigger); if (s) onOpenSymbol(s); }}>{a.title}</button>
             <span className={STATE_TONE[a.state]}>{a.runState === 'running' ? 'waking now…' : a.runState === 'queued' ? 'queued' : a.state}</span>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            {describeTrigger(a)}{a.desk ? ' · runs the AI Desk' : ''}
+            {describeTrigger(a)}{a.desk ? ' · asks the trading desk' : ''}
             {a.maxRuns > 1 ? ` · fired ${String(a.runs)}` : a.runs > 0 ? ' · fired' : ''}
             {a.lastRunAt ? ` · last ${time.format(Date.parse(a.lastRunAt))}` : ''}
             {a.lastOutcome ? ` · ${OUTCOME[a.lastOutcome]}` : ''}

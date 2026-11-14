@@ -46,6 +46,9 @@ export const DrawingSchema = z.strictObject({
 export type Drawing = z.infer<typeof DrawingSchema>;
 
 const AddIndicator = z.strictObject({ kind: z.literal('add-indicator'), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), inputs: IndicatorInputValuesSchema.default({}) });
+/** Chart items are client state with no ids the model knows, so these name the indicator and, optionally, the inputs that identify which one (empty `match` = every one of that indicator). */
+const RemoveIndicator = z.strictObject({ kind: z.literal('remove-indicator'), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), match: IndicatorInputValuesSchema.default({}) });
+const SetIndicatorInputs = z.strictObject({ kind: z.literal('set-indicator-inputs'), indicatorId: z.string().regex(/^[a-z][a-z0-9]{0,39}$/), match: IndicatorInputValuesSchema.default({}), inputs: IndicatorInputValuesSchema });
 const OpenSymbol = z.strictObject({ kind: z.literal('open-symbol'), symbol: SymbolId, interval: z.enum(INTERVALS).optional() });
 /** Pine the user shared: the runtime's description of it (or the error line) and, once applied, the My scripts entry it was saved as. */
 const PineCheck = z.discriminatedUnion('ok', [
@@ -60,8 +63,8 @@ const PlaceOrderAction = z.strictObject({ kind: z.literal('place-order'), symbol
   quantity: z.number().int().positive().max(1_000_000), limitPrice: z.number().positive().optional(), stopLoss: z.number().positive(), target: z.number().positive().optional(),
   rationale: z.string().max(500), clientOrderId: z.string().max(64).nullable() });
 /** What the model may propose directly; drawings go through their intent so the server computes the geometry. */
-export const ChartActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol]);
-export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, OpenSymbol, AddPine, PlaceOrderAction, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
+export const ChartActionSchema = z.discriminatedUnion('kind', [AddIndicator, RemoveIndicator, SetIndicatorInputs, OpenSymbol]);
+export const AgentActionSchema = z.discriminatedUnion('kind', [AddIndicator, RemoveIndicator, SetIndicatorInputs, OpenSymbol, AddPine, PlaceOrderAction, z.strictObject({ kind: z.literal('draw'), intent: DrawingIntentSchema })]);
 export type AgentAction = z.infer<typeof AgentActionSchema>;
 export const ACTION_CARD_STATES = ['pending', 'applied', 'dismissed', 'expired', 'failed'] as const;
 export const ActionCardSchema = z.strictObject({

@@ -66,9 +66,9 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
   it('records which prompt version and model each turn used', async () => {
     const id = randomUUID();
     await turns.start({ id, userId: alice, threadId: randomUUID(), promptKey: 'system', promptVersion: 3, model: 'xai/grok-4', startedAt: '2026-11-10T10:00:00.000Z' });
-    await turns.finish(id, { outcome: 'ok', tokens: 420, finishedAt: '2026-11-10T10:00:05.000Z' });
-    const { rows } = await pool.query('SELECT prompt_version, model, outcome, tokens FROM agent_turns WHERE id = $1', [id]);
-    expect(rows[0]).toEqual({ prompt_version: 3, model: 'xai/grok-4', outcome: 'ok', tokens: 420 });
+    await turns.finish(id, { outcome: 'ok', tokens: 420, finishedAt: '2026-11-10T10:00:05.000Z', tools: ['getQuote', 'runBacktest'] });
+    const { rows } = await pool.query('SELECT prompt_version, model, outcome, tokens, tools FROM agent_turns WHERE id = $1', [id]);
+    expect(rows[0]).toEqual({ prompt_version: 3, model: 'xai/grok-4', outcome: 'ok', tokens: 420, tools: ['getQuote', 'runBacktest'] });
   });
 
   it('action cards: owner-only reads and a compare-and-set on state (FR-AG-17)', async () => {

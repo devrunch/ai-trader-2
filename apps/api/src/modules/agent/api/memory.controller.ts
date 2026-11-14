@@ -3,8 +3,8 @@ import type { Request } from 'express';
 import { CsrfHeaderGuard, SessionGuard } from '../../auth/api/index';
 import { AgentMemory } from '../application/agent-memory';
 
-type AuthRequest = Request & { authUser?: { id: string } };
-const userId = (req: AuthRequest): string => {
+export type AuthRequest = Request & { authUser?: { id: string } };
+export const userId = (req: AuthRequest): string => {
   if (!req.authUser) throw new UnauthorizedException();
   return req.authUser.id;
 };

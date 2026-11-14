@@ -8,12 +8,14 @@ import { API_HEADERS, apiFetch, apiUrl } from '../../shared/api';
 import { Button } from '../../shared/ui/button';
 import { ChatActionsContext, type ChatActions } from './chat-actions';
 import { MessageParts } from './message-parts';
-import { MemoryList } from './memory-list';
+import { Knowledge } from './knowledge';
+import { ReplyFeedback } from './reply-feedback';
 import { TasksList } from './tasks-list';
 
 const threadsSchema = z.array(ThreadSummarySchema);
 const messagesSchema = z.array(z.looseObject({ id: z.string(), role: z.enum(['user', 'assistant', 'system']), parts: z.array(z.looseObject({ type: z.string() })) }));
 const noContent = z.unknown();
+const LABELS = { chat: 'Chat', tasks: 'Tasks', memory: 'About you' } as const;
 
 /** The assistant tab (FR-AG-8, FR-AG-9): threads on top, the conversation below. Read-only advice; it never trades. */
 export function ChatPanel({ actions }: { actions?: ChatActions }) {
@@ -31,9 +33,9 @@ export function ChatPanel({ actions }: { actions?: ChatActions }) {
   const body = <div className="flex h-full min-h-0 flex-col gap-3 text-sm">
     <div role="tablist" aria-label="Assistant" className="flex gap-1 border-b">
       {(['chat', 'tasks', 'memory'] as const).map(v => <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => { setView(v); }}
-        className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{v}</button>)}
+        className={`h-7 border-b-2 px-2 capitalize ${view === v ? 'border-accent text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{LABELS[v]}</button>)}
     </div>
-    {view === 'memory' ? <div className="min-h-0 flex-1 overflow-auto"><MemoryList /></div>
+    {view === 'memory' ? <div className="min-h-0 flex-1 overflow-auto"><Knowledge /></div>
       : view === 'tasks' ? <div className="min-h-0 flex-1 overflow-auto"><TasksList onOpenThread={id => { setThreadId(id); setView('chat'); }} /></div> : <>
       <ThreadBar current={threadId} onSelect={setThreadId} />
       <Conversation key={threadId} threadId={threadId} model={status.data.model} />
@@ -112,8 +114,9 @@ function ChatBody({ threadId, initial, model }: { threadId: string; initial: UIM
         <ul aria-label="Try asking" className="flex flex-col gap-1.5">{SUGGESTIONS.map(q => <li key={q}>
           <button type="button" disabled={busy} className="ai-border w-full px-3 py-2 text-left text-[12px] hover:bg-muted" onClick={() => { void chat.sendMessage({ text: q }); }}>{q}</button></li>)}</ul>
       </li>}
-      {chat.messages.map(m => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
+      {chat.messages.map((m, i) => <li key={m.id} className={m.role === 'user' ? 'ml-6 rounded bg-muted/40 p-2' : 'mr-2'}>
         <span className="sr-only">{m.role === 'user' ? 'You' : 'Assistant'}: </span><MessageParts parts={m.parts} role={m.role} />
+        {m.role === 'assistant' && !(busy && i === chat.messages.length - 1) && <ReplyFeedback threadId={threadId} turnIndex={chat.messages.slice(0, i).filter(x => x.role === 'assistant').length} />}
       </li>)}
       {chat.status === 'submitted' && <li className="text-muted-foreground">Thinking…</li>}
     </ol>

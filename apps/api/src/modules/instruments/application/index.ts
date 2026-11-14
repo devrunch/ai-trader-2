@@ -5,3 +5,4 @@ export { InstrumentId } from '../domain/instrument-id.js';
 export { InstrumentHistory } from './instrument-history';
 export { ListInstrumentSources } from './list-instrument-sources';
 export { Universes } from './universes.js';
+export { OptionContractList } from './option-contracts';

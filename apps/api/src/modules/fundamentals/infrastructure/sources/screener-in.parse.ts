@@ -1,7 +1,7 @@
 import type { FundamentalPeriod, FundamentalRatios } from '@aitrader/contracts';
 import { FundamentalsNotFoundError, FundamentalsParseError } from '../../domain/errors';
 import { periodEnd } from '../../domain/visibility';
-import type { FundamentalsFigures } from '../../application/ports/fundamentals-source';
+import type { SourceFigures } from '../../application/ports/fundamentals-source';
 
 const ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
 const decode = (s: string): string => s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, name: string) => {
@@ -70,7 +70,7 @@ const isNotFoundPage = (raw: string): boolean => /<title>\s*Page not found/i.tes
  * Reads a screener.in company page. Throws FundamentalsParseError when none of the headline ratios can be found: that means the markup moved or a
  * login wall was served, and an empty record would read as a company with no earnings.
  */
-export function parseScreenerPage(raw: string): { figures: FundamentalsFigures; ratiosFound: number } {
+export function parseScreenerPage(raw: string): { figures: SourceFigures; ratiosFound: number } {
   if (isNotFoundPage(raw)) throw new FundamentalsNotFoundError('screener.in has no such company');
   const ratios: FundamentalRatios = { marketCap: null, pe: null, bookValue: null, roe: null, roce: null, dividendYield: null, debtToEquity: null,
     salesGrowth3y: null, salesGrowth5y: null, profitGrowth3y: null, profitGrowth5y: null, promoterHolding: null, fiiHolding: null, diiHolding: null };
@@ -105,5 +105,21 @@ export function parseScreenerPage(raw: string): { figures: FundamentalsFigures; 
   const title = text(/<title>([^<]*)<\/title>/.exec(raw)?.[1] ?? '').split('|')[0]?.replace(/share price/i, '').trim();
   const name = title || text(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(raw)?.[1] ?? '') || null;
   const reportDate = quarterly.length > 0 ? periodEnd(quarterly[quarterly.length - 1]?.period ?? '') : null;
-  return { figures: { name, reportDate, ratios, quarterly, annual, shareholding }, ratiosFound: found };
+  return { figures: { name, reportDate, ratios, quarterly, annual, shareholding, nextResultsDate: nextResultsDate(raw) }, ratiosFound: found };
+}
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const RESULTS_DATE = /(?:upcoming|next)\s+(?:results?|board\s+meeting)\b[^0-9]{0,40}?(\d{1,2})\s+([A-Za-z]{3})[a-z]*\.?,?\s+(\d{4})/i;
+
+/**
+ * The announced results or board-meeting date as YYYY-MM-DD, or null. The markup around it is unverified against the live site, so this matches the
+ * visible text ("Upcoming results: 14 Nov 2026") and treats anything it cannot read, or an impossible date, as no date.
+ */
+function nextResultsDate(raw: string): string | null {
+  const m = RESULTS_DATE.exec(text(raw.replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')));
+  const month = MONTHS.indexOf((m?.[2] ?? '').toLowerCase());
+  if (!m || month < 0) return null;
+  const [day, year] = [Number(m[1]), Number(m[3])];
+  const d = new Date(Date.UTC(year, month, day));
+  return d.getUTCMonth() === month && d.getUTCDate() === day ? d.toISOString().slice(0, 10) : null;
 }

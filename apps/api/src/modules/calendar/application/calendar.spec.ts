@@ -56,3 +56,15 @@ describe('economic calendar actuals and specs', () => {
     expect(after[0]?.actual).toBe('0.5%');
   });
 });
+
+describe('company results dates', () => {
+  it('stores one Medium INR event per company results date, at 15:30 IST, with no forecast', async () => {
+    const upsert = vi.fn<CalendarStore['upsert']>().mockResolvedValue();
+    const calendar = new EconomicCalendar({ fetch: vi.fn() }, { upsert, between: vi.fn() }, { now: () => now, id: e => `${e.country}|${e.title}|${e.at}` });
+    await calendar.recordCompanyResults('NSE:INFY', '2026-11-14');
+    await calendar.recordCompanyResults('NSE:INFY', '2026-11-14');
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert.mock.calls[0]?.[0]).toEqual([{ id: 'INR|INFY results|2026-11-14T10:00:00.000Z', title: 'INFY results', country: 'INR', at: '2026-11-14T10:00:00.000Z', impact: 'Medium', forecast: null, previous: null }]);
+    expect(upsert.mock.calls[1]?.[0]).toEqual(upsert.mock.calls[0]?.[0]);
+  });
+});

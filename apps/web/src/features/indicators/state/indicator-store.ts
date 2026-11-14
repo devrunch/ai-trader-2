@@ -16,6 +16,9 @@ interface IndicatorState {
   update: (key: string, inputs: InputValues) => void;
   setPresentation: (key: string, presentation: Presentation | undefined) => void;
   remove: (key: string) => void;
+  /** The assistant's chart edits: items of this indicator whose inputs include every `match` entry; returns how many changed. */
+  removeMatching: (id: string, match: InputValues) => number;
+  updateMatching: (id: string, match: InputValues, inputs: InputValues) => number;
   /** Replaces the chart's indicators with a template's; fresh keys, source refs follow. */
   load: (items: readonly TemplateItem[]) => void;
 }
@@ -23,10 +26,12 @@ interface IndicatorState {
 let next = 0;
 const without = (presentation: Record<string, Presentation>, key: string): Record<string, Presentation> =>
   Object.fromEntries(Object.entries(presentation).filter(([k]) => k !== key));
+const matching = (items: ChartIndicator[], id: string, match: InputValues): string[] =>
+  items.filter(item => item.id === id && Object.entries(match).every(([name, value]) => item.inputs[name] === value)).map(item => item.key);
 const freshKey = () => `ind-${String(++next)}`;
 
 /** The indicators on the chart with their inputs and presentation; presets and templates live on the server (FR-IN-12/14). */
-export const useIndicatorStore = create<IndicatorState>(set => ({
+export const useIndicatorStore = create<IndicatorState>((set, get) => ({
   items: [],
   presentation: {},
   add: (id, inputs = {}) => { set(state => ({ items: [...state.items, { key: freshKey(), id, inputs }] })); },
@@ -41,6 +46,16 @@ export const useIndicatorStore = create<IndicatorState>(set => ({
     set(state => ({ presentation: presentation ? { ...without(state.presentation, key), [key]: presentation } : without(state.presentation, key) }));
   },
   remove: key => { set(state => ({ items: state.items.filter(item => item.key !== key), presentation: without(state.presentation, key) })); },
+  removeMatching: (id, match) => {
+    const hit = matching(get().items, id, match);
+    if (hit.length > 0) set(state => ({ items: state.items.filter(item => !hit.includes(item.key)), presentation: hit.reduce(without, state.presentation) }));
+    return hit.length;
+  },
+  updateMatching: (id, match, inputs) => {
+    const hit = matching(get().items, id, match);
+    if (hit.length > 0) set(state => ({ items: state.items.map(item => (hit.includes(item.key) ? { ...item, inputs: { ...item.inputs, ...inputs } } : item)) }));
+    return hit.length;
+  },
   // Templates carry ids and inputs only, so a loaded set starts with each indicator's own look.
   load: templateItems => {
     const keys = new Map(templateItems.map(item => [item.key, freshKey()]));

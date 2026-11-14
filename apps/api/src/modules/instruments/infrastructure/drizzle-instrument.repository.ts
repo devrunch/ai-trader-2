@@ -5,7 +5,7 @@ import type { Database } from '../../../shared/database/index.js';
 import { ConflictError, DomainError, UnavailableError } from '../../../shared/errors/index.js';
 import { instruments, instrumentMappings, instrumentChanges, instrumentSourceStatus } from '../../../shared/database/schema/index.js';
 import { InstrumentId, type Instrument, type InstrumentChange } from '../domain/index.js';
-import type { InstrumentRepository, SourceStatusRow } from '../application/ports/instrument-repository.js';
+import type { InstrumentRepository, OptionContractRow, SourceStatusRow } from '../application/ports/instrument-repository.js';
 import type { ProviderMapping, SourceSnapshot } from '../application/ports/instrument-source.js';
 
 const rowSchema = z.object({
@@ -136,6 +136,14 @@ export class DrizzleInstrumentRepository implements InstrumentRepository {
     const rows = await this.read(() => this.db.select().from(instruments).where(and(eq(instruments.exchange, exchange),
       inArray(instruments.type, ['futures', 'commodity']), inArray(instruments.status, ['active', 'suspended']))), signal);
     return rows.map(fromRow).filter(i => i.underlying ? i.underlying.ticker === root : i.ticker.startsWith(root));
+  }
+  async listOptionContracts(underlying: string, from: string, signal?: AbortSignal): Promise<OptionContractRow[]> {
+    const rows = await this.read(() => this.db.select({ providerSymbol: instrumentMappings.providerSymbol, strike: instruments.strike, optionType: instruments.optionType, expiry: instruments.expiry })
+      .from(instruments).innerJoin(instrumentMappings, and(eq(instrumentMappings.id, instruments.id), eq(instrumentMappings.provider, 'kite')))
+      .where(and(eq(instruments.underlying, underlying), eq(instruments.type, 'option'), eq(instruments.status, 'active'), gte(instruments.expiry, from)))
+      .orderBy(asc(instruments.expiry), asc(instruments.strike)), signal);
+    return rows.flatMap(r => r.strike !== null && r.expiry !== null && (r.optionType === 'CE' || r.optionType === 'PE')
+      ? [{ providerSymbol: r.providerSymbol, strike: r.strike, optionType: r.optionType, expiry: r.expiry }] : []);
   }
   async setSourceStatus(source: string, s: { status: 'ok' | 'stale'; reason?: string; count?: number; at: string }, signal?: AbortSignal): Promise<void> {
     const fields = { status: s.status, reason: s.reason ?? null, lastAttemptAt: s.at,
