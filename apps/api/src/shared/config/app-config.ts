@@ -11,13 +11,16 @@ const httpOrigin = z.url({ protocol: /^https?$/ }).refine((value) => {
 const unsetIfBlank = <T extends z.ZodType>(schema: T) => z.preprocess(value => (value === '' ? undefined : value), schema.optional());
 const modelSpec = z.string().regex(/^[a-z-]+\/.+$/, 'provider/model');
 const secret = z.string().min(1);
+/** A value pasted with its .env quotes ('abc' or "abc") would be sent with the quotes; strip one matching pair. */
+const unquote = (value: unknown): unknown => (typeof value === 'string' && value.length >= 2 && /^(['"]).*\1$/s.test(value) ? value.slice(1, -1) : value);
+const credential = z.preprocess(unquote, z.string().optional());
 
 export const AppConfigSchema = z.object({
-  ZERODHA_API_KEY: z.string().optional(),
-  ZERODHA_API_SECRET: z.string().optional(),
-  ZERODHA_USER_ID: z.string().optional(),
-  ZERODHA_PASSWORD: z.string().optional(),
-  ZERODHA_TOTP_SECRET: z.string().optional(),
+  ZERODHA_API_KEY: credential,
+  ZERODHA_API_SECRET: credential,
+  ZERODHA_USER_ID: credential,
+  ZERODHA_PASSWORD: credential,
+  ZERODHA_TOTP_SECRET: credential,
   KITE_AUTO_LOGIN: z.enum(['true', 'false']).transform(value => value === 'true').default(false),
   KITE_REDIRECT_URL: z.url({ protocol: /^https?$/ }).optional(),
   // Ops alerts (email only). Unset SMTP_URL disables sending; alerts are then only logged.

@@ -4,7 +4,7 @@ x-app-env: &app-env
   NODE_ENV: production
   DATABASE_URL: postgresql://aitrader:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/aitrader
   REDIS_URL: redis://redis:6379
-  APP_URL: ${SERVICE_URL_WEB}
+  APP_URL: ${APP_URL:-${SERVICE_URL_WEB}}
   CORS_ORIGINS: ${SERVICE_URL_WEB}
   TRUST_PROXY: ${TRUST_PROXY:-1}
   LOG_LEVEL: ${LOG_LEVEL:-info}

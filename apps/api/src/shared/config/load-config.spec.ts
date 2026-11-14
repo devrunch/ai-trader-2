@@ -11,6 +11,13 @@ const required = {
 
 // SRD §10.1, R-9, NFR-SC-1.
 describe('loadConfig', () => {
+  it('strips one matching pair of quotes pasted around Zerodha credentials, and nothing else', () => {
+    const config = loadConfig({ ...required, ZERODHA_PASSWORD: "'p@ss#1,'", ZERODHA_TOTP_SECRET: '"ABC234"', ZERODHA_USER_ID: "AB'12" });
+    expect(config.ZERODHA_PASSWORD).toBe('p@ss#1,');
+    expect(config.ZERODHA_TOTP_SECRET).toBe('ABC234');
+    expect(config.ZERODHA_USER_ID).toBe("AB'12");
+  });
+
   it('parses a valid environment', () => {
     const config = loadConfig({ ...required, PORT: '9000', CORS_ORIGINS: 'https://a.com, https://b.com,' });
     expect(config.PORT).toBe(9000);
