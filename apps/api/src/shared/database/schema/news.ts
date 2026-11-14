@@ -31,5 +31,6 @@ export const newsItems = pgTable('news_items', {
 export const userEmailPrefs = pgTable('user_email_prefs', {
   userId: uuid('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   reports: boolean('reports').notNull().default(false),
+  address: text('address'),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
 });

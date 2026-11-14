@@ -253,6 +253,13 @@
       "when": 1794300038000,
       "tag": "0038_news_sentiment",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794300039000,
+      "tag": "0039_email_address",
+      "breakpoints": true
     }
   ]
 }

@@ -30,5 +30,5 @@ export class NotificationsController {
   emailPref(@Req() req: AuthRequest) { return this.email.get(userId(req)); }
 
   @Put('email') @UseGuards(CsrfHeaderGuard)
-  setEmailPref(@Body() body: unknown, @Req() req: AuthRequest) { return this.email.set(userId(req), EmailPrefSchema.parse(body).reports); }
+  setEmailPref(@Body() body: unknown, @Req() req: AuthRequest) { const pref = EmailPrefSchema.parse(body); return this.email.set(userId(req), pref.reports, pref.address); }
 }

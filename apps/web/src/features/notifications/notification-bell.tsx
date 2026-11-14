@@ -9,17 +9,23 @@ const time = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', day: '
 const key = ['notifications'] as const;
 const EmailPref = z.object({ reports: z.boolean(), address: z.string().nullable(), available: z.boolean() });
 
-/** Opt in to getting watch REPORTs by email at the login address. */
+/** Opt in to getting the assistant's reports by email, at an address the user types once. */
 function EmailToggle() {
+  const [draft, setDraft] = useState('');
   const client = useQueryClient();
   const pref = useQuery({ queryKey: ['notifications', 'email'], queryFn: ({ signal }) => apiFetch('/v1/notifications/email', { schema: EmailPref, signal }) });
-  const save = useMutation({ mutationFn: (reports: boolean) => apiFetch('/v1/notifications/email', { schema: EmailPref, method: 'PUT', body: EmailPrefSchema.parse({ reports }) }),
+  const save = useMutation({ mutationFn: (body: { reports: boolean; address?: string }) => apiFetch('/v1/notifications/email', { schema: EmailPref, method: 'PUT', body: EmailPrefSchema.parse(body) }),
     onSettled: () => client.invalidateQueries({ queryKey: ['notifications', 'email'] }) });
   if (!pref.data) return null;
   const { reports, address, available } = pref.data;
-  return <div className="border-t px-3 py-2">
-    <label className="flex items-center gap-2"><input type="checkbox" checked={reports} disabled={save.isPending || (!available && !reports)} onChange={e => { save.mutate(e.target.checked); }} />Email me watch reports</label>
-    <p className="mt-1 text-[11px] text-muted-foreground">{address ? `Sent to ${address}, at most one every 10 minutes.` : 'Needs an email address as your login name.'}{address && !available ? ' Mail is not set up on this server.' : ''}{save.isError ? ' Could not save; try again.' : ''}</p>
+  const valid = EmailPrefSchema.safeParse({ reports: true, address: draft.trim() }).success;
+  return <div className="space-y-1.5 border-t px-3 py-2">
+    {address
+      ? <label className="flex items-center gap-2"><input type="checkbox" checked={reports} disabled={save.isPending} onChange={e => { save.mutate({ reports: e.target.checked }); }} />Email me the assistant's reports</label>
+      : <form className="flex gap-1.5" onSubmit={e => { e.preventDefault(); if (valid) save.mutate({ reports: true, address: draft.trim() }); }}>
+        <input type="email" aria-label="Email for reports" placeholder="Email me reports at…" value={draft} onChange={e => { setDraft(e.target.value); }} className="h-7 min-w-0 flex-1 border bg-background px-2 text-[12px]" />
+        <button type="submit" disabled={!valid || save.isPending} className="border px-2 text-[12px] disabled:opacity-50">Turn on</button></form>}
+    <p className="text-[11px] text-muted-foreground">{address ? `Sent to ${address}, at most one every 10 minutes.` : 'Only reports the assistant decides are worth your attention.'}{address && !available ? ' Mail is not set up on this server yet.' : ''}{save.isError ? ' Could not save; check the address and try again.' : ''}</p>
   </div>;
 }
 

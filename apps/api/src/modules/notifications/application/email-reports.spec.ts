@@ -28,11 +28,14 @@ describe('EmailReports (FR-HM-3 delivery)', () => {
   it('reports a failed send', async () => {
     expect(await setup({ sent: 'failed' }).email.deliver('u1', 't', null)).toBe('failed');
   });
-  it('refuses to opt in when the login name is not an email, and saves otherwise', async () => {
-    await expect(setup({ address: null }).email.set('u1', true)).rejects.toThrow('not an email');
+  it('needs an address to opt in, takes one given with the switch, and saves', async () => {
+    await expect(setup({ address: null }).email.set('u1', true)).rejects.toThrow('Add the email address');
+    const given = setup({ address: null });
+    await given.email.set('u1', true, 'trader@example.com');
+    expect(given.prefs.setReports).toHaveBeenCalledWith('u1', true, 'trader@example.com');
     const { email, prefs } = setup({ opted: false });
     await email.set('u1', true);
-    expect(prefs.setReports).toHaveBeenCalledWith('u1', true);
+    expect(prefs.setReports).toHaveBeenCalledWith('u1', true, undefined);
     await setup({ address: null }).email.set('u1', false);
   });
   it('reports availability: needs mail configured and an address', async () => {

@@ -2,8 +2,8 @@ import { ValidationError } from '../../../shared/errors';
 
 export interface EmailPrefStore {
   reports(userId: string): Promise<boolean>;
-  setReports(userId: string, on: boolean): Promise<void>;
-  /** The user's login name, when it is an email address. */
+  setReports(userId: string, on: boolean, address?: string): Promise<void>;
+  /** The address the user gave for reports (login names are not emails). */
   address(userId: string): Promise<string | null>;
 }
 /** Sends one mail to one address; never throws. */
@@ -14,7 +14,7 @@ export type DeliveryResult = 'sent' | 'off' | 'no-address' | 'not-configured' | 
 /** At most one report email per user in this window; further reports still reach the in-app inbox. */
 const EMAIL_WINDOW_MS = 10 * 60_000;
 
-/** Email delivery of REPORT notifications: opt-in per user, to their login email, rate-limited. */
+/** Email delivery of REPORT notifications: opt-in per user, to the address they give, rate-limited. */
 export class EmailReports {
   constructor(private readonly prefs: EmailPrefStore, private readonly mailer: ReportMailer, private readonly gate: SendGate, private readonly appUrl: string) {}
 
@@ -23,9 +23,9 @@ export class EmailReports {
     return { reports, address, available: this.mailer.configured && address !== null };
   }
 
-  async set(userId: string, reports: boolean): Promise<{ reports: boolean; address: string | null; available: boolean }> {
-    if (reports && (await this.prefs.address(userId)) === null) throw new ValidationError('Your login name is not an email address, so there is nowhere to send reports.');
-    await this.prefs.setReports(userId, reports);
+  async set(userId: string, reports: boolean, address?: string): Promise<{ reports: boolean; address: string | null; available: boolean }> {
+    if (reports && address === undefined && (await this.prefs.address(userId)) === null) throw new ValidationError('Add the email address to send reports to.');
+    await this.prefs.setReports(userId, reports, address);
     return this.get(userId);
   }
 

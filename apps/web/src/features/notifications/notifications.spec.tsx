@@ -35,7 +35,7 @@ it('lets the user opt in to emailed reports and saves the choice', async () => {
   );
   render(<Providers><NotificationBell onOpenSymbol={vi.fn()} /></Providers>);
   fireEvent.click(await screen.findByRole('button', { name: /Notifications/ }));
-  const box = await screen.findByRole('checkbox', { name: 'Email me watch reports' });
+  const box = await screen.findByRole('checkbox', { name: "Email me the assistant's reports" });
   expect(screen.getByText(/Sent to me@example.com/)).toBeDefined();
   fireEvent.click(box);
   await vi.waitFor(() => { expect(saved).toEqual({ reports: true }); });

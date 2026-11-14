@@ -18,7 +18,7 @@ describe('email report preferences', () => {
     pool = new Pool({ connectionString: container.url });
     const db = drizzle(pool, { schema });
     await migrate(db, { migrationsFolder: './drizzle' });
-    for (const [id, name] of [[withEmail, 'trader@example.com'], [plain, 'plainname']] as const) await pool.query("INSERT INTO users (id, username, password_hash, role) VALUES ($1, $2, 'x', 'user')", [id, name]);
+    for (const [id, name] of [[withEmail, 'trader'], [plain, 'plainname']] as const) await pool.query("INSERT INTO users (id, username, password_hash, role) VALUES ($1, $2, 'x', 'user')", [id, name]);
     store = new DrizzleEmailPrefStore(db);
   });
   afterAll(async () => { await pool.end(); await container.stop(); });
@@ -32,7 +32,10 @@ describe('email report preferences', () => {
     expect(await store.reports(withEmail)).toBe(false);
   });
 
-  it('uses the login name as the address only when it is an email', async () => {
+  it('sends to the address the user gave, never to the login name', async () => {
+    await store.setReports(withEmail, true, 'trader@example.com');
+    expect(await store.address(withEmail)).toBe('trader@example.com');
+    await store.setReports(withEmail, false);
     expect(await store.address(withEmail)).toBe('trader@example.com');
     expect(await store.address(plain)).toBeNull();
     expect(await store.address(randomUUID())).toBeNull();

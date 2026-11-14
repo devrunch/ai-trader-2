@@ -33,7 +33,7 @@ export const SentimentTrendSchema = z.strictObject({
 export type SentimentTrend = z.infer<typeof SentimentTrendSchema>;
 export const SentimentQuerySchema = z.object({ symbol: z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/).optional(), market: z.enum(NEWS_MARKETS).optional() })
   .refine(q => Boolean(q.symbol) !== Boolean(q.market), 'give a symbol or a market, not both');
-export const EmailPrefSchema = z.strictObject({ reports: z.boolean() });
+export const EmailPrefSchema = z.strictObject({ reports: z.boolean(), address: z.email().max(200).optional() });
 export const NewsResponseSchema = z.strictObject({ items: z.array(NewsItemFullSchema), clusters: z.array(NewsClusterSchema).optional() });
 export const NewsQuerySchema = z.object({
   symbol: z.string().regex(/^[A-Z0-9_]+:[A-Z0-9_&.!-]+$/).optional(),
