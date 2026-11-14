@@ -1,4 +1,4 @@
-import type { DepthResponse } from '@aitrader/contracts';
+import type { Depth, DepthResponse } from '@aitrader/contracts';
 import { isMarketOpen } from './market-hours';
 import type { DepthStore } from './ports/depth-store';
 import type { FeedStateStore } from './ports/feed-state-store';
@@ -13,7 +13,8 @@ const none = (unavailable: string): DepthResponse => ({ depth: null, unavailable
 export class ReadDepth {
   private readonly holds = new Map<string, ReturnType<typeof setTimeout>>();
   constructor(private readonly store: DepthStore, private readonly feeds: FeedStateStore,
-    private readonly subscriptions: Pick<RequestSubscription, 'acquire' | 'release'>, private readonly clock: () => number = Date.now) {}
+    private readonly subscriptions: Pick<RequestSubscription, 'acquire' | 'release'>, private readonly clock: () => number = Date.now,
+    private readonly snapshot?: { fetch(instrumentId: string, signal: AbortSignal): Promise<Depth | null> }) {}
 
   async execute(instrumentId: string): Promise<DepthResponse> {
     const vendor = vendorFor(instrumentId);
@@ -24,7 +25,7 @@ export class ReadDepth {
       const depth = await this.store.get(instrumentId, signal);
       if (depth) return { depth, unavailable: null };
       if (!isMarketOpen(instrumentId.split(':')[0] ?? '', this.clock())) {
-        const last = await this.store.last(instrumentId, signal);
+        const last = await this.store.last(instrumentId, signal) ?? await this.snapshot?.fetch(instrumentId, signal).catch(() => null) ?? null;
         return last ? { depth: last, unavailable: null } : none('Market closed');
       }
       const feed = await this.feeds.get(vendor, signal);

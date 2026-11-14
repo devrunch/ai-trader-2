@@ -32,6 +32,9 @@ describe('TurnBudget (FR-AG-3)', () => {
     expect(budget.nearlySpent()).toBe(false);
     budget.spend({ tokens: 8_600 });
     expect(budget.nearlySpent()).toBe(true);
+    const big = new TurnBudget({ maxRounds: 10, maxMs: 100_000, maxTokens: 100_000 }, () => now);
+    big.spend({ tokens: 30_000 }); expect(big.nearlySpent()).toBe(false);
+    big.spend({ tokens: 32_000 }); expect(big.nearlySpent()).toBe(true);
     const timed = new TurnBudget({ maxRounds: 10, maxMs: 100_000, maxTokens: 10_000 }, () => now);
     now = 80_000;
     expect(timed.nearlySpent()).toBe(true);

@@ -32,6 +32,7 @@ import { BackfillHeld } from './application/backfill-held';
 import { MARKET_DATA_PROVIDERS, type MarketDataProvider } from './application/ports/market-data-provider';
 import { KiteHistoryProvider } from './infrastructure/kite/kite-history.provider';
 import { KitePreviousCloseSource } from './infrastructure/kite/kite-previous-close.source';
+import { KiteDepthSnapshotSource } from './infrastructure/kite/kite-depth-snapshot.source';
 import { RedisPreviousCloseStore } from './infrastructure/redis-previous-close.store';
 import { BackfillJob } from './infrastructure/backfill.job';
 import { LiveBars } from './application/live-bars';
@@ -126,8 +127,9 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     } },
     { provide: StoredBars, inject: [DB], useFactory: (db: Database) => new StoredBars(new DrizzleStoredBarsReader(db)) },
     { provide: MinuteBars, inject: [DB], useFactory: (db: Database) => new MinuteBars(new DrizzleStoredBarsReader(db)) },
-    { provide: ReadDepth, inject: [RedisDepthStore, RedisFeedStateStore, RequestSubscription],
-      useFactory: (store: RedisDepthStore, feeds: RedisFeedStateStore, requests: RequestSubscription) => new ReadDepth(store, feeds, requests) },
+    { provide: ReadDepth, inject: [RedisDepthStore, RedisFeedStateStore, RequestSubscription, KiteSessionService, InstrumentHistory, REDIS, APP_CONFIG],
+      useFactory: (store: RedisDepthStore, feeds: RedisFeedStateStore, requests: RequestSubscription, session: KiteSessionService, instruments: InstrumentHistory, redis: Redis, config: AppConfig) =>
+        new ReadDepth(store, feeds, requests, Date.now, new KiteDepthSnapshotSource(session, instruments, new RedisTokenBucket(redis, 'rl:kite:quote', 1, 1), config.ZERODHA_API_KEY ?? '')) },
     { provide: RedisBarPublisher, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarPublisher(redis) },
     { provide: RedisBarSequenceStore, inject: [REDIS], useFactory: (redis: Redis) => new RedisBarSequenceStore(redis) },
     { provide: ReadSeq, inject: [RedisBarSequenceStore], useFactory: (store: RedisBarSequenceStore) => new ReadSeq(store) },

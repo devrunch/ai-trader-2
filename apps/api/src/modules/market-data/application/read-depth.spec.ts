@@ -36,6 +36,12 @@ describe('ReadDepth', () => {
     const closing = { ...depth, at: 123 };
     expect(await setup(null, { state: 'live', at: 0 }, CLOSED, closing).read.execute('NSE:TEST')).toEqual({ depth: closing, unavailable: null });
   });
+  it('falls back to the vendor snapshot while closed when no book was recorded', async () => {
+    const { store, subscriptions } = setup(null, { state: 'live', at: 0 }, CLOSED);
+    const snap = { ...depth, at: 456 };
+    const read = new ReadDepth(store, { get: () => Promise.resolve({ state: 'live', at: 0 }) }, subscriptions, () => CLOSED, { fetch: () => Promise.resolve(snap) });
+    expect(await read.execute('NSE:TEST')).toEqual({ depth: snap, unavailable: null });
+  });
   it('says the market is closed when there is no book outside the session', async () => {
     expect(await setup(null, { state: 'live', at: 0 }, CLOSED).read.execute('NSE:TEST')).toEqual({ depth: null, unavailable: 'Market closed' });
   });

@@ -48,8 +48,8 @@ export const AppConfigSchema = z.object({
   // Python compute (backtests): a Lambda Function URL (signed with the AWS keys above) or a plain http URL on the box.
   COMPUTE_URL: unsetIfBlank(z.url({ protocol: /^https?$/ })),
   AGENT_MAX_ROUNDS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(40)).default(15),
-  AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(90_000),
-  AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(200_000),
+  AGENT_TURN_TIMEOUT_MS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(5000).max(300_000)).default(120_000),
+  AGENT_MAX_TOKENS: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1000).max(2_000_000)).default(400_000),
   // Real-broker execution is a development-only experiment (a stub today); production refuses it.
   EXECUTION_MODE: z.enum(['paper', 'broker']).default('paper'),
   // The trading desk: a cheaper model for its many short calls (defaults to AGENT_MODEL), the token budget of one run and the runs per user per day.

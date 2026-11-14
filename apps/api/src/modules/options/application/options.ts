@@ -1,5 +1,5 @@
 import type { OptionChain, OptionsSummary } from '@aitrader/contracts';
-import { NotFoundError, UnavailableError, ValidationError } from '../../../shared/errors';
+import { messageOf, NotFoundError, UnavailableError, ValidationError } from '../../../shared/errors';
 import { buildups, maxPain, nearestStrike, pcr } from '../domain/chain-stats';
 import { impliedVolPct } from '../domain/implied-vol';
 import type { OptionContract, OptionContracts, OptionQuotes, OptionSnapshot, OptionSnapshotStore } from './ports/options-ports';
@@ -79,7 +79,7 @@ export class OptionsService {
     if (!fresh && asOf === undefined) {
       try { snapshot = await this.fetchSnapshot(underlying, expiry, listed, now, signal); }
       catch (error) {
-        if (!stored) throw new UnavailableError(`Option quotes for ${underlying} failed: ${error instanceof Error ? error.message : String(error)}`.slice(0, 300));
+        if (!stored) throw new UnavailableError(`Option quotes for ${underlying} failed: ${messageOf(error)}`.slice(0, 300));
         this.env.warn?.('option quotes failed; serving the last snapshot', { underlying, expiry, error: error instanceof Error ? error.message : String(error) });
       }
     }

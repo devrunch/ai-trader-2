@@ -1,3 +1,5 @@
+import { messageOf, UnavailableError } from '../../../shared/errors';
+
 /** Key figures of a US-listed company. Ratios are plain numbers (0.25 = 25%); null when the vendor has none. */
 export interface UsFundamentals {
   symbol: string; name: string; sector: string | null; industry: string | null; currency: string;
@@ -23,7 +25,8 @@ export class UsFundamentalsService {
     const key = `fundamentals:us:${symbol}`;
     const cached = await this.cache.get(key);
     if (cached) return JSON.parse(cached) as UsFundamentals;
-    const fetched = await this.source.fetch(symbol.slice(symbol.indexOf(':') + 1), signal);
+    const fetched = await this.source.fetch(symbol.slice(symbol.indexOf(':') + 1), signal)
+      .catch((error: unknown) => { throw new UnavailableError(`US fundamentals for ${symbol}: ${messageOf(error)}`.slice(0, 300)); });
     if (!fetched) return null;
     const record: UsFundamentals = { ...fetched, symbol, fetchedAt: new Date(this.now()).toISOString() };
     await this.cache.set(key, JSON.stringify(record), TTL_SEC);

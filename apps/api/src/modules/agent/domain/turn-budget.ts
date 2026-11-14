@@ -6,6 +6,7 @@ export class TurnBudget {
   private readonly startedAt: number;
   private rounds = 0;
   private tokens = 0;
+  private lastStep = 0;
   private verdict: BudgetVerdict = 'ok';
 
   constructor(private readonly limits: BudgetLimits, private readonly clock: () => number = Date.now) {
@@ -17,16 +18,20 @@ export class TurnBudget {
     if (this.verdict !== 'ok') return this.verdict;
     this.rounds++;
     this.tokens += usage.tokens;
+    this.lastStep = usage.tokens;
     if (this.clock() - this.startedAt >= this.limits.maxMs) this.verdict = { exceeded: 'time' };
     else if (this.rounds > this.limits.maxRounds) this.verdict = { exceeded: 'rounds' };
     else if (this.tokens > this.limits.maxTokens) this.verdict = { exceeded: 'tokens' };
     return this.verdict;
   }
 
-  /** Close enough to a limit that the next step must be the answer: one round left, or under a quarter of the time or 15% of the tokens. */
+  /**
+   * Close enough to a limit that the next step must be the answer: one round left, under a quarter of the time, or fewer tokens left than 15% of the
+   * budget or one and a half times the last step (each step re-reads the whole conversation, so it costs at least as much as the one before).
+   */
   nearlySpent(): boolean {
     const left = this.remaining();
-    return left.rounds <= 1 || left.ms < this.limits.maxMs * 0.25 || left.tokens < this.limits.maxTokens * 0.15;
+    return left.rounds <= 1 || left.ms < this.limits.maxMs * 0.25 || left.tokens < Math.max(this.limits.maxTokens * 0.15, this.lastStep * 1.5);
   }
 
   remaining(): { rounds: number; ms: number; tokens: number } {
