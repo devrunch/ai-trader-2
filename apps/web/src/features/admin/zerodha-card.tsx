@@ -38,7 +38,7 @@ function ZerodhaDetails({ status }: { status: ZerodhaStatus }) {
         {lastFailure && <p className="mt-1 text-down">{`Last auto-login failed at ${lastFailure.stage} · ${formatIst(lastFailure.at)}: ${lastFailure.message}`}</p>}
       </dd>
     </dl>
-    {status.redirectUrl === null && <p className="text-muted-foreground">Set your Kite app redirect URL to <code>http://localhost:5173/admin/zerodha/callback</code>, or paste the request_token instead.</p>}
+    {status.redirectUrl === null && <p className="text-muted-foreground">Set your Kite app redirect URL to <code>{`${window.location.origin}/admin/zerodha/callback`}</code>, or paste the request_token instead.</p>}
     <div className="flex flex-wrap gap-2">
       <Button asChild size="sm"><a href={status.loginUrl}>Connect Zerodha</a></Button>
       <Button size="sm" variant="outline" onClick={() => { setDialog('paste'); }}>Paste request token</Button>
