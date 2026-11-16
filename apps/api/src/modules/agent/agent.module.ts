@@ -93,7 +93,7 @@ import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
 import { ReleaseWatch } from './application/release-watch';
 import { DataGaps } from './application/data-gaps';
 import { DrizzleDataGapsStore } from './infrastructure/drizzle-data-gaps.store';
-import { DataGapsController } from './api/data-gaps.controller';
+import { DataGapsController, OpsDataGapsController } from './api/data-gaps.controller';
 import { buildWhatToWatchTools } from './application/what-to-watch-tools';
 import { buildViewTools } from './application/view-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
@@ -172,7 +172,7 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
-  controllers: [DataGapsController, AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
+  controllers: [DataGapsController, OpsDataGapsController, AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },

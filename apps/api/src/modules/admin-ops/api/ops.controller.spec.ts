@@ -11,6 +11,7 @@ import { configureApp } from '../../../app.setup.js';
 import { GlobalExceptionFilter } from '../../../shared/errors/index.js';
 import { RolesGuard, SessionGuard } from '../../auth/api/index.js';
 import { OpsSources } from '../application/ops-sources.js';
+import { REDIS } from '../../../shared/redis/index.js';
 import { OpsOverview } from '../application/ops-overview.js';
 import { OpsController } from './ops.controller.js';
 
@@ -32,7 +33,7 @@ beforeEach(async () => {
     vendors: [{ vendor: 'kite', state: 'live', at: 1 }, { vendor: 'deriv', state: 'stale', reason: 'PROVIDER_DOWN', at: 2 }, { vendor: 'us-delayed', state: 'unknown' }],
     subscriptions: [{ instrumentId: 'NSE:RELIANCE', count: 2 }] });
   jobs.mockReset().mockResolvedValue([{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata',
-    lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok' }, next: '2026-11-10T01:30:00.000Z' }]);
+    lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok', error: null }, next: '2026-11-10T01:30:00.000Z' }]);
   runJob.mockReset().mockResolvedValue(true);
   instruments.mockReset().mockResolvedValue({ sources: [{ source: 'kite', status: 'ok', count: 90000, lastSuccessAt: '2026-11-09T01:31:00+00:00' }], total: 90000 });
   listSources.mockReset().mockResolvedValue({ sources: [] });
@@ -41,6 +42,7 @@ beforeEach(async () => {
     { provide: PinoLogger, useValue: { warn: vi.fn(), error: vi.fn() } },
     { provide: OpsOverview, useValue: { feeds, jobs, runJob, instruments, refreshInstruments } },
     { provide: OpsSources, useValue: { list: listSources } },
+    { provide: REDIS, useValue: { lrange: vi.fn().mockResolvedValue([]) } },
   ] }).overrideGuard(SessionGuard).useClass(TestSession).compile();
   app = module.createNestApplication(); configureApp(app); await app.init();
 });

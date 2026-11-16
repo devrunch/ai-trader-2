@@ -124,7 +124,7 @@ describe('durable jobs', () => {
   it('reads legacy run records with a null scheduled occurrence', async () => {
     const job = spec(async () => {}); const instance = scheduler();
     await redis.set(`jobs:${job.name}:last`, JSON.stringify({ at: '2020-01-01T00:00:00Z', outcome: 'ok' }));
-    expect(await instance.lastRun(job.name)).toEqual({ at: '2020-01-01T00:00:00Z', scheduledAt: null, outcome: 'ok' });
+    expect(await instance.lastRun(job.name)).toEqual({ at: '2020-01-01T00:00:00Z', scheduledAt: null, outcome: 'ok', error: null });
   });
   it('catches up the next occurrence even when the previous run finished after it', async () => {
     const run = vi.fn<JobSpec['run']>().mockResolvedValue(undefined);

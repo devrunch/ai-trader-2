@@ -4,12 +4,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../shared/ui/tabs';
 import { FeedsPanel, InstrumentsPanel, JobsPanel } from './ops-panels';
 import { SourcesPanel } from './sources-panel';
 import { DataGapsPanel } from './data-gaps-panel';
+import { LogsPanel } from './logs-panel';
 import { ZerodhaCard } from './zerodha-card';
 import { AlertsPanel } from './alerts-panel';
 import { PromptsPanel } from './prompts-panel';
 import { noticeMessage } from './zerodha-messages';
 
-const TABS = ['zerodha', 'feeds', 'jobs', 'instruments', 'sources', 'needs', 'alerts', 'prompts'] as const;
+const TABS = ['zerodha', 'feeds', 'jobs', 'logs', 'instruments', 'sources', 'needs', 'alerts', 'prompts'] as const;
 type Tab = (typeof TABS)[number];
 const isTab = (value: unknown): value is Tab => typeof value === 'string' && (TABS as readonly string[]).includes(value);
 
@@ -35,6 +36,7 @@ function AdminTabs() {
       <TabsContent value="zerodha" className="pt-3"><ZerodhaCard /></TabsContent>
       <TabsContent value="feeds" className="pt-3"><FeedsPanel /></TabsContent>
       <TabsContent value="jobs" className="pt-3"><JobsPanel /></TabsContent>
+      <TabsContent value="logs" className="pt-3"><LogsPanel /></TabsContent>
       <TabsContent value="instruments" className="pt-3"><InstrumentsPanel /></TabsContent>
       <TabsContent value="sources" className="pt-3"><SourcesPanel /></TabsContent>
       <TabsContent value="needs" className="pt-3"><DataGapsPanel /></TabsContent>

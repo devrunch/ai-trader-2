@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AgentQueueStatsSchema, DataGapsResponseSchema, DataSourcesResponseSchema, OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
+import { AgentQueueStatsSchema, DataGapsResponseSchema, RecentLogsResponseSchema, DataSourcesResponseSchema, OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, ZerodhaStatusSchema } from '@aitrader/contracts';
 import { z } from 'zod';
 import { apiFetch } from '../../shared/api/http';
 
@@ -78,6 +78,11 @@ export function useRefreshInstruments() {
     mutationFn: () => apiFetch('/v1/admin/ops/instruments/refresh', { schema: nothing, method: 'POST' }),
     onSettled: () => client.invalidateQueries({ queryKey: adminKeys.instruments }),
   });
+}
+
+export function useRecentLogs(contains: string) {
+  return useQuery({ queryKey: ['admin', 'logs', contains], refetchInterval: 30_000, refetchIntervalInBackground: false,
+    queryFn: ({ signal }) => apiFetch(`/v1/admin/ops/logs?limit=300${contains ? `&contains=${encodeURIComponent(contains)}` : ''}`, { schema: RecentLogsResponseSchema, signal }) });
 }
 
 export function useDataGaps() {

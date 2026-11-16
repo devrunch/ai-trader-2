@@ -1,4 +1,8 @@
-import { Controller, Get, HttpCode, Inject, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Inject, Param, Post, Query, UseGuards } from '@nestjs/common';
+import type { Redis } from 'ioredis';
+import { type RecentLogsResponse } from '@aitrader/contracts';
+import { REDIS } from '../../../shared/redis/index.js';
+import { recentLogsResponse } from '../../../shared/observability/recent-logs.js';
 import { OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, type OpsFeeds, type OpsInstruments, type OpsJobs } from '@aitrader/contracts';
 import { NotFoundError } from '../../../shared/errors/index.js';
 import { CsrfHeaderGuard, Roles, RolesGuard, SessionGuard } from '../../auth/api/index.js';
@@ -10,7 +14,7 @@ import { OpsOverview } from '../application/ops-overview.js';
 @UseGuards(SessionGuard, RolesGuard)
 @Roles('admin')
 export class OpsController {
-  constructor(@Inject(OpsOverview) private readonly ops: OpsOverview, @Inject(OpsSources) private readonly sources: OpsSources) {}
+  constructor(@Inject(OpsOverview) private readonly ops: OpsOverview, @Inject(OpsSources) private readonly sources: OpsSources, @Inject(REDIS) private readonly redis: Redis) {}
 
   @Get('sources')
   async dataSources(): Promise<DataSourcesResponse> { return DataSourcesResponseSchema.parse(await this.sources.list()); }
@@ -25,6 +29,9 @@ export class OpsController {
   async runJob(@Param('name') name: string): Promise<void> {
     if (!(await this.ops.runJob(name))) throw new NotFoundError('Unknown job', { name });
   }
+
+  @Get('logs')
+  logs(@Query() raw: unknown): Promise<RecentLogsResponse> { return recentLogsResponse(this.redis, raw); }
 
   @Get('instruments')
   async instruments(): Promise<OpsInstruments> { return OpsInstrumentsSchema.parse(await this.ops.instruments()); }

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { messageOf } from '../errors';
 import { Logger, type OnModuleDestroy } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import { CronExpressionParser } from 'cron-parser';
@@ -17,7 +18,7 @@ export interface JobSpec {
   run(signal: AbortSignal): Promise<void>;
 }
 const recordSchema = z.object({ at: z.iso.datetime(), scheduledAt: z.iso.datetime().nullable().default(null),
-  outcome: z.enum(['ok', 'failed', 'skipped']) });
+  outcome: z.enum(['ok', 'failed', 'skipped']), error: z.string().nullable().default(null) });
 type RunRecord = z.infer<typeof recordSchema>;
 interface RegisteredJob { spec: JobSpec; queue: Queue; worker: Worker }
 
@@ -100,7 +101,8 @@ export class JobScheduler implements OnModuleDestroy {
 
   private async record(name: string, outcome: RunRecord['outcome'], scheduledAt: number | null, detail?: string): Promise<void> {
     await this.redis.set(`jobs:${name}:last`, JSON.stringify({ at: new Date().toISOString(),
-      scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString(), outcome }));
+      scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString(), outcome, error: outcome === 'failed' ? detail ?? null : null }));
+    if (outcome === 'failed') this.logger.warn({ job: name, outcome, error: detail });
     if (outcome === 'skipped') this.logger.debug({ job: name, outcome });
     await withTimeout(() => this.sink.beat(name, outcome, detail), 3000);
   }
@@ -136,7 +138,7 @@ export class JobScheduler implements OnModuleDestroy {
       try { await withTimeout((signal) => spec.run(signal), spec.maxRuntimeMs, controller.signal); }
       catch (error) {
         outcome = 'failed';
-        detail = error instanceof TimeoutError ? 'timeout' : (error instanceof Error ? error.message : String(error)).slice(0, 200);
+        detail = error instanceof TimeoutError ? 'timeout' : messageOf(error).slice(0, 500);
       }
       await this.record(name, outcome, scheduledAt ?? null, detail);
     } finally {

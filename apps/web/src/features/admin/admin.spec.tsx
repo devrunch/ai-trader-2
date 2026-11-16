@@ -13,7 +13,7 @@ const zerodha = (overrides: object = {}) => ({ connected: false, autoLogin: { en
 const feeds = (state = 'live') => ({ leader: { instanceId: 'md-1', ttlMs: 9000 },
   vendors: [{ vendor: 'kite', state, at: 1 }, { vendor: 'deriv', state: 'stale', reason: 'PROVIDER_DOWN', at: 1 }, { vendor: 'us-delayed', state: 'reconnecting', at: 1 }],
   subscriptions: [{ instrumentId: 'NSE:RELIANCE', count: 2 }] });
-const jobs = [{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok' }, next: '2026-11-10T01:30:00.000Z' }];
+const jobs = [{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok', error: null }, next: '2026-11-10T01:30:00.000Z' }];
 const instruments = { sources: [{ source: 'kite', status: 'ok', count: 90000, lastSuccessAt: '2026-11-09T01:31:00.000Z' }], total: 90000 };
 
 let zerodhaBody: object = zerodha();

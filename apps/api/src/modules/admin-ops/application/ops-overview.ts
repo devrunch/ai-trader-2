@@ -11,7 +11,7 @@ export interface OpsPorts {
   };
   jobs: {
     list(): Array<{ name: string; cron: string; tz: string; next: string | null }>;
-    lastRun(name: string): Promise<{ at: string; outcome: 'ok' | 'failed' | 'skipped' } | null>;
+    lastRun(name: string): Promise<{ at: string; outcome: 'ok' | 'failed' | 'skipped'; error: string | null } | null>;
     has(name: string): boolean;
     runNow(name: string): Promise<void>;
   };
@@ -38,7 +38,7 @@ export class OpsOverview {
   async jobs(): Promise<OpsJobs> {
     return Promise.all(this.ports.jobs.list().map(async job => {
       const last = await this.ports.jobs.lastRun(job.name);
-      return { ...job, lastRun: last ? { at: last.at, outcome: last.outcome } : null };
+      return { ...job, lastRun: last ? { at: last.at, outcome: last.outcome, error: last.error } : null };
     }));
   }
 

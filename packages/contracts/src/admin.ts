@@ -16,7 +16,7 @@ export type OpsFeeds = z.infer<typeof OpsFeedsSchema>;
 
 export const OpsJobsSchema = z.array(z.strictObject({
   name: z.string(), cron: z.string(), tz: z.string(),
-  lastRun: z.strictObject({ at: z.iso.datetime(), outcome: z.enum(['ok', 'failed', 'skipped']) }).nullable(),
+  lastRun: z.strictObject({ at: z.iso.datetime(), outcome: z.enum(['ok', 'failed', 'skipped']), error: z.string().nullable() }).nullable(),
   next: z.iso.datetime().nullable(),
 }));
 export type OpsJobs = z.infer<typeof OpsJobsSchema>;
@@ -50,3 +50,10 @@ export const DataGapSchema = z.strictObject({
 export type DataGapDto = z.infer<typeof DataGapSchema>;
 export const DataGapsResponseSchema = z.strictObject({ gaps: z.array(DataGapSchema) });
 export type DataGapsResponse = z.infer<typeof DataGapsResponseSchema>;
+
+/** A warning or error line from an API process, newest first. */
+export const RecentLogSchema = z.strictObject({ time: z.string().nullable(), level: z.string(), service: z.string(), msg: z.string(), context: z.record(z.string(), z.unknown()) });
+export type RecentLogDto = z.infer<typeof RecentLogSchema>;
+export const RecentLogsResponseSchema = z.strictObject({ logs: z.array(RecentLogSchema) });
+export type RecentLogsResponse = z.infer<typeof RecentLogsResponseSchema>;
+export const RecentLogsQuerySchema = z.strictObject({ limit: z.coerce.number().int().min(1).max(1000).default(200), contains: z.string().trim().max(200).optional() });

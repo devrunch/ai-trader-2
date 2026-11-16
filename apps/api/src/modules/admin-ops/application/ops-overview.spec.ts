@@ -7,7 +7,7 @@ function ports(overrides: Partial<OpsPorts> = {}): OpsPorts {
     leadership: { leader: vi.fn().mockResolvedValue({ instanceId: 'md-1', ttlMs: 9000 }), subscriptions: vi.fn().mockResolvedValue([{ instrumentId: 'NSE:A', count: 1 }]) },
     jobs: {
       list: vi.fn().mockReturnValue([{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z' }]),
-      lastRun: vi.fn().mockResolvedValue({ at: '2026-11-09T01:30:00.000Z', scheduledAt: null, outcome: 'ok' }),
+      lastRun: vi.fn().mockResolvedValue({ at: '2026-11-09T01:30:00.000Z', scheduledAt: null, outcome: 'failed', error: 'HTTP 403' }),
       has: vi.fn((name: string) => name === 'instruments-refresh'),
       runNow: vi.fn().mockResolvedValue(undefined),
     },
@@ -26,7 +26,7 @@ describe('OpsOverview (FR-AC-2)', () => {
 
   it('jobs carry their last run without the internal scheduledAt', async () => {
     const [job] = await new OpsOverview(ports()).jobs();
-    expect(job).toEqual({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok' } });
+    expect(job).toEqual({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'failed', error: 'HTTP 403' } });
   });
 
   it('runJob returns false for an unknown job and never triggers it', async () => {

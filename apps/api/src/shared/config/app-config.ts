@@ -67,6 +67,8 @@ export const AppConfigSchema = z.object({
   NEWSDATA_API_KEY: unsetIfBlank(secret),
   ALPHAVANTAGE_API_KEY: unsetIfBlank(secret),
   FINNHUB_API_KEY: unsetIfBlank(secret),
+  /** Token for the read-only /v1/ops endpoints (operator tooling); unset means they do not exist. */
+  OPS_READ_TOKEN: unsetIfBlank(z.string().min(24)),
   // Sentiment: the cheap model scores at most NEWS_LLM_DAILY headlines a day; past that FinBERT (Hugging Face) scores, then word rules.
   HF_API_TOKEN: unsetIfBlank(secret),
   FINBERT_MODEL: unsetIfBlank(z.string().regex(/^[\w.-]+\/[\w.-]+$/, 'a Hugging Face model like ProsusAI/finbert')),

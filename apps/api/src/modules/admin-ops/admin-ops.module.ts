@@ -5,6 +5,7 @@ import { KiteSessionService } from '../../shared/vendors/kite/kite-session.servi
 import { AuthModule } from '../auth/auth.module.js';
 import { ZerodhaConnect } from './application/zerodha-connect.js';
 import { ZerodhaController } from './api/zerodha.controller.js';
+import { OpsReadController } from './api/ops-read.controller';
 import { OpsController } from './api/ops.controller.js';
 import { SOURCE_HEALTH, SourceRegistry, type SourceHealth } from '../../shared/sources/index.js';
 import { OpsSources } from './application/ops-sources.js';
@@ -15,7 +16,7 @@ import { ListInstrumentSources } from '../instruments/application/index.js';
 import { MarketDataModule } from '../market-data/market-data.module.js';
 import { GetFeedOverview } from '../market-data/application/index.js';
 
-@Module({ imports: [AuthModule, KiteModule, InstrumentsModule, MarketDataModule], controllers: [ZerodhaController, OpsController], providers: [
+@Module({ imports: [AuthModule, KiteModule, InstrumentsModule, MarketDataModule], controllers: [ZerodhaController, OpsController, OpsReadController], providers: [
   { provide: OpsOverview, inject: [GetFeedOverview, JobScheduler, ListInstrumentSources],
     useFactory: (feeds: GetFeedOverview, jobs: JobScheduler, sources: ListInstrumentSources) => new OpsOverview({
       feedStates: { get: vendor => feeds.state(vendor) },
