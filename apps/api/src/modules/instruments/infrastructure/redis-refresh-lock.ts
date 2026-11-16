@@ -10,9 +10,19 @@ const sourceReportSchema = z.object({ status: z.enum(['ok', 'stale']), count: z.
   .transform(({ reason, ...source }) => reason === undefined ? source : { ...source, reason });
 const reportSchema = z.object({ sources: z.record(z.string(), sourceReportSchema) });
 
+const KEY = 'lock:instruments-refresh';
+const COMPLETED = 'lock:instruments-refresh:completed';
+/** Short, and renewed while the owner is alive: a process killed mid-refresh (a deploy) frees the lock within a minute. */
+const LEASE_MS = 60_000;
+const RENEW_MS = 20_000;
+const POLL_MS = 500;
+const RENEW = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end";
+const RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
+/** One refresh at a time across processes; a caller that finds one running waits for it (as long as its own signal allows) and gets the same report. */
 export class RedisRefreshLock implements RefreshLock {
   private inFlight: Promise<RefreshReport> | undefined;
-  constructor(private readonly redis: Redis, private readonly now: () => number = Date.now) {}
+  constructor(private readonly redis: Redis) {}
 
   run(work: () => Promise<RefreshReport>, signal: AbortSignal): Promise<RefreshReport> {
     if (this.inFlight) return this.inFlight;
@@ -21,41 +31,32 @@ export class RedisRefreshLock implements RefreshLock {
   }
 
   private async runDistributed(work: () => Promise<RefreshReport>, signal: AbortSignal): Promise<RefreshReport> {
-    const deadline = this.now() + 60000;
-    let sawOwner = false;
-    while (this.now() < deadline) {
+    const before = await withTimeout(() => this.redis.get(COMPLETED), 1500, signal);
+    for (;;) {
       signal.throwIfAborted();
-      if (!sawOwner) {
-        const owner = randomUUID();
-        const acquired = await withTimeout(() => this.redis.set('lock:instruments-refresh', owner, 'PX', 900000, 'NX'), 1500, signal);
-        if (acquired === 'OK') return this.runOwner(owner, work, signal);
-        sawOwner = true;
-      }
-      const current = await withTimeout(() => this.redis.get('lock:instruments-refresh'), 1500, signal);
-      if (current) {
-        const cached = await withTimeout(() => this.redis.get(`lock:instruments-refresh:result:${current}`), 1500, signal);
+      // A refresh that finished while this caller waited answers it; only then may the caller run one itself.
+      const completed = await withTimeout(() => this.redis.get(COMPLETED), 1500, signal);
+      if (completed && completed !== before) {
+        const cached = await withTimeout(() => this.redis.get(`${KEY}:result:${completed}`), 1500, signal);
         if (cached) return reportSchema.parse(JSON.parse(cached));
-      } else {
-        const completed = await withTimeout(() => this.redis.get('lock:instruments-refresh:completed'), 1500, signal);
-        if (completed) {
-          const cached = await withTimeout(() => this.redis.get(`lock:instruments-refresh:result:${completed}`), 1500, signal);
-          if (cached) return reportSchema.parse(JSON.parse(cached));
-        }
       }
-      await sleep(100, signal);
+      const owner = randomUUID();
+      if (await withTimeout(() => this.redis.set(KEY, owner, 'PX', LEASE_MS, 'NX'), 1500, signal) === 'OK') return this.runOwner(owner, work, signal);
+      await sleep(POLL_MS, signal);
     }
-    throw new Error('Instrument refresh lock wait timed out');
   }
 
   private async runOwner(owner: string, work: () => Promise<RefreshReport>, signal: AbortSignal): Promise<RefreshReport> {
+    const renew = setInterval(() => { void this.redis.eval(RENEW, 1, KEY, owner, String(LEASE_MS)).catch(() => undefined); }, RENEW_MS);
+    renew.unref();
     try {
       const report = await work();
-      await withTimeout(() => this.redis.set(`lock:instruments-refresh:result:${owner}`, JSON.stringify(report), 'EX', 900), 1500, signal);
-      await withTimeout(() => this.redis.set('lock:instruments-refresh:completed', owner, 'EX', 900), 1500, signal);
+      await withTimeout(() => this.redis.set(`${KEY}:result:${owner}`, JSON.stringify(report), 'EX', 900), 1500, signal);
+      await withTimeout(() => this.redis.set(COMPLETED, owner, 'EX', 900), 1500, signal);
       return report;
     } finally {
-      await withTimeout(() => this.redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1,
-        'lock:instruments-refresh', owner), 1500, signal);
+      clearInterval(renew);
+      await withTimeout(() => this.redis.eval(RELEASE, 1, KEY, owner), 1500).catch(() => undefined);
     }
   }
 }

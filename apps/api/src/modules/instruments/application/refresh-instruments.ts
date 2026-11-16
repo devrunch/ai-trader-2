@@ -7,6 +7,8 @@ import type { RefreshReport } from './refresh-report.js';
 export type { RefreshReport } from './refresh-report.js';
 const counts = (): Record<InstrumentChangeKind, number> => ({ listed: 0, renamed: 0, delisted: 0, expired: 0, updated: 0 });
 
+const SLOW_STEP_MS = 20_000;
+
 export class RefreshInstruments {
   constructor(private readonly repository: InstrumentRepository, private readonly sources: readonly InstrumentSource[],
     private readonly index: SearchIndex, private readonly clock: () => Date = () => new Date(),
@@ -17,6 +19,15 @@ export class RefreshInstruments {
     return this.executeUnlocked(signal);
   }
 
+  /** A step that takes longer than 20 seconds is logged with its duration, so a slow refresh says where the time went. */
+  private async timed<T>(source: string, stage: string, step: () => Promise<T>): Promise<T> {
+    const started = this.clock().getTime();
+    try { return await step(); } finally {
+      const ms = this.clock().getTime() - started;
+      if (ms > SLOW_STEP_MS) this.logger.warn({ message: 'slow instrument refresh step', source, stage, ms });
+    }
+  }
+
   private async executeUnlocked(signal: AbortSignal): Promise<RefreshReport> {
     const at = this.clock().toISOString();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date(at));
@@ -24,18 +35,18 @@ export class RefreshInstruments {
     for (const source of this.sources) {
       signal.throwIfAborted();
       try {
-        const fetched = await source.fetch(signal);
+        const fetched = await this.timed(source.name, 'fetch', () => source.fetch(signal));
         const snapshot = { ...fetched, instruments: fetched.instruments.map(i => ({ ...i, status: 'active' as const })) };
-        const prev = await this.repository.loadSource(source.name);
+        const prev = await this.timed(source.name, 'load', () => this.repository.loadSource(source.name));
         const previousKey = source.identity?.(prev.mappings);
         const nextKey = source.identity?.(snapshot.mappings);
         const previousIdentity = new Map(prev.instruments.map(i => [String(i.id), previousKey?.(i)]));
         const nextIdentity = new Map(snapshot.instruments.map(i => [String(i.id), nextKey?.(i)]));
         const localAt = new Date(new Date(at).getTime() + 330 * 60000).toISOString().replace('Z', '+05:30');
-        const changes = diffMasters(prev.instruments, snapshot.instruments, localAt,
-          i => nextIdentity.get(String(i.id)) ?? previousIdentity.get(String(i.id))).map(change => ({ ...change, at }));
+        const changes = await this.timed(source.name, 'diff', () => Promise.resolve(diffMasters(prev.instruments, snapshot.instruments, localAt,
+          i => nextIdentity.get(String(i.id)) ?? previousIdentity.get(String(i.id))).map(change => ({ ...change, at }))));
         signal.throwIfAborted();
-        await this.repository.applySource(source.name, snapshot, changes, at);
+        await this.timed(source.name, 'apply', () => this.repository.applySource(source.name, snapshot, changes, at));
         await this.repository.setSourceStatus(source.name, { status: 'ok', count: snapshot.instruments.length, at });
         const totals = counts(); for (const change of changes) totals[change.kind]++;
         report.sources[source.name] = { status: 'ok', count: snapshot.instruments.length, changes: totals };
@@ -49,8 +60,9 @@ export class RefreshInstruments {
     }
     signal.throwIfAborted();
     const cutoff = new Date(`${today}T00:00:00Z`); cutoff.setUTCDate(cutoff.getUTCDate() - 30);
-    await this.repository.purgeExpired(cutoff.toISOString().slice(0, 10));
-    this.index.rebuild(await this.repository.listForIndex());
+    await this.timed('all', 'purge', () => this.repository.purgeExpired(cutoff.toISOString().slice(0, 10)));
+    const forIndex = await this.timed('all', 'list for index', () => this.repository.listForIndex());
+    await this.timed('all', 'index', () => { this.index.rebuild(forIndex); return Promise.resolve(); });
     return report;
   }
 }

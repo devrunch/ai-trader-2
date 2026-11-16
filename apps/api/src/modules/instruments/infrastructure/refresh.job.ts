@@ -28,7 +28,7 @@ export class RefreshJob implements OnApplicationBootstrap {
 
   private async start(): Promise<void> {
     await this.scheduler.register({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata',
-      graceMs: 6 * 3600000, maxRuntimeMs: 10 * 60000, run: async signal => { await this.refresh.execute(signal); } });
+      graceMs: 6 * 3600000, maxRuntimeMs: 30 * 60000, run: async signal => { await this.refresh.execute(signal); } });
     const rows = await withTimeout(() => this.db.select({ id: instruments.id }).from(instruments).limit(1), 3000);
     if (rows.length === 0) await this.scheduler.runNow('instruments-refresh');
   }

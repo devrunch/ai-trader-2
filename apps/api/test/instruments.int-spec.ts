@@ -71,6 +71,18 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     expect(fetchSource).toHaveBeenCalledTimes(1);
     expect(left).toEqual(right);
   });
+  it('a lock left by a dead process frees itself, and another process waits for a running refresh instead of failing', async () => {
+    const report = { sources: { kite: { status: 'ok' as const, count: 1, changes: { listed: 1, renamed: 0, delisted: 0, expired: 0, updated: 0 } } } };
+    await redis.set('lock:instruments-refresh', 'dead-process', 'PX', 300);
+    const work = vi.fn(async () => { await new Promise(resolve => setTimeout(resolve, 700)); return report; });
+    const first = new RedisRefreshLock(redis).run(work, new AbortController().signal);
+    await new Promise(resolve => setTimeout(resolve, 450));
+    const second = new RedisRefreshLock(redis).run(work, new AbortController().signal);
+    expect(await first).toEqual(report);
+    expect(await second).toEqual(report);
+    expect(work).toHaveBeenCalledTimes(1);
+  });
+
   it('registers the daily durable job and requests bootstrap refresh without blocking boot', async () => {
     const scheduler = { register: vi.fn<(spec: JobSpec) => Promise<void>>().mockResolvedValue(undefined),
       runNow: vi.fn<(name: string) => Promise<void>>().mockResolvedValue(undefined) };
@@ -81,7 +93,7 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
     job.onApplicationBootstrap();
     await vi.waitFor(() => { expect(scheduler.runNow).toHaveBeenCalledExactlyOnceWith('instruments-refresh'); });
     const spec = scheduler.register.mock.calls[0]?.[0]; if (!spec) throw new Error('Job missing');
-    expect(spec).toMatchObject({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', graceMs: 21600000, maxRuntimeMs: 600000 });
+    expect(spec).toMatchObject({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', graceMs: 21600000, maxRuntimeMs: 1800000 });
     const signal = new AbortController().signal; await spec.run(signal); expect(execute).toHaveBeenCalledWith(signal);
     await repo.setSourceStatus('kite', { status: 'stale', reason: 'provider unavailable', at: clock().toISOString() });
     expect((await readiness.runAll()).checks['instruments:kite']).toEqual({ status: 'down', reason: 'provider unavailable' });
