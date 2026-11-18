@@ -81,6 +81,23 @@ describe('MastraRunner', () => {
     expect((await done).outcome).toBe('ok');
   });
 
+  it('ends quietly when the answer is already out and the turn then runs over', async () => {
+    const answerThenTool = () => ({ stream: convertArrayToReadableStream([
+      { type: 'stream-start' as const, warnings: [] },
+      { type: 'text-start' as const, id: 't2' }, { type: 'text-delta' as const, id: 't2', delta: 'RELIANCE looks strong.' }, { type: 'text-end' as const, id: 't2' },
+      { type: 'tool-call' as const, toolCallId: 'c2', toolName: 'getQuote', input: JSON.stringify({ symbol: 'NSE:RELIANCE' }) },
+      finish('tool-calls', 100),
+    ]) });
+    const q = quoteTool();
+    const runner = new MastraRunner({ name: 'mock/model', primary: new MockLanguageModelV4({ doStream: () => Promise.resolve(answerThenTool()) }), tools: [q.tool] });
+    const { stream, done } = runner.run({ system: 'sys', messages: user, ctx, signal: new AbortController().signal,
+      budget: new TurnBudget({ maxRounds: 5, maxMs: 60_000, maxTokens: 150 }) });
+    const chunks = await drain(stream);
+    expect(chunks).toContainEqual(expect.objectContaining({ type: 'text-delta', delta: 'RELIANCE looks strong.' }));
+    expect(chunks.find(c => (c as { type: string }).type === 'data-notice')).toBeUndefined();
+    expect((await done).outcome).toBe('budget:tokens');
+  });
+
   it('ends the turn with a plain notice when the token budget runs out', async () => {
     const q = quoteTool();
     const runner = new MastraRunner({ name: 'mock/model', primary: new MockLanguageModelV4({ doStream: [toolCallStep(), textStep()] }), tools: [q.tool] });

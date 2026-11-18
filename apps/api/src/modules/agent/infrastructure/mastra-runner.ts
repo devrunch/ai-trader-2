@@ -96,13 +96,16 @@ export class MastraRunner implements AgentRunner {
         // The finish chunk closes the message, so a budget notice must go out before it.
         const filters = new Map<string, SpecialTokenFilter>();
         let finish: (typeof writer.write extends (chunk: infer C) => void ? C : never) | null = null;
+        let answered = false;
         try {
           for (;;) {
             const next = await reader.read();
             if (next.done) break;
             const chunk = next.value;
             if (chunk.type === 'finish') finish = chunk;
+            else if (chunk.type === 'tool-input-available' && ANSWER_TOOLS.has(chunk.toolName)) { answered = true; writer.write(chunk); }
             else if (chunk.type === 'text-delta') {
+              if (chunk.delta.trim()) answered = true;
               const delta = (filters.get(chunk.id) ?? filters.set(chunk.id, new SpecialTokenFilter()).get(chunk.id))?.push(chunk.delta) ?? chunk.delta;
               if (delta) writer.write({ ...chunk, delta });
             } else if (chunk.type === 'text-end') {
@@ -114,7 +117,8 @@ export class MastraRunner implements AgentRunner {
         } catch (error) {
           if (!exceeded && !input.signal.aborted) throw error;
         }
-        if (exceeded) writer.write({ type: 'data-notice', data: { kind: 'budget', reason: exceeded, text: budgetText[exceeded] } } as never);
+        // A turn that already answered (text or a card) ends quietly; the notice is only for a turn cut off with nothing to show.
+        if (exceeded && !answered) writer.write({ type: 'data-notice', data: { kind: 'budget', reason: exceeded, text: budgetText[exceeded] } } as never);
         if (finish) writer.write(finish);
       },
       onError: () => 'The assistant could not answer just now. Try again in a moment.',
