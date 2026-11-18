@@ -34,6 +34,12 @@ export function nextFire(cron: string, tz: string, now: Date): string | null {
   catch { return null; }
 }
 
+/** The job lock is a lease renewed while the run is alive: a process killed mid-run (a deploy) frees it within LEASE_MS instead of blocking the job for its whole runtime. */
+const LEASE_MS = 90_000;
+const RENEW_MS = 30_000;
+const RENEW = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end";
+const BUSY = 'could not start: another run of this job is still in progress';
+
 export class JobScheduler implements OnModuleDestroy {
   private readonly logger = new Logger('JobScheduler');
   private readonly jobs = new Map<string, RegisteredJob>();
@@ -86,12 +92,18 @@ export class JobScheduler implements OnModuleDestroy {
     return [...this.jobs.values()].map(({ spec }) => ({ name: spec.name, cron: spec.cron, tz: spec.tz, next: nextFire(spec.cron, spec.tz, now) }));
   }
 
-  async runNow(name: string): Promise<void> {
+  /** Queues a manual run; false when one is already queued (the pending marker deduplicates manual triggers across instances). */
+  async runNow(name: string): Promise<boolean> {
     const job = this.jobs.get(name);
-    if (!job) return;
-    // The pending marker deduplicates queued manual triggers across instances.
-    if (await this.redis.set(`jobs:${name}:pending`, '1', 'PX', job.spec.maxRuntimeMs + 60000, 'NX') !== 'OK') return;
+    if (!job) return false;
+    if (await this.redis.set(`jobs:${name}:pending`, '1', 'PX', job.spec.maxRuntimeMs + 60000, 'NX') !== 'OK') return false;
     await job.queue.add(name, {}, { jobId: `manual-${randomUUID()}`, removeOnComplete: true, removeOnFail: true });
+    return true;
+  }
+
+  /** When the current run started, or null when none is running. */
+  async runningSince(name: string): Promise<string | null> {
+    return this.redis.get(`jobs:${name}:running`);
   }
 
   async lastRun(name: string): Promise<RunRecord | null> {
@@ -101,7 +113,7 @@ export class JobScheduler implements OnModuleDestroy {
 
   private async record(name: string, outcome: RunRecord['outcome'], scheduledAt: number | null, detail?: string): Promise<void> {
     await this.redis.set(`jobs:${name}:last`, JSON.stringify({ at: new Date().toISOString(),
-      scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString(), outcome, error: outcome === 'failed' ? detail ?? null : null }));
+      scheduledAt: scheduledAt === null ? null : new Date(scheduledAt).toISOString(), outcome, error: outcome === 'ok' ? null : detail ?? null }));
     if (outcome === 'failed') this.logger.warn({ job: name, outcome, error: detail });
     if (outcome === 'skipped') this.logger.debug({ job: name, outcome });
     await withTimeout(() => this.sink.beat(name, outcome, detail), 3000);
@@ -112,7 +124,7 @@ export class JobScheduler implements OnModuleDestroy {
     await withTimeout((waitSignal) => retry(async (attempt, retrySignal) => {
       // Fixed lock polling is distinct from dependency-failure backoff.
       if (attempt > 0) await sleep(250, retrySignal);
-      if (await this.redis.set(key, owner, 'PX', maxRuntimeMs + 30000, 'NX') !== 'OK') throw busy;
+      if (await this.redis.set(key, owner, 'PX', LEASE_MS, 'NX') !== 'OK') throw busy;
     }, { retries: Math.ceil((maxRuntimeMs + 30000) / 250), baseMs: 0, maxMs: 0,
       retryOn: (error) => error === busy, signal: waitSignal }), maxRuntimeMs + 30000, signal);
   }
@@ -126,8 +138,18 @@ export class JobScheduler implements OnModuleDestroy {
     const owner = randomUUID();
     const controller = new AbortController();
     this.active.add(controller);
+    let renew: ReturnType<typeof setInterval> | undefined;
     try {
-      await this.acquireLock(key, owner, spec.maxRuntimeMs, controller.signal);
+      try { await this.acquireLock(key, owner, spec.maxRuntimeMs, controller.signal); }
+      catch (error) {
+        if (controller.signal.aborted) throw error;
+        await this.record(name, 'skipped', scheduledAt ?? null, BUSY);
+        this.logger.warn({ job: name, outcome: 'skipped', error: BUSY });
+        return;
+      }
+      renew = setInterval(() => { void this.redis.eval(RENEW, 1, key, owner, String(LEASE_MS)).catch(() => undefined); }, RENEW_MS);
+      renew.unref();
+      await this.redis.set(`jobs:${name}:running`, new Date().toISOString(), 'PX', spec.maxRuntimeMs + 60000);
       if (manual) await this.redis.del(`jobs:${name}:pending`);
       // Persisted deliveries and startup catch-up share the same scheduled occurrence.
       const last = scheduledAt === undefined ? null : await this.lastRun(name);
@@ -142,6 +164,7 @@ export class JobScheduler implements OnModuleDestroy {
       }
       await this.record(name, outcome, scheduledAt ?? null, detail);
     } finally {
+      if (renew) { clearInterval(renew); await this.redis.del(`jobs:${name}:running`).catch(() => 0); }
       this.active.delete(controller);
       // Compare ownership before deleting so an expired owner cannot release a successor's lock.
       await this.redis.eval("if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end", 1, key, owner);

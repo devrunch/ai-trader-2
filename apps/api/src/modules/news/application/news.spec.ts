@@ -27,7 +27,7 @@ describe('NewsService', () => {
     ]);
     expect(await service.ingest(new AbortController().signal)).toEqual({ fetched: 2, stored: 2, scored: 0, failed: ['broken'] });
     expect(stored.map(s => [s.title, s.symbols])).toEqual([['Reliance shares jump', ['NSE:RELIANCE']], ['Gold slips', ['MCX:GOLD1!']]]);
-    expect(warn).toHaveBeenCalledWith('News feed failed', { source: 'broken' });
+    expect(warn).toHaveBeenCalledWith('News feed failed', { source: 'broken', error: expect.any(String) as string });
   });
 
   it('stores the impact assessment with each headline', async () => {

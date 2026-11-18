@@ -33,8 +33,8 @@ beforeEach(async () => {
     vendors: [{ vendor: 'kite', state: 'live', at: 1 }, { vendor: 'deriv', state: 'stale', reason: 'PROVIDER_DOWN', at: 2 }, { vendor: 'us-delayed', state: 'unknown' }],
     subscriptions: [{ instrumentId: 'NSE:RELIANCE', count: 2 }] });
   jobs.mockReset().mockResolvedValue([{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata',
-    lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok', error: null }, next: '2026-11-10T01:30:00.000Z' }]);
-  runJob.mockReset().mockResolvedValue(true);
+    lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'ok', error: null }, next: '2026-11-10T01:30:00.000Z', runningSince: null }]);
+  runJob.mockReset().mockResolvedValue('queued');
   instruments.mockReset().mockResolvedValue({ sources: [{ source: 'kite', status: 'ok', count: 90000, lastSuccessAt: '2026-11-09T01:31:00+00:00' }], total: 90000 });
   listSources.mockReset().mockResolvedValue({ sources: [] });
   refreshInstruments.mockReset().mockResolvedValue(true);
@@ -75,7 +75,7 @@ it('run-now requires the CSRF header', async () => {
 });
 
 it('unknown job returns 404', async () => {
-  runJob.mockResolvedValue(false);
+  runJob.mockResolvedValue('unknown');
   await http().post('/api/v1/admin/ops/jobs/nope/run').set('X-Requested-With', 'aitrader').expect(404);
 });
 

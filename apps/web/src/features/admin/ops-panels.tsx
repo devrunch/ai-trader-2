@@ -61,7 +61,8 @@ export function JobsPanel() {
           <td className="font-mono">{job.name}</td>
           <td className="text-muted-foreground">{job.lastRun ? relative(job.lastRun.at) : 'never'}</td>
           <td>{job.lastRun ? <Badge tone={outcomeTone[job.lastRun.outcome]}>{job.lastRun.outcome}</Badge> : '—'}
-            {job.lastRun?.error && <div className="max-w-80 text-xs text-down">{job.lastRun.error}</div>}</td>
+            {job.lastRun?.error && <div className="max-w-80 text-xs text-down">{job.lastRun.error}</div>}
+            {job.runningSince && <div className="text-xs text-muted-foreground">running since {relative(job.runningSince)}</div>}</td>
           <td className="text-muted-foreground">{job.next ? formatIst(job.next) : '—'}</td>
           <td><Button size="xs" variant="outline" disabled={running} aria-label={`Run ${job.name} now`}
             onClick={() => { run.mutate(job.name); }}>{running ? 'Running…' : 'Run now'}</Button></td>

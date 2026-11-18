@@ -9,7 +9,8 @@ function ports(overrides: Partial<OpsPorts> = {}): OpsPorts {
       list: vi.fn().mockReturnValue([{ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z' }]),
       lastRun: vi.fn().mockResolvedValue({ at: '2026-11-09T01:30:00.000Z', scheduledAt: null, outcome: 'failed', error: 'HTTP 403' }),
       has: vi.fn((name: string) => name === 'instruments-refresh'),
-      runNow: vi.fn().mockResolvedValue(undefined),
+      runNow: vi.fn().mockResolvedValue(true),
+      runningSince: vi.fn().mockResolvedValue('2026-11-16T06:52:42.000Z'),
     },
     sources: { list: vi.fn().mockResolvedValue([{ source: 'kite', status: 'ok', reason: null, count: 3, lastSuccessAt: '2026-11-09T01:31:00+00:00' }, { source: 'deriv', status: 'stale', reason: 'down', count: 2, lastSuccessAt: null }]) },
     ...overrides,
@@ -24,17 +25,18 @@ describe('OpsOverview (FR-AC-2)', () => {
     expect(result.subscriptions).toEqual([{ instrumentId: 'NSE:A', count: 1 }]);
   });
 
-  it('jobs carry their last run without the internal scheduledAt', async () => {
+  it('jobs carry their last run (without the internal scheduledAt) and when the current run started', async () => {
     const [job] = await new OpsOverview(ports()).jobs();
-    expect(job).toEqual({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'failed', error: 'HTTP 403' } });
+    expect(job).toEqual({ name: 'instruments-refresh', cron: '0 7 * * *', tz: 'Asia/Kolkata', next: '2026-11-10T01:30:00.000Z', runningSince: '2026-11-16T06:52:42.000Z', lastRun: { at: '2026-11-09T01:30:00.000Z', outcome: 'failed', error: 'HTTP 403' } });
   });
 
-  it('runJob returns false for an unknown job and never triggers it', async () => {
-    const runNow = vi.fn().mockResolvedValue(undefined);
+  it('runJob says unknown without triggering, queued, or already queued when a manual run is waiting', async () => {
+    const runNow = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false);
     const p = ports(); p.jobs = { ...p.jobs, runNow };
-    expect(await new OpsOverview(p).runJob('nope')).toBe(false);
+    expect(await new OpsOverview(p).runJob('nope')).toBe('unknown');
     expect(runNow).not.toHaveBeenCalled();
-    expect(await new OpsOverview(p).runJob('instruments-refresh')).toBe(true);
+    expect(await new OpsOverview(p).runJob('instruments-refresh')).toBe('queued');
+    expect(await new OpsOverview(p).runJob('instruments-refresh')).toBe('already-queued');
     expect(runNow).toHaveBeenCalledWith('instruments-refresh');
   });
 

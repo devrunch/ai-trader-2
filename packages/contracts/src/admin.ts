@@ -18,6 +18,8 @@ export const OpsJobsSchema = z.array(z.strictObject({
   name: z.string(), cron: z.string(), tz: z.string(),
   lastRun: z.strictObject({ at: z.iso.datetime(), outcome: z.enum(['ok', 'failed', 'skipped']), error: z.string().nullable() }).nullable(),
   next: z.iso.datetime().nullable(),
+  /** When the current run started; null when none is running. */
+  runningSince: z.iso.datetime().nullable(),
 }));
 export type OpsJobs = z.infer<typeof OpsJobsSchema>;
 

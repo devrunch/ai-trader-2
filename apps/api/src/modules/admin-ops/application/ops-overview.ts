@@ -13,7 +13,8 @@ export interface OpsPorts {
     list(): Array<{ name: string; cron: string; tz: string; next: string | null }>;
     lastRun(name: string): Promise<{ at: string; outcome: 'ok' | 'failed' | 'skipped'; error: string | null } | null>;
     has(name: string): boolean;
-    runNow(name: string): Promise<void>;
+    runNow(name: string): Promise<boolean>;
+    runningSince(name: string): Promise<string | null>;
   };
   sources: {
     list(): Promise<Array<{ source: string; status: string; reason: string | null; count: number; lastSuccessAt: string | null }>>;
@@ -37,15 +38,15 @@ export class OpsOverview {
 
   async jobs(): Promise<OpsJobs> {
     return Promise.all(this.ports.jobs.list().map(async job => {
-      const last = await this.ports.jobs.lastRun(job.name);
-      return { ...job, lastRun: last ? { at: last.at, outcome: last.outcome, error: last.error } : null };
+      const [last, runningSince] = await Promise.all([this.ports.jobs.lastRun(job.name), this.ports.jobs.runningSince(job.name)]);
+      return { ...job, runningSince, lastRun: last ? { at: last.at, outcome: last.outcome, error: last.error } : null };
     }));
   }
 
-  async runJob(name: string): Promise<boolean> {
-    if (!this.ports.jobs.has(name)) return false;
-    await this.ports.jobs.runNow(name);
-    return true;
+  /** 'queued', 'already-queued' when a manual run is waiting to start, or 'unknown'. */
+  async runJob(name: string): Promise<'queued' | 'already-queued' | 'unknown'> {
+    if (!this.ports.jobs.has(name)) return 'unknown';
+    return await this.ports.jobs.runNow(name) ? 'queued' : 'already-queued';
   }
 
   async instruments(): Promise<OpsInstruments> {

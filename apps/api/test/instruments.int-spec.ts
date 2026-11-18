@@ -85,7 +85,7 @@ describe('FR-SY-2/3/4, E23, NFR-RB-4 Postgres master', () => {
 
   it('registers the daily durable job and requests bootstrap refresh without blocking boot', async () => {
     const scheduler = { register: vi.fn<(spec: JobSpec) => Promise<void>>().mockResolvedValue(undefined),
-      runNow: vi.fn<(name: string) => Promise<void>>().mockResolvedValue(undefined) };
+      runNow: vi.fn<(name: string) => Promise<boolean>>().mockResolvedValue(true) };
     const refresh = new RefreshInstruments(repo, [], index(), clock);
     const execute = vi.spyOn(refresh, 'execute').mockResolvedValue({ sources: {} });
     const readiness = new ReadinessRegistry();

@@ -4,7 +4,7 @@ import { type RecentLogsResponse } from '@aitrader/contracts';
 import { REDIS } from '../../../shared/redis/index.js';
 import { recentLogsResponse } from '../../../shared/observability/recent-logs.js';
 import { OpsFeedsSchema, OpsInstrumentsSchema, OpsJobsSchema, type OpsFeeds, type OpsInstruments, type OpsJobs } from '@aitrader/contracts';
-import { NotFoundError } from '../../../shared/errors/index.js';
+import { ConflictError, NotFoundError } from '../../../shared/errors/index.js';
 import { CsrfHeaderGuard, Roles, RolesGuard, SessionGuard } from '../../auth/api/index.js';
 import { DataSourcesResponseSchema, type DataSourcesResponse } from '@aitrader/contracts';
 import { OpsSources } from '../application/ops-sources.js';
@@ -27,7 +27,9 @@ export class OpsController {
 
   @Post('jobs/:name/run') @HttpCode(202) @UseGuards(CsrfHeaderGuard)
   async runJob(@Param('name') name: string): Promise<void> {
-    if (!(await this.ops.runJob(name))) throw new NotFoundError('Unknown job', { name });
+    const result = await this.ops.runJob(name);
+    if (result === 'unknown') throw new NotFoundError('Unknown job', { name });
+    if (result === 'already-queued') throw new ConflictError('A run of this job is already queued; it starts when the current run ends');
   }
 
   @Get('logs')

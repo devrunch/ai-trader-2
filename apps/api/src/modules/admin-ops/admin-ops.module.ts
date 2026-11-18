@@ -21,7 +21,7 @@ import { GetFeedOverview } from '../market-data/application/index.js';
     useFactory: (feeds: GetFeedOverview, jobs: JobScheduler, sources: ListInstrumentSources) => new OpsOverview({
       feedStates: { get: vendor => feeds.state(vendor) },
       leadership: { leader: () => feeds.leader(), subscriptions: () => feeds.subscriptions() },
-      jobs: { list: () => jobs.list(), lastRun: name => jobs.lastRun(name), has: name => jobs.has(name), runNow: name => jobs.runNow(name) },
+      jobs: { list: () => jobs.list(), lastRun: name => jobs.lastRun(name), has: name => jobs.has(name), runNow: name => jobs.runNow(name), runningSince: name => jobs.runningSince(name) },
       sources: { list: () => sources.execute() },
     }) },
   { provide: OpsSources, inject: [SourceRegistry, SOURCE_HEALTH], useFactory: (registry: SourceRegistry, health: SourceHealth) => new OpsSources({ registry, health }) },

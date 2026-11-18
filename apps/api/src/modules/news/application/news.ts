@@ -1,4 +1,5 @@
 import { marketsFor, type NewsCluster, NewsImpact, NewsItem, NewsItemFull, NewsMarket, Sentiment, SentimentTrend } from '@aitrader/contracts';
+import { messageOf } from '../../../shared/errors';
 import { clusterNews } from '../domain/cluster';
 import { summarise } from '../domain/sentiment';
 import type { SentimentInput } from './sentiment';
@@ -43,8 +44,9 @@ export class NewsService {
 
   async ingest(signal: AbortSignal): Promise<{ fetched: number; stored: number; scored: number; failed: string[] }> {
     const results = await Promise.allSettled(this.sources.map(s => s.fetch(signal)));
-    const failed = this.sources.filter((_, i) => results[i]?.status === 'rejected').map(s => s.name);
-    for (const name of failed) this.env.warn('News feed failed', { source: name });
+    const failures = this.sources.flatMap((s, i) => { const r = results[i]; return r?.status === 'rejected' ? [{ name: s.name, error: messageOf(r.reason) }] : []; });
+    const failed = failures.map(f => f.name);
+    for (const { name, error } of failures) this.env.warn('News feed failed', { source: name, error: error.slice(0, 300) });
     const now = this.env.now();
     const seen = new Set<string>();
     const items: NewsItemFull[] = [];

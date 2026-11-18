@@ -1,4 +1,5 @@
 import { Inject, Logger, Module } from '@nestjs/common';
+import { messageOf } from '../../shared/errors';
 import type { Redis } from 'ioredis';
 import { DB, type Database } from '../../shared/database';
 import { REDIS, RedisTokenBucket } from '../../shared/redis';
@@ -138,7 +139,7 @@ const BarPublisherToken = 'BAR_PUBLISHER';
     { provide: LiveBars, inject: [DrizzleCandleStore, RedisFormingBarStore, BarPublisherToken, RedisPreviousCloseStore],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, publisher: BarPublisher, prevCloses: RedisPreviousCloseStore) => {
         const logger = new Logger('LiveBars');
-        return new LiveBars(store, forming, { clock: Date.now, log: reason => { logger.warn(reason); }, prevCloses }, publisher);
+        return new LiveBars(store, forming, { clock: Date.now, log: (reason, error) => { logger.warn({ reason, error: error === undefined ? undefined : messageOf(error).slice(0, 300) }); }, prevCloses }, publisher);
       } },
     { provide: ReadBars, inject: [DrizzleCandleStore, RedisFormingBarStore, FillHistory, RedisSecondsStore],
       useFactory: (store: DrizzleCandleStore, forming: RedisFormingBarStore, fill: FillHistory, seconds: RedisSecondsStore) => new ReadBars(store, forming, Date.now, fill, seconds) },
