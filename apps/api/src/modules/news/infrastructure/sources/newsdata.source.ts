@@ -5,8 +5,8 @@ import type { NewsSource, RawHeadline } from '../../application/news';
 
 export const NEWSDATA_DESCRIPTOR: SourceDescriptor = {
   id: 'newsdata', owner: 'news', kind: 'headlines', markets: ['us', 'india', 'forex', 'commodities', 'crypto'], envKeys: ['NEWSDATA_API_KEY'],
-  rateLimit: { requests: 200, windowSec: 86_400 }, schedule: '*/15 * * * *',
-  terms: 'newsdata.io /api/1/latest with our own key on the free plan (200 credits a day); wire-service and finance domains only, headline and link shown, at most every 15 minutes.',
+  rateLimit: { requests: 200, windowSec: 86_400 }, schedule: '0 */2 * * *',
+  terms: 'newsdata.io /api/1/latest with our own key on the free plan (200 credits a day); wire-service and finance domains only, headline and link shown, at most every 2 hours: the free plan delays articles by 12 hours, so it is history and background, not breaking news.',
   docs: 'https://newsdata.io/documentation',
 };
 
@@ -15,7 +15,7 @@ const Response = z.object({ results: z.array(z.object({ title: z.string().nullab
 const DOMAINS = 'reuters.com,bloomberg.com,barrons.com,marketwatch.com,cnbc.com';
 // The free plan rejects a query over 100 characters.
 const QUERY = 'stocks OR inflation OR "Federal Reserve" OR gold OR crude OR bitcoin OR forex OR rupee';
-const EVERY_MS = 15 * 60_000;
+const EVERY_MS = 2 * 3_600_000;
 
 /** newsdata.io wire headlines; only with NEWSDATA_API_KEY. Its dates are "YYYY-MM-DD HH:MM:SS" in UTC. */
 export class NewsdataSource extends KeyedThrottledSource implements NewsSource {

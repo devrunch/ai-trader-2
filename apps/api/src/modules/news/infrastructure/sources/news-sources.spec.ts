@@ -29,12 +29,12 @@ describe('newsdata (FR-HM-2)', () => {
     await expect(new NewsdataSource('', clientReturning(ALL, '{}').client).fetch(signal())).rejects.toThrow('off (no key)');
     await expect(new NewsdataSource('k', clientReturning(ALL, '{"status":"error","results":{"message":"bad"}}', KEYS).client).fetch(signal())).rejects.toThrow();
   });
-  it('calls at most every 15 minutes', async () => {
+  it('calls at most every 2 hours', async () => {
     let now = 0;
     const { client, fetchFn } = clientReturning(ALL, fixture('newsdata', 'latest.json'), KEYS);
     const source = new NewsdataSource('k', client, () => now);
     now = 1_000_000; await source.fetch(signal());
-    now += 60_000; expect(await source.fetch(signal())).toEqual([]);
+    now += 3_600_000; expect(await source.fetch(signal())).toEqual([]);
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 });
