@@ -92,7 +92,7 @@ export class AgentTasks {
       if (observed !== undefined) armed = !(input.trigger.op === 'above' ? observed > input.trigger.value : observed < input.trigger.value);
     }
     const task: AgentTask = { id: this.env.id(), userId, threadId, mode, title: input.title, instruction: input.instruction, trigger: input.trigger, state: 'active',
-      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade !== undefined ? input.autoTrade : mode === 'agent' ? await this.prefs.autoTradeFor(userId) : null, desk: input.desk ?? null, runState: 'idle', runStateAt: null, pendingFire: null, seen: [],
+      runs: 0, maxRuns: input.maxRuns ?? (input.trigger.kind === 'schedule' ? 20 : isWatch(input.trigger) ? 10 : 1), armed, lastRunAt: null, nextRunAt, lastError: null, lastOutcome: null, autoTrade: input.autoTrade !== undefined ? input.autoTrade : mode === 'agent' && input.trigger.kind !== 'schedule' ? await this.prefs.autoTradeFor(userId) : null, desk: input.desk ?? null, runState: 'idle', runStateAt: null, pendingFire: null, seen: [],
       expiresAt: now + days * 86_400_000, createdAt: now };
     await this.store.create(task);
     return { ...dto(task), conditionNow };

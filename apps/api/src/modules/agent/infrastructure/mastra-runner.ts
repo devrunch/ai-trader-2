@@ -13,6 +13,8 @@ const TOOL_CONTEXT = 'tool-context';
 const SYSTEM = 'system-prompt';
 const BUDGET = 'turn-budget';
 /** What a tool answers once the turn is nearly spent, so the model answers instead of gathering more, whatever the provider does with tool choice. */
+/** Tools that are the answer itself (a trade card, a view): they still run while wrapping up. */
+const ANSWER_TOOLS = new Set(['presentTradePlan', 'showView', 'showCustomView']);
 const WRAP_UP = { ok: false, reason: 'TIME_TO_ANSWER', detail: 'No more lookups this turn. Answer the user now from what you already have.' } as const;
 
 const budgetText: Record<string, string> = {
@@ -46,7 +48,7 @@ export class MastraRunner implements AgentRunner {
         const ctx: unknown = context.requestContext.get(TOOL_CONTEXT);
         if (!isToolContext(ctx)) return { ok: false, reason: 'UNAVAILABLE' };
         const budget: unknown = context.requestContext.get(BUDGET);
-        if (budget instanceof TurnBudget && budget.nearlySpent()) return WRAP_UP;
+        if (budget instanceof TurnBudget && budget.nearlySpent() && !ANSWER_TOOLS.has(tool.name)) return WRAP_UP;
         return tool.call(ctx, input);
       },
     })]));

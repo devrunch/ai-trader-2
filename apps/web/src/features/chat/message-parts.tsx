@@ -21,8 +21,12 @@ const PLAIN: Record<string, string> = {
   getEconomicCalendar: 'calendar', getEventScorecard: 'past reactions', getDepth: 'order book', getMarketStatus: 'market hours', getPortfolio: 'your positions',
   getWatchlist: 'your watchlist', searchInstruments: 'symbol search', listUniverse: 'market lists', scanUniverse: 'scan', webSearch: 'web search', calculate: 'calculations',
   runBacktest: 'backtest', getOptionChain: 'options', getOptionsSummary: 'options', listIndicators: 'indicators',
+  getWhatToWatch: 'what to watch', listTasks: 'your tasks', scheduleTask: 'tasks', watchEvent: 'tasks', watchMove: 'tasks', watchNews: 'tasks', watchScreen: 'tasks',
+  cancelTask: 'tasks', createAlert: 'alerts', placePaperOrder: 'paper orders', cancelPaperOrder: 'paper orders', closePaperPosition: 'paper orders',
+  addToWatchlist: 'your watchlist', removeFromWatchlist: 'your watchlist', remember: 'what I know about you', forget: 'what I know about you', updateProfile: 'what I know about you',
+  askDesk: 'AI Desk', saveStrategy: 'strategies',
 };
-const HIDDEN = new Set(['loadTools', 'listSkills']);
+const HIDDEN = new Set(['loadTools', 'listSkills', 'useSkill']);
 
 /** The data the assistant looked at for one answer, in one line that opens to the detail. */
 function ToolTrail({ parts }: { parts: Array<Part & ToolLike> }) {

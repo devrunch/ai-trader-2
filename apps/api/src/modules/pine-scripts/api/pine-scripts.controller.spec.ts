@@ -27,7 +27,7 @@ beforeEach(async () => {
   signedIn = true;
   Object.values(service).forEach(f => { f.mockReset().mockResolvedValue(detail); });
   const module = await Test.createTestingModule({ controllers: [PineScriptsController], providers: [GlobalExceptionFilter,
-    { provide: PinoLogger, useValue: { warn: vi.fn(), error: vi.fn() } }, { provide: PineScripts, useValue: service }] })
+    { provide: PinoLogger, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }, { provide: PineScripts, useValue: service }] })
     .overrideGuard(SessionGuard).useClass(TestSession).compile();
   app = module.createNestApplication(); configureApp(app); await app.init();
 });

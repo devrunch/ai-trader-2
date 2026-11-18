@@ -61,6 +61,26 @@ describe('MastraRunner', () => {
     expect((await done).outcome).toBe('ok');
   });
 
+  it('still runs an answer tool (the trade card) while refusing lookups near the limit', async () => {
+    const plan = vi.fn().mockResolvedValue({ shown: true });
+    const card = guardedTool({ name: 'presentTradePlan', description: 'card', input: z.strictObject({ symbol: z.string() }), run: plan },
+      { limiter: { take: () => Promise.resolve(true) }, audit: () => undefined });
+    const cardStep = () => ({ stream: convertArrayToReadableStream([
+      { type: 'stream-start' as const, warnings: [] },
+      { type: 'tool-call' as const, toolCallId: 'c9', toolName: 'presentTradePlan', input: JSON.stringify({ symbol: 'NSE:RELIANCE' }) },
+      finish('tool-calls', 100),
+    ]) });
+    let calls = 0;
+    const model = new MockLanguageModelV4({ doStream: () => { calls++; return Promise.resolve(calls < 3 ? toolCallStep() : calls === 3 ? cardStep() : textStep()); } });
+    const q = quoteTool();
+    const runner = new MastraRunner({ name: 'mock/model', primary: model, tools: [q.tool, card] });
+    const { stream, done } = runner.run({ system: 'sys', messages: user, ctx, signal: new AbortController().signal,
+      budget: new TurnBudget({ maxRounds: 4, maxMs: 60_000, maxTokens: 100_000 }) });
+    await drain(stream);
+    expect(plan).toHaveBeenCalledWith({ symbol: 'NSE:RELIANCE' }, ctx);
+    expect((await done).outcome).toBe('ok');
+  });
+
   it('ends the turn with a plain notice when the token budget runs out', async () => {
     const q = quoteTool();
     const runner = new MastraRunner({ name: 'mock/model', primary: new MockLanguageModelV4({ doStream: [toolCallStep(), textStep()] }), tools: [q.tool] });

@@ -39,7 +39,7 @@ beforeEach(async () => {
   listSources.mockReset().mockResolvedValue({ sources: [] });
   refreshInstruments.mockReset().mockResolvedValue(true);
   const module = await Test.createTestingModule({ controllers: [OpsController], providers: [RolesGuard, GlobalExceptionFilter,
-    { provide: PinoLogger, useValue: { warn: vi.fn(), error: vi.fn() } },
+    { provide: PinoLogger, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
     { provide: OpsOverview, useValue: { feeds, jobs, runJob, instruments, refreshInstruments } },
     { provide: OpsSources, useValue: { list: listSources } },
     { provide: REDIS, useValue: { lrange: vi.fn().mockResolvedValue([]) } },

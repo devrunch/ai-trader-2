@@ -140,6 +140,14 @@ describe('AgentTasks watches', () => {
 
 describe('AgentTasks auto-trade', () => {
   const limits = { enabled: true, maxRiskPct: 0.5, maxTradesPerDay: 3, requireBacktest: true };
+  it('takes the owner setting for a watch, but a scheduled check only reads and reports', async () => {
+    const store = { create: vi.fn().mockResolvedValue(undefined), list: vi.fn().mockResolvedValue([]) };
+    const tasks = new AgentTasks(store as never, { read: vi.fn().mockResolvedValue(undefined) }, { news: () => Promise.resolve([]), events: () => Promise.resolve([]), changes: () => Promise.resolve([]) },
+      { now: () => Date.parse('2026-11-18T12:00:00Z'), id: () => 'x' }, { autoTradeFor: () => Promise.resolve(limits) });
+    expect((await tasks.create('u1', 'th1', breakout)).autoTrade).toEqual(limits);
+    const check = await tasks.create('u1', 'th1', { title: 'Check NIFTY', instruction: 'tell me the price', trigger: { kind: 'schedule', cron: '35 18 * * *', tz: 'Asia/Kolkata' }, maxRuns: 1 });
+    expect(check.autoTrade).toBeNull();
+  });
   it('is switched on and off by the owner for assistant tasks only, never for plain alerts', async () => {
     const { tasks } = setup([]);
     const agent = await tasks.create('u1', 'th1', breakout);

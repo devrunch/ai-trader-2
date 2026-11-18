@@ -27,7 +27,7 @@ beforeEach(async () => {
     { history: key => Promise.resolve(rows.filter(r => r.key === key).sort((a, b) => b.version - a.version)), append: v => { rows.push(v); return Promise.resolve(); } },
     { keys: () => ['system'], read: key => (key === 'system' ? 'Default.' : null) });
   const module = await Test.createTestingModule({ controllers: [PromptsController], providers: [RolesGuard, GlobalExceptionFilter,
-    { provide: PinoLogger, useValue: { warn: vi.fn(), error: vi.fn() } }, { provide: PromptRegistry, useValue: registry }] })
+    { provide: PinoLogger, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } }, { provide: PromptRegistry, useValue: registry }] })
     .overrideGuard(SessionGuard).useClass(TestSession).compile();
   app = module.createNestApplication(); configureApp(app); await app.init();
 });

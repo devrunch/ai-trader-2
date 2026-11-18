@@ -7,7 +7,7 @@ import { Test } from '@nestjs/testing';
 import { ErrorBodySchema } from '@aitrader/contracts';
 import request from 'supertest';
 import type { Server } from 'node:http';
-import { afterAll, beforeAll, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { DomainError, ConflictError, NotFoundError, RateLimitedError, UnavailableError, ValidationError, GlobalExceptionFilter } from './index';
 
@@ -115,4 +115,18 @@ it('sets Retry-After for RateLimitedError(1500)', async () => {
 it('every response body satisfies ErrorBodySchema', () => {
   expect(bodies.length).toBeGreaterThan(10);
   for (const body of bodies) expect(ErrorBodySchema.safeParse(body).success).toBe(true);
+});
+
+describe('GlobalExceptionFilter logging', () => {
+  const host = (status = vi.fn()) => ({ switchToHttp: () => ({ getRequest: () => ({ id: 'r1' }), getResponse: () => ({ status: status.mockReturnValue({ json: vi.fn() }), setHeader: vi.fn() }) }) }) as never;
+  it('logs a client mistake as info and a server failure as an error with its cause', () => {
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const filter = new GlobalExceptionFilter(logger as never);
+    filter.catch(new NotFoundError('Order not found'), host());
+    expect(logger.info).toHaveBeenCalledWith(expect.objectContaining({ code: 'NOT_FOUND', requestId: 'r1' }));
+    filter.catch(new UnavailableError('Feed down'), host());
+    expect(logger.warn).toHaveBeenCalledWith(expect.objectContaining({ code: 'UNAVAILABLE' }));
+    filter.catch(new Error('pool exhausted'), host());
+    expect(logger.error).toHaveBeenCalledWith(expect.objectContaining({ code: 'INTERNAL', error: 'pool exhausted' }));
+  });
 });

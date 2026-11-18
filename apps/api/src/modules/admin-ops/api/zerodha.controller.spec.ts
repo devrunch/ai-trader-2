@@ -24,7 +24,7 @@ beforeEach(async () => {
   connect.mockReset().mockResolvedValue({ connected: true, expiresAt: '2026-11-09T00:30:00.000Z' });
   autoLogin.mockReset().mockResolvedValue({ connected: true, expiresAt: '2026-11-09T00:30:00.000Z' });
   disconnect.mockReset().mockResolvedValue({ connected: false });
-  const module = await Test.createTestingModule({ controllers: [ZerodhaController], providers: [RolesGuard, GlobalExceptionFilter, { provide: PinoLogger, useValue: { warn: vi.fn(), error: vi.fn() } },
+  const module = await Test.createTestingModule({ controllers: [ZerodhaController], providers: [RolesGuard, GlobalExceptionFilter, { provide: PinoLogger, useValue: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } },
     { provide: ZerodhaConnect, useValue: { status, connect, autoLogin, disconnect } },
   ] }).overrideGuard(SessionGuard).useClass(TestSession).compile();
   app = module.createNestApplication(); configureApp(app); await app.init();

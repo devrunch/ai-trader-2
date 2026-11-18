@@ -4,7 +4,7 @@ import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { ErrorBody, ErrorCode } from '@aitrader/contracts';
 import { ZodError } from 'zod';
 import { DomainError } from './domain-error';
-import { RateLimitedError } from './errors';
+import { messageOf, RateLimitedError } from './errors';
 
 interface ErrorRequest {
   id?: unknown;
@@ -47,9 +47,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const requestId = typeof request.id === 'string' && request.id.length > 0
       ? request.id : 'unknown';
     const { status, body } = publicError(error);
-    if (error instanceof DomainError) this.logger.warn({ ...body, requestId });
-    else if (status >= 500) this.logger.error({ code: body.code, requestId });
-    else this.logger.warn({ ...body, requestId });
+    // A client mistake (bad input, signed out, not found) is routine; a server failure is a warning or an error with its real cause.
+    if (status < 500) this.logger.info({ ...body, requestId });
+    else if (error instanceof DomainError) this.logger.warn({ ...body, requestId });
+    else this.logger.error({ code: body.code, requestId, error: messageOf(error).slice(0, 500) });
     if (error instanceof RateLimitedError) response.setHeader('Retry-After', String(Math.ceil(error.retryAfterMs / 1000)));
     response.status(status).json({ ...body, requestId });
   }

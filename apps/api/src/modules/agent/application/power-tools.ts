@@ -133,7 +133,8 @@ export function buildTaskTools(tasks: TaskDesk, deps: GuardDeps): Array<GuardedT
     guardedTool({ name: 'scheduleTask',
       description: 'Run an instruction later in the background: on a cron schedule (at most every 5 minutes, Asia/Kolkata by default) or when a price or indicator crosses a value. '
         + 'A condition fires when it becomes true; if it is already true now it waits for the next cross (the result says the current value). '
-        + 'The instruction must be complete on its own: what to check and exactly what to do, e.g. which paper order to place.',
+        + 'The instruction must be complete on its own: what to check and exactly what to do, e.g. which paper order to place. '
+        + 'A one-off ("in 5 minutes", "at 15:00 today", "tomorrow at 9:15") is a cron for that minute with maxRuns 1 and expiresInDays 1; a cron alone repeats every day.',
       input: z.strictObject({ title: z.string().min(1).max(120), instruction: z.string().min(1).max(2000), trigger: orJsonString(TaskTriggerSchema),
         maxRuns: z.number().int().min(1).max(500).optional(), expiresInDays: z.number().int().min(1).max(30).optional() }),
       run: (input, ctx) => withSay(tasks.create(ctx.userId, ctx.conversationId, input)) }, deps),

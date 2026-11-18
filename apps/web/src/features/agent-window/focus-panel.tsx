@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { AgentTaskSchema, BarsResponseSchema, CalendarResponseSchema, FundamentalsResponseSchema, PaperPositionsResponseSchema, SentimentTrendSchema } from '@aitrader/contracts';
 import { apiFetch } from '../../shared/api';
 import { formatPct, formatPrice, useQuotes } from '../terminal';
+
+const NSE_INDICES = new Set(['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY', 'NIFTYNXT50', 'INDIAVIX', 'CNXFINANCE', 'CNXIT', 'CNXAUTO', 'CNXPHARMA', 'CNXFMCG', 'CNXMETAL', 'CNXREALTY', 'CNXENERGY']);
 import type { FocusView } from './focus-symbols';
 
 const tone = (v: number | null | undefined) => (v === null || v === undefined || v === 0 ? 'text-muted-foreground' : v > 0 ? 'text-up' : 'text-down');
@@ -22,7 +24,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function FocusDetail({ symbol, view }: { symbol: string; view: FocusView | undefined }) {
   const bars = useQuery({ queryKey: ['focus', 'bars', symbol], staleTime: 300_000,
     queryFn: ({ signal }) => apiFetch(`v1/bars?symbol=${encodeURIComponent(symbol)}&interval=1D&limit=260`, { schema: BarsResponseSchema, signal }) });
-  const nse = symbol.startsWith('NSE:');
+  // Fundamentals exist for NSE stocks only: not futures (TICKER1!) or indices.
+  const nse = symbol.startsWith('NSE:') && !symbol.endsWith('!') && !NSE_INDICES.has(symbol.slice(4));
   const fundamentals = useQuery({ queryKey: ['focus', 'fundamentals', symbol], enabled: nse, staleTime: 3_600_000, retry: false,
     queryFn: ({ signal }) => apiFetch(`v1/fundamentals/${encodeURIComponent(symbol)}`, { schema: FundamentalsResponseSchema, signal }) });
   const mood = useQuery({ queryKey: ['focus', 'sentiment', symbol], staleTime: 300_000, retry: false,

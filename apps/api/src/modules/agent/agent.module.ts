@@ -95,6 +95,7 @@ import { TASKS_THREAD_TITLE, taskThreadId } from './application/task-thread';
 import { DataGaps } from './application/data-gaps';
 import { DrizzleDataGapsStore } from './infrastructure/drizzle-data-gaps.store';
 import { DataGapsController, OpsDataGapsController } from './api/data-gaps.controller';
+import { SmokeController } from './api/smoke.controller';
 import { buildWhatToWatchTools } from './application/what-to-watch-tools';
 import { buildViewTools } from './application/view-tools';
 import { DrizzleWhatToWatchStore } from './infrastructure/drizzle-what-to-watch.store';
@@ -180,7 +181,7 @@ async function ensureTaskThread(db: Database, userId: string): Promise<string> {
 
 @Module({
   imports: [AuthModule, InstrumentsModule, MarketDataModule, PaperTradingModule, IndicatorsModule, PineScriptsModule, NewsModule, ResearchModule, NotificationsModule, WatchlistsModule, CalendarModule, StrategiesModule, FundamentalsModule, UniversesModule, ScreenerModule, OptionsModule],
-  controllers: [DataGapsController, OpsDataGapsController, AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
+  controllers: [DataGapsController, OpsDataGapsController, SmokeController, AssistantPrefsController, WhatToWatchController, PromptsController, ChatController, ActionsController, TasksController, MemoryController, ProfileController, TradesController, DeskController, AgentQueueController],
   providers: [
     { provide: PromptRegistry, inject: [DB], useFactory: (db: Database) => new PromptRegistry(new DrizzlePromptStore(db), new FilePromptDefaults()) },
     { provide: LIMITER, inject: [REDIS], useFactory: (redis: Redis) => new RedisWindowLimiter(redis) },
