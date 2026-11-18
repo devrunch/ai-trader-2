@@ -91,6 +91,7 @@ import { AgentQueueController } from './api/agent-queue.controller';
 import { AiDeskModel } from './infrastructure/ai-desk-model';
 import { WhatToWatch, type WatchQuote } from './application/what-to-watch';
 import { ReleaseWatch } from './application/release-watch';
+import { TASKS_THREAD_TITLE, taskThreadId } from './application/task-thread';
 import { DataGaps } from './application/data-gaps';
 import { DrizzleDataGapsStore } from './infrastructure/drizzle-data-gaps.store';
 import { DataGapsController, OpsDataGapsController } from './api/data-gaps.controller';
@@ -168,6 +169,13 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
     const line = error.details?.['line'];
     return { ok: false, error: error.message.slice(0, 300), ...(typeof line === 'number' && line > 0 ? { line } : {}) };
   }
+}
+
+/** The user's "Tasks" thread, created on first use, for assistant tasks that have no conversation of their own. */
+async function ensureTaskThread(db: Database, userId: string): Promise<string> {
+  const id = taskThreadId(userId);
+  await new DrizzleThreadStore(db).ensure(userId, id, TASKS_THREAD_TITLE);
+  return id;
 }
 
 @Module({
@@ -279,13 +287,13 @@ async function checkPine(indicators: IndicatorService, source: string): Promise<
             .map(e => ({ title: e.title, country: e.country, at: e.at, impact: e.impact, forecast: e.forecast, previous: e.previous, moves: e.moves })); },
         }, { draft: (system, prompt) => (model ? model.generate({ role: 'macro', system, prompt, schema: WatchDraftSchema }, AbortSignal.timeout(90_000)).then(r => r.data)
           : Promise.reject(new UnavailableError('What to watch is off: set DESK_MODEL or AGENT_MODEL'))) },
-        { create: (userId, input) => tasks.create(userId, null, input, 'agent') }, { now: Date.now, id: randomUUID });
+        { create: async (userId, input) => tasks.create(userId, await ensureTaskThread(db, userId), input, 'agent') }, { now: Date.now, id: randomUUID });
       } },
-    { provide: ReleaseWatch, inject: [EconomicCalendar, Watchlists, AgentTasks],
-      useFactory: (calendar: EconomicCalendar, watchlist: Watchlists, tasks: AgentTasks) => new ReleaseWatch({
+    { provide: ReleaseWatch, inject: [EconomicCalendar, Watchlists, AgentTasks, DB],
+      useFactory: (calendar: EconomicCalendar, watchlist: Watchlists, tasks: AgentTasks, db: Database) => new ReleaseWatch({
         symbols: async userId => [...(await watchlist.get(userId)).items, 'NSE:NIFTY', 'FX:USDINR'],
         events: async () => (await calendar.list({ days: 1, impact: 'High' })).map(e => ({ title: e.title, country: e.country, at: e.at })),
-      }, { titles: async userId => (await tasks.list(userId)).map(t => t.title), create: (userId, input) => tasks.create(userId, null, input, 'agent') }, Date.now) },
+      }, { titles: async userId => (await tasks.list(userId)).map(t => t.title), create: async (userId, input) => tasks.create(userId, await ensureTaskThread(db, userId), input, 'agent') }, Date.now) },
     { provide: WhatToWatchJob, inject: [JobScheduler, WhatToWatch, ReleaseWatch, DB],
       useFactory: (scheduler: JobScheduler, watch: WhatToWatch, releases: ReleaseWatch, db: Database) => new WhatToWatchJob(scheduler, watch, releases, async () => (await db.select({ id: usersTable.id }).from(usersTable)).map(u => u.id)) },
     { provide: AgentTaskJob, inject: [JobScheduler, AgentTasks, AgentRunQueue, Notifications],

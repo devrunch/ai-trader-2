@@ -26,7 +26,7 @@ export class NewsdataSource extends KeyedThrottledSource implements NewsSource {
   async fetch(signal: AbortSignal): Promise<RawHeadline[]> {
     if (!this.due()) return [];
     const url = `https://newsdata.io/api/1/latest?language=en&domainurl=${DOMAINS}&q=${encodeURIComponent(QUERY)}`;
-    const { text } = await this.client.get(NEWSDATA_DESCRIPTOR.id, url, { headers: { 'x-apikey': this.key }, signal });
+    const { text } = await this.client.get(NEWSDATA_DESCRIPTOR.id, url, { headers: { 'X-ACCESS-KEY': this.key }, signal });
     const parsed = Response.parse(JSON.parse(text));
     const headlines = parsed.results.flatMap(r => {
       const publishedAt = Date.parse(`${(r.pubDate ?? '').replace(' ', 'T')}Z`);

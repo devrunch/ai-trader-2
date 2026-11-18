@@ -8,6 +8,7 @@ import { NotFoundError } from '../src/shared/errors';
 import { DrizzleThreadStore, DrizzleTurnStore } from '../src/modules/agent/infrastructure/drizzle-chat.stores';
 import { DrizzleActionStore } from '../src/modules/agent/infrastructure/drizzle-action.store';
 import { DrizzleTaskStore } from '../src/modules/agent/infrastructure/drizzle-task.store';
+import { TASKS_THREAD_TITLE, taskThreadId } from '../src/modules/agent/application/task-thread';
 import { startPostgres } from './support/containers';
 
 describe('agent chat stores (FR-AG-9, turn records)', () => {
@@ -85,6 +86,17 @@ describe('agent chat stores (FR-AG-9, turn records)', () => {
         note: null, barsUsed: 300, lastBarTime: 2, status: { state: 'ok' as const } } };
     await actions.create(drawn);
     expect(await actions.get(alice, drawn.id)).toEqual(drawn);
+  });
+
+  it('an assistant task the assistant made by itself saves into the Tasks thread of its user, never without a thread', async () => {
+    const base = { id: randomUUID(), userId: alice, mode: 'agent' as const, title: 'Watching CPI y/y, out at 19:00 IST', instruction: 'brief, report, act',
+      trigger: { kind: 'event' as const, countries: ['USD'], title: 'CPI y/y', minImpact: 'High' as const, afterMinutes: 2, briefMinutes: 30 }, state: 'active' as const, runs: 0, maxRuns: 3, armed: true,
+      lastRunAt: null, nextRunAt: null, lastError: null, lastOutcome: null, autoTrade: null, desk: null, runState: 'idle' as const, runStateAt: null, pendingFire: null, seen: [], expiresAt: Date.parse('2026-11-19T00:00:00Z'), createdAt: Date.parse('2026-11-18T00:00:00Z') };
+    await expect(tasks.create({ ...base, threadId: null })).rejects.toThrow();
+    const threadId = taskThreadId(alice);
+    await threads.ensure(alice, threadId, TASKS_THREAD_TITLE);
+    await tasks.create({ ...base, id: randomUUID(), threadId });
+    expect((await threads.list(alice)).find(t => t.id === threadId)?.title).toBe('Tasks');
   });
 
   it('background tasks round-trip, list per owner, and only active ones are picked up', async () => {
