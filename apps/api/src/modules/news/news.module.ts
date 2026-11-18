@@ -18,12 +18,10 @@ import { assessImpact } from './domain/impact';
 import { tagger } from './domain/tagging';
 import { DrizzleNewsStore } from './infrastructure/drizzle-news.store';
 import { NewsJob } from './infrastructure/news.job';
-import { ALPHAVANTAGE_NEWS_DESCRIPTOR, AlphaVantageNewsSource } from './infrastructure/sources/alphavantage-news.source';
 import { FINBERT_DESCRIPTOR, FinbertScorer } from './infrastructure/sources/finbert.source';
 import { LLM_SENTIMENT_DESCRIPTOR, LlmScorer } from './infrastructure/sources/llm-sentiment.source';
 import { NEWSAPI_DESCRIPTOR, NewsApiSource } from './infrastructure/sources/newsapi.source';
 import { NEWSDATA_DESCRIPTOR, NewsdataSource } from './infrastructure/sources/newsdata.source';
-import { REDDIT_DESCRIPTOR, RedditSource, SUBREDDITS } from './infrastructure/sources/reddit.source';
 import { RSS_DESCRIPTORS, RSS_FEEDS, RssSource } from './infrastructure/sources/rss.source';
 import { YAHOO_TICKER_DESCRIPTOR, YahooTickerRssSource } from './infrastructure/sources/yahoo-ticker-rss.source';
 
@@ -37,10 +35,8 @@ function newsSources(config: AppConfig, registry: SourceRegistry, client: Source
   return [
     ...RSS_FEEDS.map(f => new RssSource(f.name, f.id, f.url, client, f.markets)),
     new YahooTickerRssSource(() => watchlists.allSymbols(), client),
-    ...SUBREDDITS.map(s => new RedditSource(s.name, s.market, client)),
     ...(config.NEWS_API_KEY && on(NEWSAPI_DESCRIPTOR) ? [new NewsApiSource(config.NEWS_API_KEY, client)] : []),
     ...(config.NEWSDATA_API_KEY && on(NEWSDATA_DESCRIPTOR) ? [new NewsdataSource(config.NEWSDATA_API_KEY, client)] : []),
-    ...(config.ALPHAVANTAGE_API_KEY && on(ALPHAVANTAGE_NEWS_DESCRIPTOR) ? [new AlphaVantageNewsSource(config.ALPHAVANTAGE_API_KEY, client)] : []),
   ];
 }
 
@@ -56,7 +52,7 @@ function sentimentService(config: AppConfig, registry: SourceRegistry, client: S
   controllers: [NewsController],
   providers: [
     { provide: NEWS_SOURCE_DESCRIPTORS, inject: [SourceRegistry], useFactory: (registry: SourceRegistry): SourceDescriptor[] => {
-      const descriptors = [...RSS_DESCRIPTORS, NEWSAPI_DESCRIPTOR, NEWSDATA_DESCRIPTOR, ALPHAVANTAGE_NEWS_DESCRIPTOR, YAHOO_TICKER_DESCRIPTOR, REDDIT_DESCRIPTOR, LLM_SENTIMENT_DESCRIPTOR, FINBERT_DESCRIPTOR];
+      const descriptors = [...RSS_DESCRIPTORS, NEWSAPI_DESCRIPTOR, NEWSDATA_DESCRIPTOR, YAHOO_TICKER_DESCRIPTOR, LLM_SENTIMENT_DESCRIPTOR, FINBERT_DESCRIPTOR];
       registry.register(...descriptors);
       return descriptors;
     } },

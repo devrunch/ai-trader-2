@@ -45,7 +45,10 @@ export class ProviderDownError extends DomainError {
 
 /** A readable message from anything thrown: an Error, a vendor's plain error object ({ message, error_type }) or a string. */
 export function messageOf(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    const cause = error.cause === undefined ? '' : messageOf(error.cause);
+    return cause && !error.message.includes(cause) ? `${cause} (in: ${error.message.slice(0, 120)})` : error.message;
+  }
   if (typeof error === 'object' && error !== null) {
     const o = error as Record<string, unknown>;
     const parts = [o.error_type, o.status, o.message].filter(v => typeof v === 'string' || typeof v === 'number').map(String);

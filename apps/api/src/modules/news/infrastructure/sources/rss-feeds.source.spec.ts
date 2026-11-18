@@ -38,5 +38,5 @@ describe.each(RSS_FEEDS)('$id (FR-NW-1)', feed => {
 });
 
 it('lists the live feeds by id', () => {
-  expect(RSS_DESCRIPTORS.map(d => d.id)).toEqual(['rss-et', 'rss-mint', 'rss-bs', 'rss-cnbctv18', 'rss-businessline', 'rss-investing', 'rss-yahoo-index', 'rss-investing-forex', 'rss-investing-commodities', 'rss-fxstreet', 'rss-oilprice', 'rss-coindesk', 'rss-cointelegraph', 'rss-cnbc-markets', 'rss-marketwatch']);
+  expect(RSS_DESCRIPTORS.map(d => d.id)).toEqual(['rss-et', 'rss-mint', 'rss-cnbctv18', 'rss-businessline', 'rss-investing', 'rss-yahoo-index', 'rss-investing-forex', 'rss-investing-commodities', 'rss-oilprice', 'rss-coindesk', 'rss-cointelegraph', 'rss-marketwatch']);
 });

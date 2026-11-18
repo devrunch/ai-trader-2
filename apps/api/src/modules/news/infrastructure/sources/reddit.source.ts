@@ -4,7 +4,7 @@ import type { SourceClient, SourceDescriptor } from '../../../../shared/sources'
 import { MinInterval } from './min-interval';
 import type { NewsSource, RawHeadline } from '../../application/news';
 
-export const SUBREDDITS: ReadonlyArray<{ name: string; market: NewsMarket }> = [
+const SUBREDDITS: ReadonlyArray<{ name: string; market: NewsMarket }> = [
   { name: 'IndianStockMarket', market: 'india' }, { name: 'forex', market: 'forex' }, { name: 'wallstreetbets', market: 'us' }, { name: 'CryptoCurrency', market: 'crypto' },
 ];
 

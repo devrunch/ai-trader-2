@@ -38,6 +38,12 @@ describe('event actuals store', () => {
     expect(row).toMatchObject({ forecast: '0.4%', impact: 'Medium', actual: '0.5%', actualSource: 'fred', surprise: 0.2, surpriseZ: 1.5 });
   });
 
+  it('stores one row when two feeds carry the same release in one batch', async () => {
+    await store.upsert([event('d1', iso(120), { forecast: '1.0%' }), event('d1', iso(120), { forecast: '1.1%' })]);
+    const rows = (await store.between(Date.parse(iso(110)), Date.parse(iso(130)))).filter(r => r.id === 'd1');
+    expect(rows.map(r => r.forecast)).toEqual(['1.1%']);
+  });
+
   it('returns no actual for a row that has none', async () => {
     await store.upsert([event('b1', iso(60))]);
     const row = (await store.between(T0 + 59 * 60_000, T0 + 61 * 60_000))[0];

@@ -16,7 +16,9 @@ export class DrizzleCalendarStore implements CalendarStore, ActualsStore {
   /** Refreshing the schedule rewrites only forecast, previous and impact: a stored actual and its surprise survive. */
   async upsert(events: Array<Omit<EconomicEvent, 'moves'>>): Promise<void> {
     if (events.length === 0) return;
-    const rows = events.map(e => ({ id: e.id, title: e.title, country: e.country, at: e.at, impact: e.impact, forecast: e.forecast, previous: e.previous, updatedAt: new Date().toISOString() }));
+    // Two feeds can carry the same release; Postgres refuses to update one row twice in a statement, so the last copy wins.
+    const unique = [...new Map(events.map(e => [e.id, e])).values()];
+    const rows = unique.map(e => ({ id: e.id, title: e.title, country: e.country, at: e.at, impact: e.impact, forecast: e.forecast, previous: e.previous, updatedAt: new Date().toISOString() }));
     await withTimeout(() => this.db.insert(economicEvents).values(rows)
       .onConflictDoUpdate({ target: economicEvents.id, set: { forecast: sql`excluded.forecast`, previous: sql`excluded.previous`, impact: sql`excluded.impact`, updatedAt: sql`now()` } }), 10_000);
   }

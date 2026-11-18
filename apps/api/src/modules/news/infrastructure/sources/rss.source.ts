@@ -18,18 +18,15 @@ const stripTags = (value: string): string => decode(value.replace(/<[^>]*>/g, ' 
 export const RSS_FEEDS: ReadonlyArray<{ id: string; name: string; url: string; markets: readonly NewsMarket[] }> = [
   { id: 'rss-et', name: 'Economic Times', url: 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms', markets: ['india'] },
   { id: 'rss-mint', name: 'Livemint', url: 'https://www.livemint.com/rss/markets', markets: ['india'] },
-  { id: 'rss-bs', name: 'Business Standard', url: 'https://www.business-standard.com/rss/markets-106.rss', markets: ['india'] },
   { id: 'rss-cnbctv18', name: 'CNBC-TV18', url: 'https://www.cnbctv18.com/commonfeeds/v1/cne/rss/market.xml', markets: ['india'] },
   { id: 'rss-businessline', name: 'BusinessLine', url: 'https://www.thehindubusinessline.com/markets/feeder/default.rss', markets: ['india'] },
   { id: 'rss-investing', name: 'Investing.com', url: 'https://www.investing.com/rss/news_25.rss', markets: ['us'] },
   { id: 'rss-yahoo-index', name: 'Yahoo Finance', url: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC,%5EIXIC,GC%3DF,CL%3DF,EURUSD%3DX&region=US&lang=en-US', markets: ['us', 'forex', 'commodities'] },
   { id: 'rss-investing-forex', name: 'Investing.com Forex', url: 'https://www.investing.com/rss/news_1.rss', markets: ['forex'] },
   { id: 'rss-investing-commodities', name: 'Investing.com Commodities', url: 'https://www.investing.com/rss/news_11.rss', markets: ['commodities'] },
-  { id: 'rss-fxstreet', name: 'FXStreet', url: 'https://www.fxstreet.com/rss/news', markets: ['forex'] },
   { id: 'rss-oilprice', name: 'OilPrice.com', url: 'https://oilprice.com/rss/main', markets: ['commodities'] },
   { id: 'rss-coindesk', name: 'CoinDesk', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/', markets: ['crypto'] },
   { id: 'rss-cointelegraph', name: 'Cointelegraph', url: 'https://cointelegraph.com/rss', markets: ['crypto'] },
-  { id: 'rss-cnbc-markets', name: 'CNBC Markets', url: 'https://www.cnbc.com/id/10000664/device/rss/rss.html', markets: ['us'] },
   { id: 'rss-marketwatch', name: 'MarketWatch', url: 'https://feeds.content.dowjones.io/public/rss/mw_marketpulse', markets: ['us'] },
 ];
 

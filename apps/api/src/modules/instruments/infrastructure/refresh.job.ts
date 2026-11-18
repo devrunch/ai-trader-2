@@ -23,7 +23,7 @@ export class RefreshJob implements OnApplicationBootstrap {
       });
     }
     // Boot stays available when Redis or Postgres is unavailable; the scheduler owns durable deliveries.
-    void this.start().catch((error: unknown) => { this.logger.warn(error); });
+    void this.start().catch((error: unknown) => { this.logger.log({ message: 'instrument master check skipped at boot', error: error instanceof Error ? error.name : String(error) }); });
   }
 
   private async start(): Promise<void> {
