@@ -12,7 +12,8 @@ export const NEWSDATA_DESCRIPTOR: SourceDescriptor = {
 
 const Response = z.object({ results: z.array(z.object({ title: z.string().nullable(), link: z.string().nullable(), description: z.string().nullable().optional(),
   pubDate: z.string().nullable(), source_name: z.string().nullable().optional() })) });
-const DOMAINS = 'reuters.com,bloomberg.com,barrons.com,marketwatch.com,cnbc.com';
+// Domains newsdata.io knows (an unknown one fails the whole request; bloomberg.com is not in its database).
+const DOMAINS = 'cnbc.com,marketwatch.com,wsj.com,economictimes.indiatimes.com,moneycontrol.com';
 // The free plan rejects a query over 100 characters.
 const QUERY = 'stocks OR inflation OR "Federal Reserve" OR gold OR crude OR bitcoin OR forex OR rupee';
 const EVERY_MS = 2 * 3_600_000;
