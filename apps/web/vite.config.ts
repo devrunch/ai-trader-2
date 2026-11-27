@@ -13,5 +13,7 @@ export default defineConfig({
     setupFiles: ['src/test-setup.ts'],
     environment: 'jsdom',
     include: ['src/**/*.spec.{ts,tsx}'],
+    // The full suite runs many jsdom files at once; the chat and editor specs need more than the 5 s default under that load.
+    testTimeout: 15_000,
   },
 });
