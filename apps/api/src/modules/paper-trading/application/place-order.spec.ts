@@ -88,8 +88,18 @@ describe('PlaceOrder FR-PT-1..4, FR-PT-6, NFR-RB-4', () => {
   });
 
   it('rejects instruments paper trading does not cover', async () => {
+    market.instruments.set('NSE:SENSEXX', { ...INFY, id: 'NSE:SENSEXX', type: 'index' });
+    expect(await place.execute('user-1', request({ instrumentId: 'NSE:SENSEXX' }))).toMatchObject({ status: 'rejected', rejectReason: 'INSTRUMENT_NOT_ALLOWED' });
+  });
+
+  it('trades an index through its front-month future, in whole lots, positional instead of delivery', async () => {
     market.instruments.set('NSE:NIFTY', { ...INFY, id: 'NSE:NIFTY', type: 'index' });
-    expect(await place.execute('user-1', request({ instrumentId: 'NSE:NIFTY' }))).toMatchObject({ status: 'rejected', rejectReason: 'INSTRUMENT_NOT_ALLOWED' });
+    market.instruments.set('NSE:NIFTY1!', NIFTY_FUT);
+    market.quotes.set(NIFTY_FUT.id, { price: 25_300, at: NOW - 30_000 });
+    expect(await place.execute('user-1', request({ clientOrderId: 'i-1', instrumentId: 'NSE:NIFTY', quantity: 1 })))
+      .toMatchObject({ instrumentId: NIFTY_FUT.id, quantity: 75, status: 'filled' });
+    expect(await place.execute('user-1', request({ clientOrderId: 'i-2', instrumentId: 'NSE:NIFTY', quantity: 166, product: 'CNC', side: 'sell' })))
+      .toMatchObject({ instrumentId: NIFTY_FUT.id, quantity: 150, product: 'NRML' });
   });
 
   it('rests a passive limit until its expiry: the square-off for MIS, the close otherwise', async () => {

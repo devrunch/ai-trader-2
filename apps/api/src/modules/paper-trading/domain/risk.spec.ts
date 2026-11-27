@@ -38,6 +38,13 @@ describe('risk gates FR-PT-4 (pure, fail closed)', () => {
     expect(reason({ side: 'sell', quantity: 9000, position: 9000, type: 'market', limitPrice: null })).toBeNull();
   });
 
+  it('caps futures by the margin they block, so one index lot fits while the same notional in a stock does not', () => {
+    const lot = { quantity: 65, limitPrice: 25_300, lastPrice: 25_300 };
+    expect(reason({ ...lot, segment: 'futures', product: 'NRML' })).toBeNull();
+    expect(reason({ ...lot, segment: 'equity', product: 'CNC' })).toBe('MAX_ORDER_VALUE');
+    expect(reason({ quantity: 650, limitPrice: 25_300, lastPrice: 25_300, segment: 'futures', product: 'NRML' })).toBe('MAX_ORDER_VALUE');
+  });
+
   it('caps the number of open positions for a new instrument only', () => {
     expect(reason({ openPositions: 10 })).toBe('MAX_OPEN_POSITIONS');
     expect(reason({ openPositions: 10, position: 5 })).toBeNull();

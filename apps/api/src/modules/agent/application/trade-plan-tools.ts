@@ -19,7 +19,8 @@ export function buildTradePlanTools(d: TradePlanDeps, deps: GuardDeps): Array<Gu
   return [guardedTool({ name: 'presentTradePlan',
     description: 'Show a trade idea as an interactive card instead of describing levels in text: symbol, side, entry, stop, 1-3 targets, confidence 0-1, '
       + 'horizon, a short rationale, what would invalidate it, and the skill used. The server checks the levels, computes reward:risk and a size at 0.5% risk, '
-      + 'and attaches a paper order the user can confirm. Use it whenever you give entry/stop/target levels.',
+      + 'and attaches a paper order the user can confirm. Use it whenever you give entry/stop/target levels. An index cannot be traded: for NIFTY, BANKNIFTY and the like '
+      + 'plan on its front-month future (NSE:NIFTY1!, NSE:BANKNIFTY1!) with levels from the chart of that future; the order is placed in whole lots.',
     input: TradePlanInputSchema,
     run: (input, ctx) => buildPlan(d, ctx.userId, input) }, deps)];
 }

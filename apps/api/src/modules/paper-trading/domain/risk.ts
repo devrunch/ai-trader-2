@@ -41,6 +41,8 @@ export type RiskResult = { ok: true } | { ok: false; reason: PaperRejectReason }
 
 const reject = (reason: PaperRejectReason): RiskResult => ({ ok: false, reason });
 
+const LEVERAGED: ReadonlySet<Segment | null> = new Set<Segment | null>(['futures', 'commodity', 'forex']);
+
 /** Pure gates in a fixed order; anything that can't be decided rejects (FR-PT-4). Exits are only checked for price sanity. */
 export function checkRisk(input: RiskInput, limits: RiskLimits): RiskResult {
   if (input.segment === null) return reject('INSTRUMENT_NOT_ALLOWED');
@@ -53,9 +55,11 @@ export function checkRisk(input: RiskInput, limits: RiskLimits): RiskResult {
   if (increase === 0) return { ok: true };
   if (input.product === 'MIS' && input.afterMisCutoff) return reject('MIS_CUTOFF');
   const price = input.limitPrice ?? input.triggerPrice ?? input.lastPrice;
-  if (increase * price > limits.maxOrderValue) return reject('MAX_ORDER_VALUE');
+  // Leveraged segments are capped by the margin they block, as a broker does; one NIFTY lot is about 16 lakh notional but 2.5 lakh margin.
+  const weight = LEVERAGED.has(input.segment) ? marginRate(input.segment, input.product) : 1;
+  if (increase * price * weight > limits.maxOrderValue) return reject('MAX_ORDER_VALUE');
   const after = Math.abs(input.position + (input.side === 'buy' ? input.quantity : -input.quantity));
-  if (after * price > limits.maxPositionValue) return reject('MAX_POSITION_VALUE');
+  if (after * price * weight > limits.maxPositionValue) return reject('MAX_POSITION_VALUE');
   if (input.position === 0 && input.openPositions >= limits.maxOpenPositions) return reject('MAX_OPEN_POSITIONS');
   if (input.dayPnl <= -limits.maxDailyLoss) return reject('DAILY_LOSS_LIMIT');
   if (input.segment === 'options' && input.side === 'sell') return reject('OPTION_WRITING');

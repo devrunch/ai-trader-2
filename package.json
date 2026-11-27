@@ -9,13 +9,13 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck && tsc -p scripts/diagrams/tsconfig.json",
-    "test": "vitest run --coverage",
-    "lint": "eslint .",
+    "test": "vitest run",
+    "lint": "eslint . --cache --cache-location node_modules/.cache/eslint/",
     "depcruise": "depcruise apps packages --config .dependency-cruiser.cjs",
     "knip": "knip",
     "jscpd": "jscpd",
     "diagrams:check": "node scripts/diagrams/check.ts",
-    "check:code": "pnpm build:packages && pnpm lint && pnpm typecheck && pnpm test && pnpm test:int && pnpm test:perf && pnpm depcruise && pnpm knip && pnpm jscpd && pnpm build && pnpm check:python && pnpm check:compute-client",
+    "check:code": "pnpm build:packages && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm test:int && pnpm test:perf && pnpm depcruise && pnpm knip && pnpm jscpd && pnpm build && pnpm check:python && pnpm check:compute-client",
     "check": "pnpm check:code && pnpm diagrams:validate && pnpm diagrams:check",
     "diagrams": "node scripts/diagrams/run.ts",
     "diagrams:serve": "likec4 serve architecture/model",
@@ -27,7 +27,9 @@
     "build:packages": "pnpm --filter \"./packages/*\" build",
     "check:python": "uv --directory services/compute run --frozen ruff check . && uv --directory services/compute run --frozen ruff format --check . && uv --directory services/compute run --frozen mypy && uv --directory services/compute run --frozen pytest",
     "generate:compute-client": "pnpm --filter @aitrader/compute-client generate",
-    "check:compute-client": "pnpm --filter @aitrader/compute-client check:generated"
+    "check:compute-client": "pnpm --filter @aitrader/compute-client check:generated",
+    "test:coverage": "vitest run --coverage",
+    "check:fast": "node scripts/check-fast.mjs"
   },
   "devDependencies": {
     "@swc/core": "1.16.22",

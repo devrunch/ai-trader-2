@@ -23,8 +23,21 @@ export class PlaceOrder {
 
   /** Each order settles in its instrument's own currency account. */
   async execute(userId: string, request: PaperPlaceOrderRequest): Promise<InCurrency<OrderRecord>> {
-    const instrument = await this.market.instrument(request.instrumentId);
-    return { ...await this.place(userId, request, instrument), currency: instrument.currency };
+    const asked = await this.market.instrument(request.instrumentId);
+    const { instrument, order } = await this.tradableFor(asked, request);
+    return { ...await this.place(userId, order, instrument), currency: instrument.currency };
+  }
+
+  /**
+   * An index cannot be bought; traders trade its future. An order on NSE:NIFTY goes to the front-month future (NSE:NIFTY1!), in whole lots
+   * (at least one, rounded down otherwise), and a delivery (CNC) order becomes positional (NRML), as futures have no delivery.
+   */
+  private async tradableFor(asked: TradableInstrument, request: PaperPlaceOrderRequest): Promise<{ instrument: TradableInstrument; order: PaperPlaceOrderRequest }> {
+    if (asked.type !== 'index') return { instrument: asked, order: request };
+    const future = await this.market.instrument(`${asked.id}1!`).catch(() => null);
+    if (!future || future.type !== 'futures') return { instrument: asked, order: request };
+    const lots = Math.max(1, Math.floor(request.quantity / future.lotSize));
+    return { instrument: future, order: { ...request, instrumentId: future.id, quantity: lots * future.lotSize, product: request.product === 'CNC' ? 'NRML' : request.product } };
   }
 
   private async place(userId: string, request: PaperPlaceOrderRequest, instrument: TradableInstrument): Promise<OrderRecord> {
