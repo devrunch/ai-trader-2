@@ -15,3 +15,7 @@ spikes/**/bars.csv
 spikes/**/engine-values.json
 *.log
 .DS_Store
+
+# Local Claude Code settings and MCP config (may hold tokens)
+.claude/
+.mcp.json
